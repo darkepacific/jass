@@ -138,7 +138,10 @@ library TasItemBag initializer init_function requires Table
 
     function TasItemBagAddItem takes unit u, item i returns nothing
         local integer playerKey = BankKeyForUnit(u)
-        call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
+        local location itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
+        // Move banked items to the island and mark with custom value > 0
+        call SetItemPositionLoc(i, itemIsland)
+        call SetItemUserData(i, 1)
         if not ItemIsInBag.boolean[GetHandleId(i)] and BagItem[playerKey].integer[0] < ItemBagSize then
             set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] + 1
             set ItemIsInBag.boolean[GetHandleId(i)] = true
@@ -147,6 +150,7 @@ library TasItemBag initializer init_function requires Table
         elseif ItemIsInBag.boolean[GetHandleId(i)] then
             call SetItemVisible(i, false)
         endif
+        call RemoveLocation(itemIsland)
     endfunction
     function TasItemBagGetItem takes unit u, integer index returns item
         local integer playerKey = BankKeyForUnit(u)    
@@ -324,9 +328,11 @@ library TasItemBag initializer init_function requires Table
         return returnValue
     endfunction
 
-    private function ItemBag2Equip takes unit u, item i returns nothing
+    private function ItemBag2Equip takes player p, item i returns nothing
+        local unit u = udg_Heroes[GetPlayerNumber(p)]
         // Inventory Full?
         if UnitInventoryCount(u) >= UnitInventorySize(u) then
+            call ErrorMessage("Inventory is full.", GetOwningPlayer(u))
             return
         endif
     
@@ -336,14 +342,43 @@ library TasItemBag initializer init_function requires Table
         endif
      
         set EquipNow = true
+        // Make the item visible and place it at the hero before equipping
+        call SetItemVisible(i, true)
+        call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
+        call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
         if UnitAddItem(u, i) then
             call TasItemBagRemoveItem(u, i, false)
         endif
         set EquipNow = false
+        set u = null
     endfunction
 
     private function ItemEquip2Bag takes unit u, item i returns nothing
         call TasItemBagAddItem(u, i)
+    endfunction
+
+    // Moves the item in the given inventory slot into the player's bank
+    private function DepositInventorySlot takes player p, integer slot returns nothing
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
+        local item it
+        local integer playerKey
+        if hero == null then
+            return
+        endif
+        set it = UnitItemInSlot(hero, slot)
+        if it == null then
+            return
+        endif
+        set playerKey = GetPlayerId(p)
+        if BagItem[playerKey].integer[0] >= ItemBagSize then
+            call ErrorMessage("Bank is full.", p)
+            set it = null
+            set hero = null
+            return
+        endif
+        call ItemEquip2Bag(hero, it)
+        set it = null
+        set hero = null
     endfunction
 
     private function BagPopupActionDrop takes nothing returns nothing
@@ -362,7 +397,7 @@ library TasItemBag initializer init_function requires Table
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(GetTriggerPlayer())
         if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
-            call ItemBag2Equip(Selected[pId], TransferItem[pId])
+            call ItemBag2Equip(p, TransferItem[pId])
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
             endif
@@ -401,17 +436,12 @@ library TasItemBag initializer init_function requires Table
                 call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetTriggerFrame(), FRAMEPOINT_TOPRIGHT, 0.005, 0)
             endif
             // // Banking default: left-click equips to the player's active hero
-            // set hero = udg_Heroes[GetPlayerNumber(p)]
             // set it = BagItem[GetHandleId(Selected[pId])].item[bagIndex]
             // if it != null and hero != null then
-            //     if UnitInventoryCount(hero) >= UnitInventorySize(hero) then
-            //         call ErrorMessage("Inventory is full.", p)
-            //     else
-            //         call ItemBag2Equip(hero, it)
+            //         call ItemBag2Equip(p, it)
             //     endif
             // endif
             // set it = null
-            // set hero = null
         endif
         call FrameLoseFocus()
     endfunction
@@ -441,6 +471,7 @@ library TasItemBag initializer init_function requires Table
 
     private function ShowButtonAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
+        local integer s
         set SwapIndex[pId] = 0
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
@@ -452,6 +483,16 @@ library TasItemBag initializer init_function requires Table
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             endif
+            // Quick Deposit: click handling disabled for now
+            // set s = 0
+            // loop
+            //     exitwhen s >= bj_MAX_INVENTORY
+            //     if BlzGetFrameByName("TasBankDeposit" + I2S(s), 0) == BlzGetTriggerFrame() then
+            //         call DepositInventorySlot(Player(pId), s)
+            //         exitwhen true
+            //     endif
+            //     set s = s + 1
+            // endloop
         endif
         call FrameLoseFocus()
     endfunction
@@ -626,6 +667,9 @@ library TasItemBag initializer init_function requires Table
         local integer count = 0
         local integer buttonIndex = 0
         local boolean backup
+        local integer invIndex
+        local framehandle invButton
+        local framehandle depButton
 
         set panel = BlzCreateFrameByType("BUTTON", "TasItemBagPanel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
         call BlzFrameSetAbsPoint(panel, Pos, PosX, PosY)
@@ -724,6 +768,21 @@ library TasItemBag initializer init_function requires Table
 
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
+
+        // Quick Deposit buttons temporarily disabled; QoL to revisit later
+        // set invIndex = 0
+        // loop
+        //     exitwhen invIndex >= bj_MAX_INVENTORY
+        //     set invButton = BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, invIndex)
+        //     if GetHandleId(invButton) != 0 then
+        //         set depButton = BlzCreateFrameByType("GLUETEXTBUTTON", "TasBankDeposit" + I2S(invIndex), BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "ScriptDialogButton", 0)
+        //         call BlzFrameSetSize(depButton, 0.04, 0.015)
+        //         call BlzFrameSetText(depButton, "+")
+        //         call BlzFrameSetPoint(depButton, FRAMEPOINT_LEFT, invButton, FRAMEPOINT_RIGHT, 0.004, 0.0)
+        //         call BlzTriggerRegisterFrameEvent(TriggerUIOpen, depButton, FRAMEEVENT_CONTROL_CLICK)
+        //     endif
+        //     set invIndex = invIndex + 1
+        // endloop
     endfunction
     private function At0s takes nothing returns nothing
         local integer i
