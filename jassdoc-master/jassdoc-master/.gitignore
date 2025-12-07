@@ -1,0 +1,14 @@
+.cabal-sandbox
+cabal.sandbox.config
+*.sw*
+*.o
+*.hi
+*.txt
+awkinplace
+*.db
+*.zip
+Jass/Tokenizer.hs
+mkdocs
+*.sql
+dist
+dist-newstyle
