@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     /*  TasItemBag 1.3
     by Tasyen
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -99,6 +99,10 @@ library TasItemBag initializer init_function requires Table
         public trigger TriggerUIEquip
         public trigger TriggerUIDrop
         public trigger TriggerUISwap
+        public trigger TriggerUIHover
+        public trigger TriggerUIMouseUp
+        public integer array LastHoveredIndex
+        // Right-click is handled via frame events (MOUSE_UP/DOWN) within BagButtonAction
     
         // TransferItem remembers the current Target
         public item array TransferItem
@@ -106,6 +110,7 @@ library TasItemBag initializer init_function requires Table
         public integer array SwapIndex
         public integer array Offset
         public unit array Selected
+        public boolean array IgnoreNextSelection
         // The UI moves all picked up items into the bag, RpgCustomUI.EquipNow = true prevents that
         public boolean EquipNow = false
 
@@ -433,31 +438,86 @@ library TasItemBag initializer init_function requires Table
         local integer bagIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame())) + Offset[pId]
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
-        local mousebuttontype mouseButton = BlzGetTriggerPlayerMouseButton()
-        if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
+        local mousebuttontype mouseButton
+        local frameeventtype evt = BlzGetTriggerFrameEvent()
+        if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
+            set hero = null
+            return
+        endif
+
+        // Handle events separately to avoid double-firing issues
+        if evt == FRAMEEVENT_MOUSE_UP or evt == FRAMEEVENT_MOUSE_DOWN then
+            if evt == FRAMEEVENT_MOUSE_UP then
+                call Debug("BagButton: mouse event MOUSE_UP")
+            elseif evt == FRAMEEVENT_MOUSE_DOWN then
+                call Debug("BagButton: mouse event MOUSE_DOWN")
+            else
+                call Debug("BagButton: mouse event (other)")
+            endif
+            set mouseButton = BlzGetTriggerPlayerMouseButton()
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                call Debug("BagButton: detected RIGHT-CLICK on index " + I2S(bagIndex))
                 // Right-click: show options popup for this slot
                 set TransferItem[pId] = BagItem[pId].item[bagIndex]
                 set TransferIndex[pId] = bagIndex
                 if SwapIndex[pId] > 0 then
+                    call Debug("BagButton: performing SWAP with index " + I2S(SwapIndex[pId]))
                     call TasItemBagSwap(Selected[pId], bagIndex, SwapIndex[pId])
                     set SwapIndex[pId] = 0
                 elseif GetLocalPlayer() == p then
+                    call Debug("BagButton: showing popup for player " + I2S(pId))
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
                     call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagPopUpButtonDrop", 0), IgnoreUndropAble or (UnitCanDropItems(Selected[pId]) and CanDropItem(TransferItem[pId])))
                     call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetTriggerFrame(), FRAMEPOINT_TOPRIGHT, 0.005, 0)
                 endif
-            else
-                // Left-click: quick equip to hero
-                set it = BagItem[pId].item[bagIndex]
-                if it != null and hero != null then
-                    call ItemBag2Equip(p, it)
-                endif
+            endif
+        elseif evt == FRAMEEVENT_CONTROL_CLICK then
+            // Treat control-click as left-click quick equip
+            set it = BagItem[pId].item[bagIndex]
+            if it != null and hero != null then
+                call Debug("BagButton: LEFT-CLICK equip index " + I2S(bagIndex))
+                call ItemBag2Equip(p, it)
             endif
         endif
+
         set it = null
         set hero = null
         call FrameLoseFocus()
+    endfunction
+
+    // Record last hovered slot index per player to support global right-click
+    private function HoverAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        local integer btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
+        set LastHoveredIndex[pId] = btnIndex + Offset[pId]
+        // Debug to verify hover mapping
+        call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
+    endfunction
+
+    // Global mouse up handler: open popup on right-click using LastHoveredIndex
+    private function GlobalMouseUpAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        local integer bagIndex = LastHoveredIndex[pId]
+        if BlzGetTriggerPlayerMouseButton() == MOUSE_BUTTON_TYPE_RIGHT and bagIndex > 0 then
+            if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
+                set TransferItem[pId] = BagItem[pId].item[bagIndex]
+                set TransferIndex[pId] = bagIndex
+                if SwapIndex[pId] > 0 then
+                    call Debug("GlobalMouse: SWAP with index " + I2S(SwapIndex[pId]))
+                    call TasItemBagSwap(Selected[pId], bagIndex, SwapIndex[pId])
+                    set SwapIndex[pId] = 0
+                elseif GetLocalPlayer() == p then
+                    call Debug("GlobalMouse: show popup for player " + I2S(pId) + " index " + I2S(bagIndex))
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                    call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagPopUpButtonDrop", 0), IgnoreUndropAble or (UnitCanDropItems(Selected[pId]) and CanDropItem(TransferItem[pId])))
+                    // Anchor relative to the hovered slot button
+                    call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", bagIndex - Offset[pId]), FRAMEPOINT_TOPRIGHT, 0.005, 0)
+                endif
+            endif
+            call FrameLoseFocus()
+        endif
     endfunction
     
     private function WheelAction takes nothing returns nothing
@@ -517,11 +577,20 @@ library TasItemBag initializer init_function requires Table
 
     private function SelectAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
+        if IgnoreNextSelection[pId] then
+            set IgnoreNextSelection[pId] = false
+            return
+        endif
         set Selected[pId] = GetTriggerUnit()
         set Offset[pId] = 0
         // Open banking UI when a Bank unit is selected
-        if IsBankUnit(Selected[pId]) and GetLocalPlayer() == GetTriggerPlayer() then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
+        if IsBankUnit(Selected[pId]) then
+            if GetLocalPlayer() == GetTriggerPlayer() then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
+                // Auto-reselect the hero so their inventory is visible while banking
+                set IgnoreNextSelection[pId] = true
+                call SelectUnitForPlayerSingle(udg_Heroes[GetPlayerNumber(GetTriggerPlayer())], GetTriggerPlayer())
+            endif
         endif
     endfunction
 
@@ -705,7 +774,11 @@ library TasItemBag initializer init_function requires Table
             call BlzGetFrameByName("TasItemBagSlotButtonOverLayText", buttonIndex)
             call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), "TasItemBagSlotButtonTooltip", buttonIndex, "")
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_CONTROL_CLICK)
+            // Register both mouse up and down to maximize right-click detection across patches
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_UP)
+            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
+            // Track hover to know which slot is under the cursor for global mouse
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(TriggerUIWheel, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_WHEEL)
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), I2S(buttonIndex))
             
@@ -799,6 +872,7 @@ library TasItemBag initializer init_function requires Table
         //     set invIndex = invIndex + 1
         // endloop
     endfunction
+    
     private function At0s takes nothing returns nothing
         local integer i
         set AbilityFieldDrop = ConvertAbilityIntegerLevelField('inv2')
@@ -863,6 +937,16 @@ library TasItemBag initializer init_function requires Table
 
         set TriggerUISwap = CreateTrigger()
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSwap)
+
+        // Hover tracking for slot buttons
+        set TriggerUIHover = CreateTrigger()
+        call TriggerAddAction(TriggerUIHover, function HoverAction)
+
+        // Global mouse up detection using common-API helper
+        set TriggerUIMouseUp = CreateTrigger()
+        call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_UP, function GlobalMouseUpAction)
+
+        // Note: Global mouse right-click detection removed for compatibility.
 
         call UserInit()
         call InitFrames()
