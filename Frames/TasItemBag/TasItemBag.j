@@ -152,6 +152,7 @@ library TasItemBag initializer init_function requires Table
         endif
         call RemoveLocation(itemIsland)
     endfunction
+
     function TasItemBagGetItem takes unit u, integer index returns item
         local integer playerKey = BankKeyForUnit(u)    
         if BagItem[playerKey].integer[0] <= 0 then
@@ -187,6 +188,7 @@ library TasItemBag initializer init_function requires Table
     function TasItemBagRemoveIndex takes unit u, integer index, boolean drop returns boolean
         local item i
         local integer playerKey = BankKeyForUnit(u)
+        local location dropSpot = GetUnitLoc(u)
         if BagItem[playerKey].integer[0] <= 0 then
             return false
         endif
@@ -197,8 +199,12 @@ library TasItemBag initializer init_function requires Table
         set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] - 1   
         set ItemIsInBag.boolean[GetHandleId(i)] = false
         if drop and GetHandleId(i) > 0 then
-            call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
+            // Place dropped-from-bank items on the island and mark them to avoid cleanup
+            set dropSpot = GetUnitLoc(u)
+            call SetItemPositionLoc(i, dropSpot)
+            call SetItemUserData(i, 0)
             call SetItemVisible(i, true)
+            call RemoveLocation(dropSpot)
             set i = null
             return true
         endif
@@ -354,6 +360,10 @@ library TasItemBag initializer init_function requires Table
     endfunction
 
     private function ItemEquip2Bag takes unit u, item i returns nothing
+        // Ensure item is removed from the unit's inventory before stashing
+        // if UnitHasItem(u, i) then
+        //     call UnitRemoveItem(u, i)
+        // endif
         call TasItemBagAddItem(u, i)
     endfunction
 
@@ -383,7 +393,7 @@ library TasItemBag initializer init_function requires Table
 
     private function BagPopupActionDrop takes nothing returns nothing
         local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(GetTriggerPlayer())
+        local integer pId = GetPlayerId(p)
         if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
@@ -421,28 +431,32 @@ library TasItemBag initializer init_function requires Table
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(GetTriggerPlayer())
         local integer bagIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame())) + Offset[pId]
-        local unit hero 
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
+        local mousebuttontype mouseButton = BlzGetTriggerPlayerMouseButton()
         if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
-            set TransferItem[pId] = BagItem[GetHandleId(Selected[pId])].item[bagIndex]
-            set TransferIndex[pId] = bagIndex
-            if SwapIndex[pId] > 0 then
-                call TasItemBagSwap(Selected[pId], bagIndex, SwapIndex[pId])
-                set SwapIndex[pId] = 0
-
-            elseif GetLocalPlayer() == p then
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagPopUpButtonDrop", 0), IgnoreUndropAble or (UnitCanDropItems(Selected[pId]) and CanDropItem(TransferItem[pId])))
-                call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetTriggerFrame(), FRAMEPOINT_TOPRIGHT, 0.005, 0)
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                // Right-click: show options popup for this slot
+                set TransferItem[pId] = BagItem[pId].item[bagIndex]
+                set TransferIndex[pId] = bagIndex
+                if SwapIndex[pId] > 0 then
+                    call TasItemBagSwap(Selected[pId], bagIndex, SwapIndex[pId])
+                    set SwapIndex[pId] = 0
+                elseif GetLocalPlayer() == p then
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                    call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagPopUpButtonDrop", 0), IgnoreUndropAble or (UnitCanDropItems(Selected[pId]) and CanDropItem(TransferItem[pId])))
+                    call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetTriggerFrame(), FRAMEPOINT_TOPRIGHT, 0.005, 0)
+                endif
+            else
+                // Left-click: quick equip to hero
+                set it = BagItem[pId].item[bagIndex]
+                if it != null and hero != null then
+                    call ItemBag2Equip(p, it)
+                endif
             endif
-            // // Banking default: left-click equips to the player's active hero
-            // set it = BagItem[GetHandleId(Selected[pId])].item[bagIndex]
-            // if it != null and hero != null then
-            //         call ItemBag2Equip(p, it)
-            //     endif
-            // endif
-            // set it = null
         endif
+        set it = null
+        set hero = null
         call FrameLoseFocus()
     endfunction
     
@@ -691,6 +705,7 @@ library TasItemBag initializer init_function requires Table
             call BlzGetFrameByName("TasItemBagSlotButtonOverLayText", buttonIndex)
             call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), "TasItemBagSlotButtonTooltip", buttonIndex, "")
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_CONTROL_CLICK)
+            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_UP)
             call BlzTriggerRegisterFrameEvent(TriggerUIWheel, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_WHEEL)
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), I2S(buttonIndex))
             
