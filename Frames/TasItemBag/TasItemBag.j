@@ -447,6 +447,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local item it
         local mousebuttontype mouseButton
         local frameeventtype evt = BlzGetTriggerFrameEvent()
+        local integer targetIndex
         if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             set hero = null
             return
@@ -461,23 +462,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set DragActive[pId] = true
                 call Debug("Drag start: bag slot " + I2S(bagIndex))
             endif
-        // Complete drag on right mouse up over a bag slot
+        // Handle right mouse up over bag slot: perform swap/drop locally
         elseif evt == FRAMEEVENT_MOUSE_UP then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
-            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT and DragActive[pId] and DragOriginType[pId] == 2 then
-                // Swap if released over a different slot
-                if bagIndex > 0 and bagIndex != DragOriginIndex[pId] then
-                    call Debug("Swap (frame-up): bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(bagIndex))
-                    call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], bagIndex)
-                // Drop if released outside the panel
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT and DragActive[pId] and DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
+                set targetIndex = LastHoveredIndex[pId]
+                // Swap within bag when releasing over a different slot
+                if targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
+                    call Debug("Swap (local): bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
+                    call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], targetIndex)
+                // Drop when releasing outside the panel
                 elseif not PanelHover[pId] then
-                    call Debug("Drop (frame-up): bag index " + I2S(DragOriginIndex[pId]))
+                    call Debug("Drop (local): bag index " + I2S(DragOriginIndex[pId]))
                     call TasItemBagRemoveIndex(Selected[pId], DragOriginIndex[pId], true)
                 else
-                    // No-op when released on same slot inside panel
-                    call Debug("Right-click release on same slot; no action")
+                    // No-op: released over same slot or invalid target
                 endif
-                // Reset drag state
+                // Reset drag state after handling
                 set DragOriginType[pId] = 0
                 set DragOriginIndex[pId] = 0
                 set DragActive[pId] = false
@@ -534,12 +535,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
+        call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
     // Panel hover leave: mark outside panel
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
+        call Debug("PanelHover LEAVE: player " + I2S(pId) + ", PanelHover=false")
     endfunction
 
     // Global mouse up handler: perform swap/drop/deposit on right-click
@@ -691,6 +694,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
+    // Process delayed item gains: move picked-up items into the bag after a short delay
     private function ItemGainTimerAction takes nothing returns nothing
         loop
             exitwhen ItemGainTimerCount <= 0
@@ -716,7 +720,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        //System flag to ignore pickup 2 bag
+        // System flag to ignore pickup to bag
         if not EquipNow then
             // dont move it instantly, delay it with a 0s timer, this stops item pickup orders onto the same item in a row and allows the user to do some stuff to pickedup items
             // does not prevent move ground pick up in rotation
@@ -1028,6 +1032,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call FrameLoaderAdd(function InitFrames)
         endif
     endfunction
+    
     private function init_function takes nothing returns nothing
         set ItemGainTimer = CreateTimer()
         call TimerStart(ItemGainTimer, 0, false, function At0s)        
