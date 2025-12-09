@@ -100,6 +100,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIDrop
         public trigger TriggerUISwap
         public trigger TriggerUIHover
+        public trigger TriggerUIPanelHover
         public trigger TriggerUIMouseUp
         public trigger TriggerUIMouseDown
         public integer array LastHoveredIndex
@@ -457,7 +458,36 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 set DragOriginType[pId] = 2
                 set DragOriginIndex[pId] = bagIndex
+                set DragActive[pId] = true
                 call Debug("Drag start: bag slot " + I2S(bagIndex))
+            endif
+        // Complete drag on right mouse up over a bag slot
+        elseif evt == FRAMEEVENT_MOUSE_UP then
+            set mouseButton = BlzGetTriggerPlayerMouseButton()
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT and DragActive[pId] and DragOriginType[pId] == 2 then
+                // Swap if released over a different slot
+                if bagIndex > 0 and bagIndex != DragOriginIndex[pId] then
+                    call Debug("Swap (frame-up): bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(bagIndex))
+                    call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], bagIndex)
+                // Drop if released outside the panel
+                elseif not PanelHover[pId] then
+                    call Debug("Drop (frame-up): bag index " + I2S(DragOriginIndex[pId]))
+                    call TasItemBagRemoveIndex(Selected[pId], DragOriginIndex[pId], true)
+                else
+                    // No-op when released on same slot inside panel
+                    call Debug("Right-click release on same slot; no action")
+                endif
+                // Reset drag state
+                set DragOriginType[pId] = 0
+                set DragOriginIndex[pId] = 0
+                set DragActive[pId] = false
+            endif
+        // Left-click withdraw: quick equip item from bag
+        elseif evt == FRAMEEVENT_CONTROL_CLICK then
+            set it = BagItem[pId].item[bagIndex]
+            if it != null then
+                call Debug("Withdraw (left-click): bag index " + I2S(bagIndex))
+                call ItemBag2Equip(p, it)
             endif
         endif
 
@@ -471,13 +501,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
         local integer btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
-        set LastHoveredIndex[pId] = btnIndex + Offset[pId]
-        // Debug to verify hover mapping
-        call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
-        // Visual drag indicator on hovered slot when dragging
-        if DragActive[pId] and LastHoveredIndex[pId] > 0 then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "●")
+        // Guard: only slot buttons have numeric text; ignore panel hover
+        if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
+            set LastHoveredIndex[pId] = btnIndex + Offset[pId]
+            // Debug to verify hover mapping
+            call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
+            // Visual drag indicator on hovered slot when dragging
+            if DragActive[pId] and LastHoveredIndex[pId] > 0 then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "●")
+            endif
         endif
     endfunction
 
@@ -486,10 +519,27 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
         local integer btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
-        if DragActive[pId] then
-            // Restore overlay visibility will be handled in UpdateUI; just clear temp mark
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "")
+        // Guard: only slot buttons have numeric text; ignore panel hover
+        if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
+            if DragActive[pId] then
+                // Restore overlay visibility will be handled in UpdateUI; just clear temp mark
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "")
+            endif
+            // Leaving a slot clears hover index
+            set LastHoveredIndex[pId] = 0
         endif
+    endfunction
+
+    // Panel hover enter: mark inside panel
+    private function BagPanelEnterAction takes nothing returns nothing
+        local integer pId = GetPlayerId(GetTriggerPlayer())
+        set PanelHover[pId] = true
+    endfunction
+
+    // Panel hover leave: mark outside panel
+    private function BagPanelLeaveAction takes nothing returns nothing
+        local integer pId = GetPlayerId(GetTriggerPlayer())
+        set PanelHover[pId] = false
     endfunction
 
     // Global mouse up handler: perform swap/drop/deposit on right-click
@@ -513,14 +563,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             // Case B: Swap bag-to-bag
             elseif DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
-                // Case B1: Withdraw to hero inventory by releasing over an inventory slot
+                // Right-click withdraw disabled: use left-click on bag slot instead
+                // -// Case B1: Withdraw to hero inventory by releasing over an inventory slot
                 if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                    set bi = BagItem[pId].item[DragOriginIndex[pId]]
-                    if bi != null then
-                        call Debug("Withdraw: bag index " + I2S(DragOriginIndex[pId]) + " -> hero inventory")
-                        call ItemBag2Equip(p, bi)
-                        set bi = null
-                    endif
+// -                    set bi = BagItem[pId].item[DragOriginIndex[pId]]
+// -                    if bi != null then
+// -                        call Debug("Withdraw: bag index " + I2S(DragOriginIndex[pId]) + " -> hero inventory")
+// -                        call ItemBag2Equip(p, bi)
+// -                        set bi = null
+// -                    endif
+                    call Debug("Withdraw via right-click disabled; ignoring release over inventory")
                 // Case B2: Swap within bag
                 elseif targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
                     call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
@@ -545,6 +597,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
         local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
+        // Ignore drags when bank panel is not open
+        if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
+            return
+        endif
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
             set DragActive[pId] = true
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
@@ -870,8 +926,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Remove legacy popup UI: no equip/drop/swap buttons
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
         // Panel hover tracking
-        call BlzTriggerRegisterFrameEvent(TriggerUIHover, panel, FRAMEEVENT_MOUSE_ENTER)
-        call BlzTriggerRegisterFrameEvent(TriggerUIHover, panel, FRAMEEVENT_MOUSE_LEAVE)
+        call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_ENTER)
+        call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_LEAVE)
 
         // Quick Deposit buttons temporarily disabled; QoL to revisit later
         // set invIndex = 0
@@ -951,6 +1007,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUIHover = CreateTrigger()
         call TriggerAddAction(TriggerUIHover, function HoverAction)
         call TriggerAddAction(TriggerUIHover, function HoverLeaveAction)
+
+        // Panel hover tracking trigger
+        set TriggerUIPanelHover = CreateTrigger()
+        call TriggerAddAction(TriggerUIPanelHover, function BagPanelEnterAction)
+        call TriggerAddAction(TriggerUIPanelHover, function BagPanelLeaveAction)
 
         // Global mouse up detection using common-API helper
         set TriggerUIMouseUp = CreateTrigger()
