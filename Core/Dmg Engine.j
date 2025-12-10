@@ -435,21 +435,24 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         endif
 
         //Bosses
-        // Ymiron
+            // Ymiron
         if target == gg_unit_Opgh_1163 then
-            set damage = damage * 0.87
+            set damage = damage * 0.85
             set reduced = true
             //Skovald
         elseif target == gg_unit_H03R_2211 then
-            set damage = damage * 0.87
+            set damage = damage * 0.85
             set reduced = true
             //Lich King
         elseif target == gg_unit_Uear_1259 then
-            set damage = damage * 0.86
+            set damage = damage * 0.85
             set reduced = true
             //Patchwerk
         elseif target == gg_unit_U043_1599 then
-            set damage = damage * 0.88
+            set damage = damage * 0.85
+            set reduced = true
+        elseif target == gg_unit_E033_1368 then
+            set damage = damage * 0.95
             set reduced = true
             //Kil'Jaeden
         elseif target == gg_unit_Nkjx_2318 then
@@ -457,7 +460,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Kael, Whitemane
         elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then
-            set damage = damage * 0.70
+            set damage = damage * 0.69
             set reduced = true
         endif
         
