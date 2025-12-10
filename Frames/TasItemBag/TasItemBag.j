@@ -439,15 +439,55 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call FrameLoseFocus()
     endfunction
 
+    // Resolve a bag slot index from any of its related frames (button/backdrop/container)
+    private function ResolveBagSlotIndex takes framehandle f returns integer
+        local integer i = 1
+        loop
+            exitwhen i > Cols * Rows
+            if f == BlzGetFrameByName("TasItemBagSlotButton", i) then
+                return i
+            endif
+            if f == BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i) then
+                return i
+            endif
+            if f == BlzGetFrameByName("TasItemBagSlot", i) then
+                return i
+            endif
+            set i = i + 1
+        endloop
+        return 0
+    endfunction
+
     private function BagButtonAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(GetTriggerPlayer())
-        local integer bagIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame())) + Offset[pId]
-        local unit hero = udg_Heroes[GetPlayerNumber(p)]
+        local integer rawIndex = 0
+        local integer bagIndex
+        local string frameSrc
+        local unit hero
         local item it
         local mousebuttontype mouseButton
         local frameeventtype evt = BlzGetTriggerFrameEvent()
         local integer targetIndex
+        local string btnStr
+        local string dragStr
+        // Try to read numeric text first; if empty, resolve by frame handle
+        if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
+            set rawIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
+            set frameSrc = "Button(text)"
+        else
+            set rawIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
+            // Identify which frame type matched for better diagnostics
+            if BlzGetTriggerFrame() == BlzGetFrameByName("TasItemBagSlotButtonBackdrop", rawIndex) then
+                set frameSrc = "Backdrop"
+            elseif BlzGetTriggerFrame() == BlzGetFrameByName("TasItemBagSlot", rawIndex) then
+                set frameSrc = "Slot"
+            else
+                set frameSrc = "Button(handle)"
+            endif
+        endif
+        set bagIndex = rawIndex + Offset[pId]
+        set hero = udg_Heroes[GetPlayerNumber(p)]
         if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             set hero = null
             return
@@ -457,6 +497,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if evt == FRAMEEVENT_MOUSE_DOWN then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                set btnStr = "RIGHT"
+            else
+                set btnStr = "LEFT"
+            endif
+            call Debug("BagButton MOUSE_DOWN: pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 set DragOriginType[pId] = 2
                 set DragOriginIndex[pId] = bagIndex
                 set DragActive[pId] = true
@@ -465,7 +511,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Handle right mouse up over bag slot: perform swap/drop locally
         elseif evt == FRAMEEVENT_MOUSE_UP then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
-            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT and DragActive[pId] and DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                set btnStr = "RIGHT"
+            else
+                set btnStr = "LEFT"
+            endif
+            if DragActive[pId] then
+                set dragStr = "true"
+            else
+                set dragStr = "false"
+            endif
+            call Debug("BagButton MOUSE_UP: pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex) + ", DragActive=" + dragStr + ", DragOriginType=" + I2S(DragOriginType[pId]) + ", DragOriginIndex=" + I2S(DragOriginIndex[pId]))
+            // Note: some patches do not report mouse button for frame mouse-up reliably.
+            // Treat any mouse-up as drag end when a right-click drag is active from a bag slot.
+            if DragActive[pId] and DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
                 set targetIndex = LastHoveredIndex[pId]
                 // Swap within bag when releasing over a different slot
                 if targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
@@ -600,16 +659,41 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
         local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
+        local integer bagHoverIndex
+        local string btnStr
+        local string panelStr
         // Ignore drags when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
         endif
+        // Diagnostics for right-click detection context
+        if btn == MOUSE_BUTTON_TYPE_RIGHT then
+            set btnStr = "RIGHT"
+        else
+            set btnStr = "LEFT"
+        endif
+        if PanelHover[pId] then
+            set panelStr = "true"
+        else
+            set panelStr = "false"
+        endif
+        call Debug("Global MOUSE_DOWN: pId=" + I2S(pId) + ", btn=" + btnStr + ", invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
             set DragActive[pId] = true
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 set DragOriginType[pId] = 1
                 set DragOriginIndex[pId] = invIndex
                 call Debug("Drag start: inventory slot " + I2S(invIndex))
+            else
+                // Start bag drag when hovering a bag slot
+                set bagHoverIndex = LastHoveredIndex[pId]
+                if PanelHover[pId] and bagHoverIndex > 0 then
+                    set DragOriginType[pId] = 2
+                    set DragOriginIndex[pId] = bagHoverIndex
+                    call Debug("Drag start: bag slot " + I2S(bagHoverIndex))
+                else
+                    call Debug("Right-click drag ignored: bagHoverIndex=" + I2S(bagHoverIndex) + ", PanelHover=" + panelStr)
+                endif
             endif
         endif
     endfunction
@@ -872,6 +956,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Register both mouse up and down to maximize right-click detection across patches
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_UP)
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
+            // Also register mouse events on backdrop frames and the slot container to capture routed events
+            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_UP)
+            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
+            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_UP)
+            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
             // Track hover to know which slot is under the cursor for global mouse
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
