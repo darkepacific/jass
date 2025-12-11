@@ -539,12 +539,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 set TransferIndex[pId] = bagIndex
                 set TransferItem[pId] = BagItem[pId].item[bagIndex]
-                // Show the popup; position near the slot if possible
-                if GetLocalPlayer() == p then
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                    // Try to anchor popup to the slot frame
-                    call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
-                    call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+                // Only show popup when this slot has an item
+                if TransferItem[pId] != null then
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                        // Anchor popup next to the visible slot frame
+                        call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
+                        call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+                    endif
+                else
+                    call Debug("Right-click popup suppressed: empty slot at bagIndex=" + I2S(bagIndex))
                 endif
             endif
         // Handle right mouse up over bag slot (no drag-stop needed when using popup)
@@ -558,10 +562,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call Debug("BagButton MOUSE_UP: pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
         // Left-click withdraw: quick equip item from bag
         elseif evt == FRAMEEVENT_CONTROL_CLICK then
-            set it = BagItem[pId].item[bagIndex]
-            if it != null then
-                call Debug("Withdraw (left-click): bag index " + I2S(bagIndex))
-                call ItemBag2Equip(p, it)
+            // If in swap mode, finalize swap with the clicked slot
+            if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
+                call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
+                call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
+                set SwapIndex[pId] = 0
+                if GetLocalPlayer() == p then
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                endif
+            else
+                // Default left-click: quick equip from bag
+                set it = BagItem[pId].item[bagIndex]
+                if it != null then
+                    call Debug("Withdraw (left-click): bag index " + I2S(bagIndex))
+                    call ItemBag2Equip(p, it)
+                endif
             endif
         endif
 
@@ -1040,27 +1055,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // BlzFrameClick(BlzGetFrameByName("TasItemBagCloseButton", 0))
 
         call BlzFrameSetLevel(BlzGetFrameByName("TasItemBagTooltipPanel", 0), 8)
-        // Ensure popup exists and is hidden initially
+        // Create popup container and child buttons from FDF and hide initially
+        call BlzCreateFrame("TasItemBagPopUpPanel", panel, 0, 0)
+        call BlzGetFrameByName("TasItemBagPopUpEquip", 0)
+        call BlzGetFrameByName("TasItemBagPopUpDrop", 0)
+        call BlzGetFrameByName("TasItemBagPopUpSwap", 0)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
         // Panel hover tracking
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_ENTER)
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_LEAVE)
-
-        // Quick Deposit buttons
-        set invIndex = 0
-        loop
-            exitwhen invIndex >= bj_MAX_INVENTORY
-            set invButton = BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, invIndex)
-            if GetHandleId(invButton) != 0 then
-                set depButton = BlzCreateFrameByType("GLUETEXTBUTTON", "TasBankDeposit" + I2S(invIndex), BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "ScriptDialogButton", 0)
-                call BlzFrameSetSize(depButton, 0.04, 0.015)
-                call BlzFrameSetText(depButton, "+")
-                call BlzFrameSetPoint(depButton, FRAMEPOINT_LEFT, invButton, FRAMEPOINT_RIGHT, 0.004, 0.0)
-                call BlzTriggerRegisterFrameEvent(TriggerUIOpen, depButton, FRAMEEVENT_CONTROL_CLICK)
-            endif
-            set invIndex = invIndex + 1
-        endloop
     endfunction
     
     private function At0s takes nothing returns nothing
@@ -1142,11 +1146,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TriggerAddAction(TriggerUIPanelHover, function BagPanelEnterAction)
         call TriggerAddAction(TriggerUIPanelHover, function BagPanelLeaveAction)
 
-        // Global mouse handlers disabled (use frame events only)
-        // set TriggerUIMouseUp = CreateTrigger()
-        // call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_UP, function GlobalMouseUpAction)
-        // set TriggerUIMouseDown = CreateTrigger()
-        // call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_DOWN, function GlobalMouseDownAction)
+        // Global mouse handlers (used for inventory deposit and diagnostics)
+        set TriggerUIMouseUp = CreateTrigger()
+        call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_UP, function GlobalMouseUpAction)
+        set TriggerUIMouseDown = CreateTrigger()
+        call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_DOWN, function GlobalMouseDownAction)
 
         // Note: Global mouse right-click detection removed for compatibility.
 
