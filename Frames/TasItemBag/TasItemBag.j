@@ -595,16 +595,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function HoverAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        local integer btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
-        // Guard: only slot buttons have numeric text; ignore panel hover
+        local integer btnIndex
+        local integer rawIdx
+        // Prefer numeric text when present (slot button), else resolve by frame handle (backdrop/container)
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
-            set LastHoveredIndex[pId] = btnIndex + Offset[pId]
-            // Consider the bag panel hovered when a slot is hovered
+            set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
+            set rawIdx = btnIndex
+        else
+            set rawIdx = ResolveBagSlotIndex(BlzGetTriggerFrame())
+            set btnIndex = rawIdx
+        endif
+        if rawIdx > 0 then
+            set LastHoveredIndex[pId] = rawIdx + Offset[pId]
             set PanelHover[pId] = true
-            // Debug to verify hover mapping
             call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
-            // Visual drag indicator on hovered slot when dragging
-            if DragActive[pId] and LastHoveredIndex[pId] > 0 then
+            if DragActive[pId] then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
                 call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "●")
             endif
@@ -615,17 +620,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function HoverLeaveAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        local integer btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
-        // Guard: only slot buttons have numeric text; ignore panel hover
+        local integer btnIndex
+        // Clear overlay text if leaving the button; do not flip PanelHover here
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
+            set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
             if DragActive[pId] then
-                // Restore overlay visibility will be handled in UpdateUI; just clear temp mark
                 call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "")
             endif
-            // Leaving a slot clears hover index
+        endif
+        // Only clear LastHoveredIndex if the panel itself is not hovered
+        if not PanelHover[pId] then
             set LastHoveredIndex[pId] = 0
-            // If no slot is hovered, mark panel hover false as fallback
-            set PanelHover[pId] = false
         endif
     endfunction
 
