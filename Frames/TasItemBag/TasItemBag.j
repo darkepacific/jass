@@ -528,19 +528,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Right-click: show legacy popup menu (Equip/Drop/Swap)
-        if evt == FRAMEEVENT_MOUSE_DOWN or evt == FRAMEEVENT_MOUSE_UP then
+        // Right-click: show legacy popup menu (Equip/Drop/Swap) on mouse UP only
+        if evt == FRAMEEVENT_MOUSE_UP then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 set btnStr = "RIGHT"
             else
                 set btnStr = "LEFT"
             endif
-            if evt == FRAMEEVENT_MOUSE_DOWN then
-                set evtStr = "MOUSE_DOWN"
-            else
-                set evtStr = "MOUSE_UP"
-            endif
+            set evtStr = "MOUSE_UP"
             call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 // If we couldn't resolve by frame, compute index from mouse
