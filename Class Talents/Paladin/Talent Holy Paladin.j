@@ -92,7 +92,25 @@ function TalentHolyPaladin takes nothing returns nothing
 	//Blessing of Prot - Ret reduces all incoming phys damage on the target by 20% (can only check if cast on self or use SpellUnits)
 	//Blessing of Spellwarding - Ret reduces all incoming magic or other damage on the target by 20% 
 
+	// Path of Redemption when you die, gain the option to revive after 3 seconds with 30% health and mana (2 min cooldown)
 
+	//LEVEL 50 - AI CHOICES
+
+	// Radiant Dawn - when you overheal an ally, 30% of the overheal is split among nearby injured allies
+	// Crusader's Zeal - each Judgement cast reduces the remaining cooldown of Avenging Crusader by 1 second (up to a cap per cast)
+	// Sacred Barrier - Light of Dawn grants affected allies a small damage absorb shield for 4 seconds
+
+	// Lightbringer - every 5th single-target heal you cast is duplicated at 40% effectiveness on a nearby injured ally
+	// Divine Insight - your healing critical strikes refund 20% of the spell's mana cost
+	// Bulwark of Faith - when you drop below 30% health, instantly gain a strong absorb shield (internal cooldown)
+
+	// Cleansing Light - your primary heal removes 1 negative magic effect from its target
+	// Guiding Beacon - Beacon of Light now also grants 5% bonus movement speed and 5% bonus armor to its target
+	// Sanctified Ground - Consecration placed under an ally increases healing they receive by 10%
+
+	// Hand of Sacrifice - transfers a portion of damage taken by an ally to you for a short duration, but also increases healing you receive
+	// Eternal Crusade - killing blows by your summoned units briefly increase your spell power
+	// Shimmering Aegis - periodic healing effects on a unit reduce the duration of incoming crowd control slightly
 
 endfunction
 

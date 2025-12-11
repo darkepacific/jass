@@ -504,6 +504,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local frameeventtype evt = BlzGetTriggerFrameEvent()
         local integer targetIndex
         local string btnStr
+        local string evtStr
         local string dragStr
         // Try to read numeric text first; if empty, resolve by frame handle
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
@@ -528,38 +529,47 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         // Right-click: show legacy popup menu (Equip/Drop/Swap)
-        if evt == FRAMEEVENT_MOUSE_DOWN then
+        if evt == FRAMEEVENT_MOUSE_DOWN or evt == FRAMEEVENT_MOUSE_UP then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 set btnStr = "RIGHT"
             else
                 set btnStr = "LEFT"
             endif
-            call Debug("BagButton MOUSE_DOWN: pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
+            if evt == FRAMEEVENT_MOUSE_DOWN then
+                set evtStr = "MOUSE_DOWN"
+            else
+                set evtStr = "MOUSE_UP"
+            endif
+            call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-                set TransferIndex[pId] = bagIndex
-                set TransferItem[pId] = BagItem[pId].item[bagIndex]
-                // Only show popup when this slot has an item
-                if TransferItem[pId] != null then
-                    if GetLocalPlayer() == p then
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                        // Anchor popup next to the visible slot frame
-                        call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
-                        call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+                // If we couldn't resolve by frame, compute index from mouse
+                if rawIndex <= 0 then
+                    set targetIndex = ResolveBagIndexFromMouse()
+                    if targetIndex > 0 then
+                        set rawIndex = targetIndex
+                        set bagIndex = rawIndex + Offset[pId]
+                        call Debug("Computed rawIndex from mouse: " + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
+                    else
+                        call Debug("Right-click: no slot under mouse; skipping popup")
                     endif
-                else
-                    call Debug("Right-click popup suppressed: empty slot at bagIndex=" + I2S(bagIndex))
+                endif
+                if rawIndex > 0 then
+                    set TransferIndex[pId] = bagIndex
+                    set TransferItem[pId] = BagItem[pId].item[bagIndex]
+                    // Only show popup when this slot has an item
+                    if TransferItem[pId] != null then
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                            // Anchor popup next to the visible slot frame
+                            call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
+                            call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+                        endif
+                    else
+                        call Debug("Right-click popup suppressed: empty slot at bagIndex=" + I2S(bagIndex))
+                    endif
                 endif
             endif
-        // Handle right mouse up over bag slot (no drag-stop needed when using popup)
-        elseif evt == FRAMEEVENT_MOUSE_UP then
-            set mouseButton = BlzGetTriggerPlayerMouseButton()
-            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-                set btnStr = "RIGHT"
-            else
-                set btnStr = "LEFT"
-            endif
-            call Debug("BagButton MOUSE_UP: pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
         // Left-click withdraw: quick equip item from bag
         elseif evt == FRAMEEVENT_CONTROL_CLICK then
             // If in swap mode, finalize swap with the clicked slot
@@ -640,6 +650,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
         local integer targetIndex = LastHoveredIndex[pId]
         local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
+        local integer rawIdx
+        local integer bagIndex
         local item bi
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
@@ -651,6 +663,31 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
                     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
                     call DepositInventorySlot(p, invIndex)
+                endif
+            // Case A2: Show popup on right-click over bag (fallback via global mouse)
+            elseif PanelHover[pId] and DragOriginType[pId] == 0 then
+                set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 and targetIndex > 0 then
+                    // Fallback to last hovered absolute index
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex - Offset[pId]
+                else
+                    set bagIndex = rawIdx + Offset[pId]
+                endif
+                if rawIdx > 0 and rawIdx <= Cols * Rows then
+                    set bi = BagItem[pId].item[bagIndex]
+                    if bi != null then
+                        set TransferIndex[pId] = bagIndex
+                        set TransferItem[pId] = bi
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                            call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
+                            call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+                        endif
+                        call Debug("Popup (global): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                    else
+                        call Debug("Popup (global) suppressed: empty at bagIndex=" + I2S(bagIndex))
+                    endif
                 endif
             // Case B: Swap bag-to-bag
             elseif DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
