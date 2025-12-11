@@ -599,6 +599,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Guard: only slot buttons have numeric text; ignore panel hover
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set LastHoveredIndex[pId] = btnIndex + Offset[pId]
+            // Consider the bag panel hovered when a slot is hovered
+            set PanelHover[pId] = true
             // Debug to verify hover mapping
             call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             // Visual drag indicator on hovered slot when dragging
@@ -622,6 +624,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             // Leaving a slot clears hover index
             set LastHoveredIndex[pId] = 0
+            // If no slot is hovered, mark panel hover false as fallback
+            set PanelHover[pId] = false
         endif
     endfunction
 
