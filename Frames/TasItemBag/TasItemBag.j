@@ -1034,6 +1034,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Track hover to know which slot is under the cursor for global mouse
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
+            // Also track hover on backdrop and slot container to ensure PanelHover/LastHoveredIndex
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
             call BlzTriggerRegisterFrameEvent(TriggerUIWheel, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_WHEEL)
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), I2S(buttonIndex))
             
@@ -1086,11 +1091,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // BlzFrameClick(BlzGetFrameByName("TasItemBagCloseButton", 0))
 
         call BlzFrameSetLevel(BlzGetFrameByName("TasItemBagTooltipPanel", 0), 8)
-        // Create popup container and child buttons from FDF and hide initially
-        call BlzCreateFrame("TasItemBagPopUpPanel", panel, 0, 0)
-        call BlzGetFrameByName("TasItemBagPopUpEquip", 0)
-        call BlzGetFrameByName("TasItemBagPopUpDrop", 0)
-        call BlzGetFrameByName("TasItemBagPopUpSwap", 0)
+        // Bag Popup (programmatic, original style)
+        set frame = BlzCreateFrameByType("BUTTON", "TasItemBagPopUpPanel", panel, "", 0)
+        call BlzFrameSetLevel(frame, 9)
+        call BlzFrameSetSize(frame, 0.1, 0.0001)
+        set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonEquip", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame2, 0.1, 0.03)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0, 0)
+        call BlzFrameSetText(frame2, "EQUIP")
+        call BlzTriggerRegisterFrameEvent(TriggerUIEquip, frame2, FRAMEEVENT_CONTROL_CLICK)
+
+        set frame3 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonDrop", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame3, 0.1, 0.03)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0)
+        call BlzFrameSetText(frame3, "DROP")
+        call BlzTriggerRegisterFrameEvent(TriggerUIDrop, frame3, FRAMEEVENT_CONTROL_CLICK)
+
+        set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSwap", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame2, 0.1, 0.03)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_BOTTOMLEFT, 0, 0)
+        call BlzFrameSetText(frame2, "SWAP")
+        call BlzTriggerRegisterFrameEvent(TriggerUISwap, frame2, FRAMEEVENT_CONTROL_CLICK)
+
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
         // Panel hover tracking
@@ -1154,17 +1176,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUIWheel = CreateTrigger()
         call TriggerAddAction(TriggerUIWheel, function WheelAction)
 
-        // Legacy popup triggers restored
+        // Legacy popup triggers (events registered in InitFrames after frames are created)
         set TriggerUIEquip = CreateTrigger()
-        call BlzTriggerRegisterFrameEvent(TriggerUIEquip, BlzGetFrameByName("TasItemBagPopUpEquip", 0), FRAMEEVENT_CONTROL_CLICK)
         call TriggerAddAction(TriggerUIEquip, function BagPopupActionEquip)
 
         set TriggerUIDrop = CreateTrigger()
-        call BlzTriggerRegisterFrameEvent(TriggerUIDrop, BlzGetFrameByName("TasItemBagPopUpDrop", 0), FRAMEEVENT_CONTROL_CLICK)
         call TriggerAddAction(TriggerUIDrop, function BagPopupActionDrop)
 
         set TriggerUISwap = CreateTrigger()
-        call BlzTriggerRegisterFrameEvent(TriggerUISwap, BlzGetFrameByName("TasItemBagPopUpSwap", 0), FRAMEEVENT_CONTROL_CLICK)
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSwap)
 
         // Hover tracking for slot buttons
