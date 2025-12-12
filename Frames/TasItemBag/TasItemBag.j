@@ -395,7 +395,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if BagItem[playerKey].integer[0] >= ItemBagSize then
             call ErrorMessage("Bank is full.", p)
             set it = null
-            set hero = null
             return
         endif
         call ItemEquip2Bag(hero, it)
@@ -528,7 +527,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Right-click: show legacy popup menu (Equip/Drop/Swap) on mouse UP only
+        // Mouse UP: handle quick equip on right-click, popup on left-click
         if evt == FRAMEEVENT_MOUSE_UP then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
@@ -538,50 +537,51 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             set evtStr = "MOUSE_UP"
             call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
+            // Quick equip on right-click
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-                // If we couldn't resolve by frame, compute index from mouse
                 if rawIndex <= 0 then
                     set targetIndex = ResolveBagIndexFromMouse()
                     if targetIndex > 0 then
                         set rawIndex = targetIndex
                         set bagIndex = rawIndex + Offset[pId]
-                        call Debug("Computed rawIndex from mouse: " + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
-                    else
-                        call Debug("Right-click: no slot under mouse; skipping popup")
+                    endif
+                endif
+                if rawIndex > 0 then
+                    set it = BagItem[pId].item[bagIndex]
+                    if it != null then
+                        call Debug("Withdraw (right-click): bag index " + I2S(bagIndex))
+                        call ItemBag2Equip(p, it)
+                    endif
+                endif
+                // Show popup on left-click
+            else
+                if rawIndex <= 0 then
+                    set targetIndex = ResolveBagIndexFromMouse()
+                    if targetIndex > 0 then
+                        set rawIndex = targetIndex
+                        set bagIndex = rawIndex + Offset[pId]
                     endif
                 endif
                 if rawIndex > 0 then
                     set TransferIndex[pId] = bagIndex
                     set TransferItem[pId] = BagItem[pId].item[bagIndex]
-                    // Only show popup when this slot has an item
                     if TransferItem[pId] != null then
                         if GetLocalPlayer() == p then
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                            // Anchor popup next to the visible slot frame
                             call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
                             call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
                         endif
-                    else
-                        call Debug("Right-click popup suppressed: empty slot at bagIndex=" + I2S(bagIndex))
                     endif
                 endif
             endif
-        // Left-click withdraw: quick equip item from bag
+            // CONTROL_CLICK: keep swap finalize behavior when menu triggers a swap mode
         elseif evt == FRAMEEVENT_CONTROL_CLICK then
-            // If in swap mode, finalize swap with the clicked slot
             if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
                 call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
                 call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
                 set SwapIndex[pId] = 0
                 if GetLocalPlayer() == p then
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                endif
-            else
-                // Default left-click: quick equip from bag
-                set it = BagItem[pId].item[bagIndex]
-                if it != null then
-                    call Debug("Withdraw (left-click): bag index " + I2S(bagIndex))
-                    call ItemBag2Equip(p, it)
                 endif
             endif
         endif
@@ -648,7 +648,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call Debug("PanelHover LEAVE: player " + I2S(pId) + ", PanelHover=false")
     endfunction
 
-    // Global mouse up handler: perform swap/drop/deposit on right-click
+    // Global mouse up handler: right-click = withdraw, left-click = popup
     private function GlobalMouseUpAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
@@ -663,17 +663,40 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
-            // Case A: Deposit from hero inventory into bank
+            // Right-click: A) deposit when over inventory, B) quick withdraw when over bag
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
                     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
                     call DepositInventorySlot(p, invIndex)
                 endif
-            // Case A2: Show popup on right-click over bag (fallback via global mouse)
-            elseif PanelHover[pId] and DragOriginType[pId] == 0 then
+            elseif PanelHover[pId] then
                 set rawIdx = ResolveBagIndexFromMouse()
                 if rawIdx <= 0 and targetIndex > 0 then
-                    // Fallback to last hovered absolute index
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex - Offset[pId]
+                else
+                    set bagIndex = rawIdx + Offset[pId]
+                endif
+                if rawIdx > 0 and rawIdx <= Cols * Rows then
+                    set bi = BagItem[pId].item[bagIndex]
+                    if bi != null then
+                        call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        call ItemBag2Equip(p, bi)
+                    else
+                        call Debug("Withdraw suppressed: empty at bagIndex=" + I2S(bagIndex))
+                    endif
+                endif
+            endif
+            // Reset drag
+            set DragOriginType[pId] = 0
+            set DragOriginIndex[pId] = 0
+            set DragActive[pId] = false
+            call FrameLoseFocus()
+        elseif btn == MOUSE_BUTTON_TYPE_LEFT then
+            // Left-click: show popup when over bag; handle swaps/drops
+            if PanelHover[pId] then
+                set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 and targetIndex > 0 then
                     set bagIndex = targetIndex
                     set rawIdx = bagIndex - Offset[pId]
                 else
@@ -689,34 +712,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
                             call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
                         endif
-                        call Debug("Popup (global): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
                     else
-                        call Debug("Popup (global) suppressed: empty at bagIndex=" + I2S(bagIndex))
+                        call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
                     endif
                 endif
-            // Case B: Swap bag-to-bag
             elseif DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
-                // Right-click withdraw disabled: use left-click on bag slot instead
-                // -// Case B1: Withdraw to hero inventory by releasing over an inventory slot
                 if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-// -                    set bi = BagItem[pId].item[DragOriginIndex[pId]]
-// -                    if bi != null then
-// -                        call Debug("Withdraw: bag index " + I2S(DragOriginIndex[pId]) + " -> hero inventory")
-// -                        call ItemBag2Equip(p, bi)
-// -                        set bi = null
-// -                    endif
-                    call Debug("Withdraw via right-click disabled; ignoring release over inventory")
-                // Case B2: Swap within bag
+                    // Left-click release over inventory does nothing for bag-origin drags
                 elseif targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
                     call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
                     call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], targetIndex)
                 elseif not PanelHover[pId] then
-                    // Case C: Drop bag item (released outside the bag panel)
                     call Debug("Drop: bag index " + I2S(DragOriginIndex[pId]))
                     call TasItemBagRemoveIndex(Selected[pId], DragOriginIndex[pId], true)
                 endif
             endif
-            // Reset drag origin
+            // Reset drag
             set DragOriginType[pId] = 0
             set DragOriginIndex[pId] = 0
             set DragActive[pId] = false
@@ -750,7 +762,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set panelStr = "false"
         endif
         call Debug("Global MOUSE_DOWN: pId=" + I2S(pId) + ", btn=" + btnStr + ", invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
-            // Skip starting any drag on right-click down; popup/menu is handled on mouse up
+        // Skip starting any drag on right-click down; popup/menu is handled on mouse up
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
             return
         endif
