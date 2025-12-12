@@ -750,32 +750,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set panelStr = "false"
         endif
         call Debug("Global MOUSE_DOWN: pId=" + I2S(pId) + ", btn=" + btnStr + ", invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
+            // Skip starting any drag on right-click down; popup/menu is handled on mouse up
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
-            set DragActive[pId] = true
-            if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                set DragOriginType[pId] = 1
-                set DragOriginIndex[pId] = invIndex
-                call Debug("Drag start: inventory slot " + I2S(invIndex))
-            else
-                // Start bag drag when hovering a bag slot
-                set bagHoverIndex = LastHoveredIndex[pId]
-                if PanelHover[pId] and bagHoverIndex > 0 then
-                    set DragOriginType[pId] = 2
-                    set DragOriginIndex[pId] = bagHoverIndex
-                    call Debug("Drag start: bag slot " + I2S(bagHoverIndex))
-                else
-                    // Fallback: compute slot from mouse position
-                    set calcIndex = ResolveBagIndexFromMouse()
-                    if calcIndex > 0 then
-                        set DragOriginType[pId] = 2
-                        set DragOriginIndex[pId] = calcIndex + Offset[pId]
-                        set PanelHover[pId] = true
-                        call Debug("Drag start (computed): bag rawIndex " + I2S(calcIndex) + ", bagIndex " + I2S(DragOriginIndex[pId]))
-                    else
-                    call Debug("Right-click drag ignored: bagHoverIndex=" + I2S(bagHoverIndex) + ", PanelHover=" + panelStr)
-                    endif
-                endif
-            endif
+            return
         endif
     endfunction
     
