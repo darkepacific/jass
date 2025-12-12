@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4
-        private real PosY = 0.57
+        private real PosY = 0.24
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -88,6 +88,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public timer TimerUpdate
         public trigger Trigger
         public trigger TriggerESC
+        public trigger TriggerUIXKey
         public trigger TriggerItemGain
         public trigger TriggerItemUse
         public trigger TriggerUnitDeath
@@ -791,6 +792,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call FrameLoseFocus()
     endfunction
 
+    // Toggle the bag panel on OSKEY_X press
+    private function XKeyToggleAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        if GetLocalPlayer() == p then
+            if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            else
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            endif
+        endif
+        call FrameLoseFocus()
+    endfunction
+
     private function ShowButtonAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         local integer s
@@ -1146,6 +1162,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
         
         call TriggerAddAction(TriggerESC, function ESCAction)
+
+        // Bind OSKEY_X to toggle the bag UI open/close
+        set TriggerUIXKey = CreateTrigger()
+        set i = 0
+        loop
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIXKey, Player(i), OSKEY_X, 0, true)
+            set i = i + 1
+            exitwhen i >= bj_MAX_PLAYERS
+        endloop
+        call TriggerAddAction(TriggerUIXKey, function XKeyToggleAction)
 
         
         set TriggerItemGain = CreateTrigger()
