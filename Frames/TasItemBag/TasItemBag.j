@@ -19,8 +19,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     */
     globals
-        private real PosX = 0.4
-        private real PosY = 0.24
+        private real PosX = 0.5 //0.4
+        private real PosY = 0.30
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -659,6 +659,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer rawIdx
         local integer bagIndex
         local item bi
+        local boolean didSomething = false
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
@@ -669,6 +670,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
                     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
                     call DepositInventorySlot(p, invIndex)
+                    set didSomething = true
                 endif
             elseif PanelHover[pId] then
                 set rawIdx = ResolveBagIndexFromMouse()
@@ -683,12 +685,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     if bi != null then
                         call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
                         call ItemBag2Equip(p, bi)
+                        set didSomething = true
                     else
                         call Debug("Withdraw suppressed: empty at bagIndex=" + I2S(bagIndex))
                     endif
                 endif
             endif
-            // Reset drag
+            // If the click was not on inventory or bag, do nothing (let it be a move order, etc.)
+            if not didSomething then
+                return
+            endif
+            // Reset drag only when we actually handled the click
             set DragOriginType[pId] = 0
             set DragOriginIndex[pId] = 0
             set DragActive[pId] = false
@@ -714,6 +721,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
                         endif
                         call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        set didSomething = true
                     else
                         call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
                     endif
@@ -724,12 +732,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 elseif targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
                     call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
                     call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], targetIndex)
+                    set didSomething = true
                 elseif not PanelHover[pId] then
                     call Debug("Drop: bag index " + I2S(DragOriginIndex[pId]))
                     call TasItemBagRemoveIndex(Selected[pId], DragOriginIndex[pId], true)
+                    set didSomething = true
                 endif
             endif
-            // Reset drag
+            if not didSomething then
+                return
+            endif
+            // Reset drag only when we actually handled the click
             set DragOriginType[pId] = 0
             set DragOriginIndex[pId] = 0
             set DragActive[pId] = false
@@ -881,16 +894,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         // Banking change: only process pickups when the Bank unit picks up items (drag-drop deposit)
-        if not IsBankUnit(GetTriggerUnit()) then
-            return
-        endif
+        // if not IsBankUnit(GetTriggerUnit()) then
+        //     return
+        // endif
 
         // Do not move Powerups that can be used into the bag
         if IsItemPowerup(GetManipulatedItem()) and TasItemBagUnitCanUseItems(GetTriggerUnit()) then 
             return
         endif
 
-        // System flag to ignore pickup to bag
+        // Original behavior: move picked up items into the bag for regular pickups.
+        // Guard with EquipNow so using the Equip button does not re-stash the item.
         if not EquipNow then
             // dont move it instantly, delay it with a 0s timer, this stops item pickup orders onto the same item in a row and allows the user to do some stuff to pickedup items
             // does not prevent move ground pick up in rotation
