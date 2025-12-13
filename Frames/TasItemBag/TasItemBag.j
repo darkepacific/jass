@@ -19,7 +19,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     */
     globals
-        private real PosX = 0.5 //0.4
+        private real PosX = 0.4
         private real PosY = 0.30
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
@@ -608,6 +608,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         if rawIdx > 0 then
             set LastHoveredIndex[pId] = rawIdx + Offset[pId]
+            set PanelHover[pId] = true
             call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
@@ -628,7 +629,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "")
             endif
         endif
-        // Do not clear LastHoveredIndex here; panel leave handles stale clearing.
+        // Only clear LastHoveredIndex if the panel itself is not hovered
+        if not PanelHover[pId] then
+            set LastHoveredIndex[pId] = 0
+        endif
     endfunction
 
     // Panel hover enter: mark inside panel
@@ -642,24 +646,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
-        set LastHoveredIndex[pId] = 0
         call Debug("PanelHover LEAVE: player " + I2S(pId) + ", PanelHover=false")
-    endfunction
-
-    // True only when an inventory item button is currently hovered (not stale)
-    private function IsInventoryHover takes integer invIndex returns boolean
-        if invIndex < 0 or invIndex >= bj_MAX_INVENTORY then
-            return false
-        endif
-        // HoverOriginButton is expected to set CurrentSelectedButtonIndex to a valid frame index when hovering.
-        // If the mouse is not over any inventory button, this should be <= 0 or otherwise invalid.
-        if HoverOriginButton_CurrentSelectedButtonIndex <= 0 then
-            return false
-        endif
-        if HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset != invIndex then
-            return false
-        endif
-        return true
     endfunction
 
     // Global mouse up handler: right-click = withdraw, left-click = popup
@@ -667,41 +654,45 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
+        local integer targetIndex = LastHoveredIndex[pId]
         local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
         local integer rawIdx
         local integer bagIndex
         local item bi
         local boolean didSomething = false
-        local integer mouseRawIdx
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
         endif
-
-        // Resolve bag slot from mouse position every time (prevents stale hover causing world-click actions)
-        set mouseRawIdx = 0
-        if PanelHover[pId] then
-            set mouseRawIdx = ResolveBagIndexFromMouse()
-        endif
-
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
+            // Always hide the popup on any right-click while the bag UI is open
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            endif
             // Right-click: A) deposit when over inventory, B) quick withdraw when over bag
-            if IsInventoryHover(invIndex) then
+            if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
                     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
                     call DepositInventorySlot(p, invIndex)
                     set didSomething = true
                 endif
-            elseif mouseRawIdx > 0 then
-                set rawIdx = mouseRawIdx
-                set bagIndex = rawIdx + Offset[pId]
-                set bi = BagItem[pId].item[bagIndex]
-                if bi != null then
-                    call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                    call ItemBag2Equip(p, bi)
-                    set didSomething = true
+            elseif PanelHover[pId] then
+                set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 and targetIndex > 0 then
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex - Offset[pId]
                 else
-                    call Debug("Withdraw suppressed: empty at bagIndex=" + I2S(bagIndex))
+                    set bagIndex = rawIdx + Offset[pId]
+                endif
+                if rawIdx > 0 and rawIdx <= Cols * Rows then
+                    set bi = BagItem[pId].item[bagIndex]
+                    if bi != null then
+                        call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        call ItemBag2Equip(p, bi)
+                        set didSomething = true
+                    else
+                        call Debug("Withdraw suppressed: empty at bagIndex=" + I2S(bagIndex))
+                    endif
                 endif
             endif
             // If the click was not on inventory or bag, do nothing (let it be a move order, etc.)
@@ -715,29 +706,36 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call FrameLoseFocus()
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
             // Left-click: show popup when over bag; handle swaps/drops
-            if mouseRawIdx > 0 then
-                set rawIdx = mouseRawIdx
-                set bagIndex = rawIdx + Offset[pId]
-                set bi = BagItem[pId].item[bagIndex]
-                if bi != null then
-                    set TransferIndex[pId] = bagIndex
-                    set TransferItem[pId] = bi
-                    if GetLocalPlayer() == p then
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                        call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
-                        call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
-                    endif
-                    call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                    set didSomething = true
+            if PanelHover[pId] then
+                set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 and targetIndex > 0 then
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex - Offset[pId]
                 else
-                    call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
+                    set bagIndex = rawIdx + Offset[pId]
+                endif
+                if rawIdx > 0 and rawIdx <= Cols * Rows then
+                    set bi = BagItem[pId].item[bagIndex]
+                    if bi != null then
+                        set TransferIndex[pId] = bagIndex
+                        set TransferItem[pId] = bi
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                            call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
+                            call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+                        endif
+                        call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        set didSomething = true
+                    else
+                        call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
+                    endif
                 endif
             elseif DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
-                if IsInventoryHover(invIndex) then
+                if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                     // Left-click release over inventory does nothing for bag-origin drags
-                elseif mouseRawIdx > 0 and (mouseRawIdx + Offset[pId]) != DragOriginIndex[pId] then
-                    call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(mouseRawIdx + Offset[pId]))
-                    call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], mouseRawIdx + Offset[pId])
+                elseif targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
+                    call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
+                    call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], targetIndex)
                     set didSomething = true
                 elseif not PanelHover[pId] then
                     call Debug("Drop: bag index " + I2S(DragOriginIndex[pId]))
