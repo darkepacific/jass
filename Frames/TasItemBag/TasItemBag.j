@@ -152,9 +152,52 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     function TasItemBagAddItem takes unit u, item i returns nothing
         local integer playerKey = BankKeyForUnit(u)
         local location itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
+        local integer itemCode
+        local integer incomingCharges
+        local integer loopA
+        local item existing
+        local integer existingCharges
+        local integer maxCharges
+        local integer addCharges
         // Move banked items to the island and mark with custom value > 0
         call SetItemPositionLoc(i, itemIsland)
         call SetItemUserData(i, 1)
+
+        // Stack consumable charges into an existing item of the same type (if possible)
+        // Only applies to charged consumables.
+        set incomingCharges = GetItemCharges(i)
+        if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
+            set itemCode = GetItemTypeId(i)
+            // Best-effort max charges; if unavailable fall back to current incoming charges.
+            set maxCharges = BlzGetItemIntegerField(i, ITEM_IF_MAX_CHARGES)
+            if maxCharges <= 0 then
+                set maxCharges = incomingCharges
+            endif
+            set loopA = BagItem[playerKey].integer[0]
+            loop
+                exitwhen loopA <= 0 or incomingCharges <= 0
+                set existing = BagItem[playerKey].item[loopA]
+                if existing != null and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                    set existingCharges = GetItemCharges(existing)
+                    if existingCharges < maxCharges then
+                        set addCharges = IMinBJ(maxCharges - existingCharges, incomingCharges)
+                        call SetItemCharges(existing, existingCharges + addCharges)
+                        set incomingCharges = incomingCharges - addCharges
+                    endif
+                endif
+                set loopA = loopA - 1
+            endloop
+            // Fully merged -> remove the incoming item
+            if incomingCharges <= 0 then
+                call RemoveItem(i)
+                call RemoveLocation(itemIsland)
+                set existing = null
+                return
+            endif
+            // Partially merged -> keep remaining charges on the incoming item before storing it
+            call SetItemCharges(i, incomingCharges)
+        endif
+
         if not ItemIsInBag.boolean[GetHandleId(i)] and BagItem[playerKey].integer[0] < ItemBagSize then
             set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] + 1
             set ItemIsInBag.boolean[GetHandleId(i)] = true
