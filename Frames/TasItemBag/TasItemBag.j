@@ -157,8 +157,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer loopA
         local item existing
         local integer existingCharges
-        local integer maxCharges
         local integer addCharges
+        local integer beforeCharges
+        local integer afterCharges
+        local integer absorbed
+        local integer remaining
         // Move banked items to the island and mark with custom value > 0
         call SetItemPositionLoc(i, itemIsland)
         call SetItemUserData(i, 1)
@@ -168,22 +171,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set incomingCharges = GetItemCharges(i)
         if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
             set itemCode = GetItemTypeId(i)
-            // Best-effort max charges; if unavailable fall back to current incoming charges.
-            set maxCharges = BlzGetItemIntegerField(i, ITEM_IF_MAX_CHARGES)
-            if maxCharges <= 0 then
-                set maxCharges = incomingCharges
-            endif
             set loopA = BagItem[playerKey].integer[0]
             loop
                 exitwhen loopA <= 0 or incomingCharges <= 0
                 set existing = BagItem[playerKey].item[loopA]
                 if existing != null and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                    // Try to add all remaining charges; item will clamp internally.
                     set existingCharges = GetItemCharges(existing)
-                    if existingCharges < maxCharges then
-                        set addCharges = IMinBJ(maxCharges - existingCharges, incomingCharges)
-                        call SetItemCharges(existing, existingCharges + addCharges)
-                        set incomingCharges = incomingCharges - addCharges
+                    set beforeCharges = existingCharges
+                    set addCharges = incomingCharges
+                    call SetItemCharges(existing, beforeCharges + addCharges)
+                    set afterCharges = GetItemCharges(existing)
+
+                    // Determine how many charges were actually absorbed.
+                    set absorbed = afterCharges - beforeCharges
+                    if absorbed < 0 then
+                        set absorbed = 0
                     endif
+                    set remaining = incomingCharges - absorbed
+                    if remaining < 0 then
+                        set remaining = 0
+                    endif
+                    set incomingCharges = remaining
                 endif
                 set loopA = loopA - 1
             endloop
