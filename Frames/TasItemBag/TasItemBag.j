@@ -609,18 +609,40 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Mouse UP: handle quick equip on right-click, popup on left-click
-        if evt == FRAMEEVENT_MOUSE_UP then
+        // Diagnostic: log MOUSE_DOWN as well (some patches never fire MOUSE_UP on certain frames)
+        if evt == FRAMEEVENT_MOUSE_DOWN then
             set mouseButton = BlzGetTriggerPlayerMouseButton()
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
                 set btnStr = "RIGHT"
             else
                 set btnStr = "LEFT"
             endif
-            set evtStr = "MOUSE_UP"
+            set evtStr = "MOUSE_DOWN"
             call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
+        endif
+
+        // Some runtimes/routes never deliver MOUSE_UP for these frames.
+        // To avoid double-activations on runtimes that fire both, execute actions only on MOUSE_DOWN.
+        // MOUSE_UP remains for diagnostics.
+        if evt == FRAMEEVENT_MOUSE_DOWN then
+            set mouseButton = BlzGetTriggerPlayerMouseButton()
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                set btnStr = "RIGHT"
+            else
+                set btnStr = "LEFT"
+            endif
+            // (Already logged above.)
+            // Any click on a bag slot cancels drag state to prevent stale drag behavior.
+            set DragOriginType[pId] = 0
+            set DragOriginIndex[pId] = 0
+            set DragActive[pId] = false
             // Quick equip on right-click
             if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                // Close popup/split on right click as a general cancel
+                if GetLocalPlayer() == p then
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                endif
                 if rawIndex > 0 then
                     set it = BagItem[pId].item[bagIndex]
                     if it != null then
@@ -771,8 +793,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set DragActive[pId] = false
             call FrameLoseFocus()
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
-            // Left-click behavior inside the bag UI is handled by frame events (BagButtonAction).
-            // Keep global left-click free so it doesn't interfere with normal gameplay.
+            // Global left-click does nothing; bag slots handle popup on click.
             return
         endif
     endfunction
@@ -808,7 +829,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Dragging within the bag is handled via slot frame events; do not start drags globally.
+        // Do not start bag drags globally; slot frame events handle bag interactions.
     endfunction
     
     private function WheelAction takes nothing returns nothing
