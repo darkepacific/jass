@@ -100,6 +100,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIEquip
         public trigger TriggerUIDrop
         public trigger TriggerUISwap
+        public trigger TriggerUISplit
+        public trigger TriggerUISplitAccept
         public trigger TriggerUIHover
         public trigger TriggerUIPanelHover
         public trigger TriggerUIMouseUp
@@ -121,6 +123,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public boolean array IgnoreNextSelection
         // The UI moves all picked up items into the bag, RpgCustomUI.EquipNow = true prevents that
         public boolean EquipNow = false
+
+        // Split UI state (per-player)
+        public integer array SplitRequested
 
         private unit array ItemGainTimerUnit
         private timer ItemGainTimer
@@ -162,6 +167,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer afterCharges
         local integer absorbed
         local integer remaining
+        local integer maxCharges
+        local integer space
         // Move banked items to the island and mark with custom value > 0
         call SetItemPositionLoc(i, itemIsland)
         call SetItemUserData(i, 1)
@@ -170,17 +177,38 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Only applies to charged consumables.
         set incomingCharges = GetItemCharges(i)
         if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
+            // Standardize max stack size for all charged consumables.
+            set maxCharges = 20
+            if incomingCharges > maxCharges then
+                set incomingCharges = maxCharges
+                call SetItemCharges(i, incomingCharges)
+            endif
             set itemCode = GetItemTypeId(i)
             set loopA = BagItem[playerKey].integer[0]
             loop
                 exitwhen loopA <= 0 or incomingCharges <= 0
                 set existing = BagItem[playerKey].item[loopA]
                 if existing != null and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
-                    // Try to add all remaining charges; item will clamp internally.
+                    // Clamp existing stack too (in case it was already over).
                     set existingCharges = GetItemCharges(existing)
+                    if existingCharges > maxCharges then
+                        set existingCharges = maxCharges
+                        call SetItemCharges(existing, existingCharges)
+                    endif
+
+                    // Add up to available space in this stack.
                     set beforeCharges = existingCharges
-                    set addCharges = incomingCharges
-                    call SetItemCharges(existing, beforeCharges + addCharges)
+                    set space = maxCharges - beforeCharges
+                    if space > 0 then
+                        if incomingCharges > space then
+                            set addCharges = space
+                        else
+                            set addCharges = incomingCharges
+                        endif
+                        call SetItemCharges(existing, beforeCharges + addCharges)
+                    else
+                        set addCharges = 0
+                    endif
                     set afterCharges = GetItemCharges(existing)
 
                     // Determine how many charges were actually absorbed.
@@ -461,6 +489,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
         endif
         call TasItemBagRemoveIndex(Selected[pId], TransferIndex[pId], true)
@@ -474,6 +503,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call ItemBag2Equip(p, TransferItem[pId])
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
         endif
         call FrameLoseFocus()
@@ -485,9 +515,35 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
             set SwapIndex[pId] = TransferIndex[pId]
         endif
+        call FrameLoseFocus()
+    endfunction
+
+    private function BagPopupActionSplit takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
+            // For now: open the (stub) split panel. No actual splitting logic yet.
+            set SplitRequested[pId] = TransferIndex[pId]
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), true)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split amount UI (todo)")
+            endif
+        endif
+        call FrameLoseFocus()
+    endfunction
+
+    private function BagPopupActionSplitAccept takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        // Stub: just close the split panel.
+        if GetLocalPlayer() == p then
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+        endif
+        set SplitRequested[pId] = 0
         call FrameLoseFocus()
     endfunction
 
@@ -558,6 +614,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local string btnStr
         local string evtStr
         local string dragStr
+        local integer itemCharges
+        local itemtype itemType
         // Try to read numeric text first; if empty, resolve by frame handle
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set rawIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -623,6 +681,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
                             call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
                             call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+
+                            set itemCharges = GetItemCharges(TransferItem[pId])
+                            set itemType = GetItemType(TransferItem[pId])
+                            if itemType == ITEM_TYPE_CHARGED then
+                                call Debug("Popup item check: CHARGED, charges=" + I2S(itemCharges))
+                            else
+                                call Debug("Popup item check: NOT CHARGED, charges=" + I2S(itemCharges))
+                            endif
+
+                            // Split button: only for charged consumables with charges > 1
+                            if itemType == ITEM_TYPE_CHARGED and itemCharges > 1 then
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
+                            else
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
+                            endif
                         endif
                     endif
                 endif
@@ -635,6 +708,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set SwapIndex[pId] = 0
                 if GetLocalPlayer() == p then
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
                 endif
             endif
         endif
@@ -660,7 +734,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         if rawIdx > 0 then
             set LastHoveredIndex[pId] = rawIdx + Offset[pId]
-            set PanelHover[pId] = true
             call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
@@ -681,10 +754,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "")
             endif
         endif
-        // Only clear LastHoveredIndex if the panel itself is not hovered
-        if not PanelHover[pId] then
-            set LastHoveredIndex[pId] = 0
-        endif
+        // Always clear the last hovered slot index on slot leave.
+        set LastHoveredIndex[pId] = 0
     endfunction
 
     // Panel hover enter: mark inside panel
@@ -720,6 +791,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Always hide the popup on any right-click while the bag UI is open
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
             // Right-click: A) deposit when over inventory, B) quick withdraw when over bag
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
@@ -728,7 +800,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     call DepositInventorySlot(p, invIndex)
                     set didSomething = true
                 endif
-            elseif PanelHover[pId] then
+            else
+                // Withdraw attempt: compute slot under mouse, fall back to last hovered slot.
                 set rawIdx = ResolveBagIndexFromMouse()
                 if rawIdx <= 0 and targetIndex > 0 then
                     set bagIndex = targetIndex
@@ -749,6 +822,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             // If the click was not on inventory or bag, do nothing (let it be a move order, etc.)
             if not didSomething then
+                // Safety: sometimes FRAMEEVENT_MOUSE_LEAVE is missed; don't keep stale hover.
+                set PanelHover[pId] = false
+                set LastHoveredIndex[pId] = 0
                 return
             endif
             // Reset drag only when we actually handled the click
@@ -758,38 +834,39 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call FrameLoseFocus()
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
             // Left-click: show popup when over bag; handle swaps/drops
-            if PanelHover[pId] then
-                set rawIdx = ResolveBagIndexFromMouse()
-                if rawIdx <= 0 and targetIndex > 0 then
-                    set bagIndex = targetIndex
-                    set rawIdx = bagIndex - Offset[pId]
-                else
-                    set bagIndex = rawIdx + Offset[pId]
-                endif
-                if rawIdx > 0 and rawIdx <= Cols * Rows then
-                    set bi = BagItem[pId].item[bagIndex]
-                    if bi != null then
-                        set TransferIndex[pId] = bagIndex
-                        set TransferItem[pId] = bi
-                        if GetLocalPlayer() == p then
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                            call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
-                            call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
-                        endif
-                        call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                        set didSomething = true
-                    else
-                        call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
+            // Popup attempt: compute slot under mouse, fall back to last hovered slot.
+            set rawIdx = ResolveBagIndexFromMouse()
+            if rawIdx <= 0 and targetIndex > 0 then
+                set bagIndex = targetIndex
+                set rawIdx = bagIndex - Offset[pId]
+            else
+                set bagIndex = rawIdx + Offset[pId]
+            endif
+            if rawIdx > 0 and rawIdx <= Cols * Rows then
+                set bi = BagItem[pId].item[bagIndex]
+                if bi != null then
+                    set TransferIndex[pId] = bagIndex
+                    set TransferItem[pId] = bi
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                        call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
+                        call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
                     endif
+                    call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                    set didSomething = true
+                else
+                    call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
                 endif
-            elseif DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
+            endif
+
+            if not didSomething and DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
                 if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                     // Left-click release over inventory does nothing for bag-origin drags
                 elseif targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
                     call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
                     call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], targetIndex)
                     set didSomething = true
-                elseif not PanelHover[pId] then
+                elseif rawIdx <= 0 then
                     call Debug("Drop: bag index " + I2S(DragOriginIndex[pId]))
                     call TasItemBagRemoveIndex(Selected[pId], DragOriginIndex[pId], true)
                     set didSomething = true
@@ -1180,7 +1257,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Bag Popup (programmatic, original style)
         set frame = BlzCreateFrameByType("BUTTON", "TasItemBagPopUpPanel", panel, "", 0)
         call BlzFrameSetLevel(frame, 9)
-        call BlzFrameSetSize(frame, 0.1, 0.0001)
+        // Give the popup panel enough height to contain 4 buttons
+        call BlzFrameSetSize(frame, 0.1, 0.12)
         set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonEquip", frame, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame2, 0.1, 0.03)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0, 0)
@@ -1198,6 +1276,32 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_BOTTOMLEFT, 0, 0)
         call BlzFrameSetText(frame2, "SWAP")
         call BlzTriggerRegisterFrameEvent(TriggerUISwap, frame2, FRAMEEVENT_CONTROL_CLICK)
+
+        // 4th popup button: Split (conditionally shown)
+        set frame3 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSplit", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame3, 0.1, 0.03)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0)
+        call BlzFrameSetText(frame3, "SPLIT")
+        call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame3, FRAMEEVENT_CONTROL_CLICK)
+        call BlzFrameSetVisible(frame3, false)
+
+        // Minimal split panel (stub): info text + accept button
+        set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
+        call BlzFrameSetLevel(frame2, 12)
+        call BlzFrameSetSize(frame2, 0.16, 0.09)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_CENTER, panel, FRAMEPOINT_CENTER, 0.0, 0.0)
+
+        set frame3 = BlzCreateFrameByType("TEXT", "TasItemBagSplitInfo", frame2, "", 0)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_TOPLEFT, 0.01, -0.01)
+        call BlzFrameSetText(frame3, "Split amount UI (todo)")
+
+        set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame, 0.08, 0.03)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOM, frame2, FRAMEPOINT_BOTTOM, 0.0, 0.01)
+        call BlzFrameSetText(frame, "ACCEPT")
+        call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
+
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
 
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
@@ -1281,6 +1385,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set TriggerUISwap = CreateTrigger()
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSwap)
+
+        set TriggerUISplit = CreateTrigger()
+        call TriggerAddAction(TriggerUISplit, function BagPopupActionSplit)
+
+        set TriggerUISplitAccept = CreateTrigger()
+        call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitAccept)
 
         // Hover tracking for slot buttons
         set TriggerUIHover = CreateTrigger()
