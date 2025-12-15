@@ -105,7 +105,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIHover
         public trigger TriggerUIPanelHover
         public trigger TriggerUIMouseUp
-        public trigger TriggerUIMouseDown
         public integer array LastHoveredIndex
         // Drag tracking: origin type 0:none, 1:inventory slot, 2:bag slot
         public integer array DragOriginType
@@ -880,34 +879,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call FrameLoseFocus()
         endif
     endfunction
-
-    // Track drag begin globally for inventory-origin drags
-    private function GlobalMouseDownAction takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
-        local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
-        local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
-        local integer bagHoverIndex
-        local string btnStr
-        local string panelStr
-        local integer calcIndex
-        // Ignore drags when bank panel is not open
-        if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
-            return
-        endif
-        // Diagnostics for right-click detection context
-        if btn == MOUSE_BUTTON_TYPE_RIGHT then
-            set btnStr = "RIGHT"
-        else
-            set btnStr = "LEFT"
-        endif
-        if PanelHover[pId] then
-            set panelStr = "true"
-        else
-            set panelStr = "false"
-        endif
-        call Debug("Global MOUSE_DOWN: pId=" + I2S(pId) + ", btn=" + btnStr + ", invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
-    endfunction
     
     private function WheelAction takes nothing returns nothing
         local boolean upwards = BlzGetTriggerFrameValue() > 0
@@ -1051,11 +1022,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
-    private function UnitDeathAction takes nothing returns nothing
-        // Global per-player bank: do not drop bank items on unit death.
-        // No action needed.
-    endfunction
-
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
         local integer itemCount = BagItem[pId].integer[0]
@@ -1180,14 +1146,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzGetFrameByName("TasItemBagSlotButtonOverLayText", buttonIndex)
             call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), "TasItemBagSlotButtonTooltip", buttonIndex, "")
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_CONTROL_CLICK)
-            // Register both mouse up and down to maximize right-click detection across patches
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_UP)
-            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
             // Also register mouse events on backdrop frames and the slot container to capture routed events
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_UP)
-            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
             call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_UP)
-            call BlzTriggerRegisterFrameEvent(TriggerUIBagButton, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_DOWN)
             // Track hover to know which slot is under the cursor for global mouse
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
@@ -1350,11 +1312,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TriggerRegisterAnyUnitEventBJ(TriggerItemUse, EVENT_PLAYER_UNIT_USE_ITEM)
         call TriggerAddAction(TriggerItemUse, function ItemUseAction)
 
-        set TriggerUnitDeath = CreateTrigger()
-        call TriggerRegisterAnyUnitEventBJ(TriggerUnitDeath, EVENT_PLAYER_UNIT_DEATH)
-        call TriggerAddAction(TriggerUnitDeath, function UnitDeathAction)
-
-
         set TriggerUIOpen = CreateTrigger()
         call TriggerAddAction(TriggerUIOpen, function ShowButtonAction)
 
@@ -1399,8 +1356,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Global mouse handlers (used for inventory deposit and diagnostics)
         set TriggerUIMouseUp = CreateTrigger()
         call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_UP, function GlobalMouseUpAction)
-        set TriggerUIMouseDown = CreateTrigger()
-        call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_DOWN, function GlobalMouseDownAction)
 
         // Note: Global mouse right-click detection removed for compatibility.
 

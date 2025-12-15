@@ -325,6 +325,7 @@ private function ItemBag2Equip takes unit u , item i returns nothing
     endif
     set EquipNow = false
 endfunction
+
 private function ItemEquip2Bag takes unit u , item i returns nothing
     call TasItemBagAddItem(u, i)
 endfunction
@@ -340,6 +341,7 @@ private function BagPopupActionDrop takes nothing returns nothing
     call TasItemBagRemoveIndex(Selected[pId], TransferIndex[pId], true)
     call FrameLoseFocus()
 endfunction
+
 private function BagPopupActionEquip takes nothing returns nothing
     local player p = GetTriggerPlayer()
     local integer pId = GetPlayerId(GetTriggerPlayer())
@@ -383,6 +385,7 @@ private function BagButtonAction takes nothing returns nothing
     endif
     call FrameLoseFocus()
 endfunction
+
 private function WheelAction takes nothing returns nothing
     local boolean upwards = BlzGetTriggerFrameValue() > 0
     if GetLocalPlayer() == GetTriggerPlayer() then
@@ -393,6 +396,7 @@ private function WheelAction takes nothing returns nothing
         endif
     endif
 endfunction
+
 private function CloseButtonAction takes nothing returns nothing
     local integer pId = GetPlayerId(GetTriggerPlayer())
     set SwapIndex[pId] = 0
@@ -404,6 +408,7 @@ private function CloseButtonAction takes nothing returns nothing
     endif
     call FrameLoseFocus()
 endfunction
+
 private function ShowButtonAction takes nothing returns nothing
     local integer pId = GetPlayerId(GetTriggerPlayer())
     set SwapIndex[pId] = 0
@@ -420,6 +425,7 @@ private function ShowButtonAction takes nothing returns nothing
     endif
     call FrameLoseFocus()
 endfunction
+
 private function SliderAction takes nothing returns nothing
     set Offset[GetPlayerId(GetTriggerPlayer())] = R2I(BlzGetTriggerFrameValue()*Cols)
 endfunction
@@ -429,11 +435,13 @@ private function SelectAction takes nothing returns nothing
     set Selected[pId] = GetTriggerUnit()
     set Offset[pId] = 0
 endfunction
+
 private function ESCAction takes nothing returns nothing
     if GetLocalPlayer() == GetTriggerPlayer() then
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
     endif
 endfunction
+
 private function ItemGainTimerAction takes nothing returns nothing
     loop
         exitwhen ItemGainTimerCount <= 0
@@ -443,6 +451,7 @@ private function ItemGainTimerAction takes nothing returns nothing
         set ItemGainTimerCount = ItemGainTimerCount - 1
     endloop
 endfunction
+
 private function ItemGainAction takes nothing returns nothing
     // dummies do not use the bag feature
     if IgnoreDummy and GetUnitAbilityLevel(GetTriggerUnit(), DummySkill) > 0 then 
@@ -471,6 +480,7 @@ private function ItemGainAction takes nothing returns nothing
         call TimerStart(ItemGainTimer, 0, false, function ItemGainTimerAction)
     endif
 endfunction
+
 private function ItemUseAction takes nothing returns nothing
     if IgnoreDummy and GetUnitAbilityLevel(GetTriggerUnit(), DummySkill) > 0 then 
         return
@@ -479,6 +489,7 @@ private function ItemUseAction takes nothing returns nothing
         call ItemEquip2Bag(GetTriggerUnit(), GetManipulatedItem())
     endif
 endfunction
+
 private function UnitDeathAction takes nothing returns nothing
     local unit u = GetTriggerUnit()
     local integer unitHandle = GetHandleId(u)
@@ -487,8 +498,6 @@ private function UnitDeathAction takes nothing returns nothing
     local boolean dropOnDeath
     local boolean canDropItems
 
-    
-    
     set loopA = BagItem[unitHandle].integer[0]
     if loopA > 0 then
         set dropOnDeath = DropsOnDeath(u)
@@ -513,6 +522,7 @@ private function UnitDeathAction takes nothing returns nothing
     set u = null
     set i = null
 endfunction
+
 private function UpdateUI takes nothing returns nothing
     local integer pId = GetPlayerId(GetLocalPlayer())
     local integer unitHandle = GetHandleId(Selected[pId])
@@ -713,6 +723,7 @@ private function InitFrames takes nothing returns nothing
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
     endfunction
+
     private function At0s takes nothing returns nothing
         local integer i
         set AbilityFieldDrop = ConvertAbilityIntegerLevelField('inv2')
@@ -739,7 +750,6 @@ private function InitFrames takes nothing returns nothing
         endloop
         
         call TriggerAddAction(TriggerESC, function ESCAction)
-
         
         set TriggerItemGain = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(TriggerItemGain, EVENT_PLAYER_UNIT_PICKUP_ITEM)
@@ -784,9 +794,9 @@ private function InitFrames takes nothing returns nothing
             call FrameLoaderAdd(function InitFrames)
         endif
     endfunction
+
     private function init_function takes nothing returns nothing
         set ItemGainTimer = CreateTimer()
         call TimerStart(ItemGainTimer, 0, false, function At0s)        
-
     endfunction
 endlibrary
