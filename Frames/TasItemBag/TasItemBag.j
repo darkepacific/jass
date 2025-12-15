@@ -735,7 +735,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if rawIdx > 0 then
             set LastHoveredIndex[pId] = rawIdx + Offset[pId]
             set PanelHover[pId] = true
-            call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
+            // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
                 call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "●")
@@ -907,10 +907,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set panelStr = "false"
         endif
         call Debug("Global MOUSE_DOWN: pId=" + I2S(pId) + ", btn=" + btnStr + ", invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
-        // Skip starting any drag on right-click down; popup/menu is handled on mouse up
-        if btn == MOUSE_BUTTON_TYPE_RIGHT then
-            return
-        endif
     endfunction
     
     private function WheelAction takes nothing returns nothing
