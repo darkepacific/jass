@@ -600,123 +600,123 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return idx
     endfunction
 
-    // private function BagButtonAction takes nothing returns nothing
-    //     local player p = GetTriggerPlayer()
-    //     local integer pId = GetPlayerId(GetTriggerPlayer())
-    //     local integer rawIndex = 0
-    //     local integer bagIndex
-    //     local string frameSrc
-    //     local unit hero
-    //     local item it
-    //     local mousebuttontype mouseButton
-    //     local frameeventtype evt = BlzGetTriggerFrameEvent()
-    //     local integer targetIndex
-    //     local string btnStr
-    //     local string evtStr
-    //     local string dragStr
-    //     local integer itemCharges
-    //     local itemtype itemType
+    private function BagButtonAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(GetTriggerPlayer())
+        local integer rawIndex = 0
+        local integer bagIndex
+        local string frameSrc
+        local unit hero
+        local item it
+        local mousebuttontype mouseButton
+        local frameeventtype evt = BlzGetTriggerFrameEvent()
+        local integer targetIndex
+        local string btnStr
+        local string evtStr
+        local string dragStr
+        local integer itemCharges
+        local itemtype itemType
 
-    //     call Debug("BagButtonAction triggered")
-    //     // Try to read numeric text first; if empty, resolve by frame handle
-    //     if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
-    //         set rawIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
-    //         set frameSrc = "Button(text)"
-    //     else
-    //         set rawIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
-    //         // Identify which frame type matched for better diagnostics
-    //         if BlzGetTriggerFrame() == BlzGetFrameByName("TasItemBagSlotButtonBackdrop", rawIndex) then
-    //             set frameSrc = "Backdrop"
-    //         elseif BlzGetTriggerFrame() == BlzGetFrameByName("TasItemBagSlot", rawIndex) then
-    //             set frameSrc = "Slot"
-    //         else
-    //             set frameSrc = "Button(handle)"
-    //         endif
-    //     endif
-    //     set bagIndex = rawIndex + Offset[pId]
-    //     set hero = udg_Heroes[GetPlayerNumber(p)]
-    //     if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
-    //         set hero = null
-    //         return
-    //     endif
+        call Debug("BagButtonAction triggered")
+        // Try to read numeric text first; if empty, resolve by frame handle
+        if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
+            set rawIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
+            set frameSrc = "Button(text)"
+        else
+            set rawIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
+            // Identify which frame type matched for better diagnostics
+            if BlzGetTriggerFrame() == BlzGetFrameByName("TasItemBagSlotButtonBackdrop", rawIndex) then
+                set frameSrc = "Backdrop"
+            elseif BlzGetTriggerFrame() == BlzGetFrameByName("TasItemBagSlot", rawIndex) then
+                set frameSrc = "Slot"
+            else
+                set frameSrc = "Button(handle)"
+            endif
+        endif
+        set bagIndex = rawIndex + Offset[pId]
+        set hero = udg_Heroes[GetPlayerNumber(p)]
+        if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
+            set hero = null
+            return
+        endif
 
-    //     // Mouse UP: handle quick equip on right-click, popup on left-click
-    //     if evt == FRAMEEVENT_MOUSE_UP then
-    //         set mouseButton = BlzGetTriggerPlayerMouseButton()
-    //         if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-    //             set btnStr = "RIGHT"
-    //         else
-    //             set btnStr = "LEFT"
-    //         endif
-    //         set evtStr = "MOUSE_UP"
-    //         call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
-    //         // Quick equip on right-click
-    //         if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-    //             if rawIndex <= 0 then
-    //                 set targetIndex = ResolveBagIndexFromMouse()
-    //                 if targetIndex > 0 then
-    //                     set rawIndex = targetIndex
-    //                     set bagIndex = rawIndex + Offset[pId]
-    //                 endif
-    //             endif
-    //             if rawIndex > 0 then
-    //                 set it = BagItem[pId].item[bagIndex]
-    //                 if it != null then
-    //                     call Debug("Withdraw (right-click): bag index " + I2S(bagIndex))
-    //                     call ItemBag2Equip(p, it)
-    //                 endif
-    //             endif
-    //             // Show popup on left-click
-    //         else
-    //             if rawIndex <= 0 then
-    //                 set targetIndex = ResolveBagIndexFromMouse()
-    //                 if targetIndex > 0 then
-    //                     set rawIndex = targetIndex
-    //                     set bagIndex = rawIndex + Offset[pId]
-    //                 endif
-    //             endif
-    //             if rawIndex > 0 then
-    //                 set TransferIndex[pId] = bagIndex
-    //                 set TransferItem[pId] = BagItem[pId].item[bagIndex]
-    //                 if TransferItem[pId] != null then
-    //                     if GetLocalPlayer() == p then
-    //                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-    //                         call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
-    //                         call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
+        // Mouse UP: handle quick equip on right-click, popup on left-click
+        if evt == FRAMEEVENT_MOUSE_UP then
+            set mouseButton = BlzGetTriggerPlayerMouseButton()
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                set btnStr = "RIGHT"
+            else
+                set btnStr = "LEFT"
+            endif
+            set evtStr = "MOUSE_UP"
+            call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
+            // Quick equip on right-click
+            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
+                if rawIndex <= 0 then
+                    set targetIndex = ResolveBagIndexFromMouse()
+                    if targetIndex > 0 then
+                        set rawIndex = targetIndex
+                        set bagIndex = rawIndex + Offset[pId]
+                    endif
+                endif
+                if rawIndex > 0 then
+                    set it = BagItem[pId].item[bagIndex]
+                    if it != null then
+                        call Debug("Withdraw (right-click): bag index " + I2S(bagIndex))
+                        call ItemBag2Equip(p, it)
+                    endif
+                endif
+                // Show popup on left-click
+            else
+                if rawIndex <= 0 then
+                    set targetIndex = ResolveBagIndexFromMouse()
+                    if targetIndex > 0 then
+                        set rawIndex = targetIndex
+                        set bagIndex = rawIndex + Offset[pId]
+                    endif
+                endif
+                if rawIndex > 0 then
+                    set TransferIndex[pId] = bagIndex
+                    set TransferItem[pId] = BagItem[pId].item[bagIndex]
+                    if TransferItem[pId] != null then
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
+                            call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
+                            call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
 
-    //                         set itemCharges = GetItemCharges(TransferItem[pId])
-    //                         set itemType = GetItemType(TransferItem[pId])
-    //                         if itemType == ITEM_TYPE_CHARGED then
-    //                             call Debug("Popup item check: CHARGED, charges=" + I2S(itemCharges))
-    //                             if itemCharges > 1 then
-    //                                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
-    //                             endif
-    //                         else
-    //                             call Debug("Popup item check: NOT CHARGED, charges=" + I2S(itemCharges))
-    //                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
-    //                         endif
+                            set itemCharges = GetItemCharges(TransferItem[pId])
+                            set itemType = GetItemType(TransferItem[pId])
+                            if itemType == ITEM_TYPE_CHARGED then
+                                call Debug("Popup item check: CHARGED, charges=" + I2S(itemCharges))
+                                if itemCharges > 1 then
+                                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
+                                endif
+                            else
+                                call Debug("Popup item check: NOT CHARGED, charges=" + I2S(itemCharges))
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
+                            endif
                             
-    //                     endif
-    //                 endif
-    //             endif
-    //         endif
-    //         // CONTROL_CLICK: keep swap finalize behavior when menu triggers a swap mode
-    //     elseif evt == FRAMEEVENT_CONTROL_CLICK then
-    //         if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
-    //             call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
-    //             call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
-    //             set SwapIndex[pId] = 0
-    //             if GetLocalPlayer() == p then
-    //                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-    //                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-    //             endif
-    //         endif
-    //     endif
+                        endif
+                    endif
+                endif
+            endif
+            // CONTROL_CLICK: keep swap finalize behavior when menu triggers a swap mode
+        elseif evt == FRAMEEVENT_CONTROL_CLICK then
+            if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
+                call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
+                call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
+                set SwapIndex[pId] = 0
+                if GetLocalPlayer() == p then
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                endif
+            endif
+        endif
 
-    //     set it = null
-    //     set hero = null
-    //     call FrameLoseFocus()
-    // endfunction
+        set it = null
+        set hero = null
+        call FrameLoseFocus()
+    endfunction
 
     // Record last hovered slot index per player to support global right-click
     private function HoverAction takes nothing returns nothing
@@ -1344,8 +1344,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUIClose = CreateTrigger()
         call TriggerAddAction(TriggerUIClose, function CloseButtonAction)
 
-        // set TriggerUIBagButton = CreateTrigger()
-        // call TriggerAddAction(TriggerUIBagButton, function BagButtonAction)
+        set TriggerUIBagButton = CreateTrigger()
+        call TriggerAddAction(TriggerUIBagButton, function BagButtonAction)
 
         set TriggerUISlider = CreateTrigger()
         call TriggerAddAction(TriggerUISlider, function SliderAction)
