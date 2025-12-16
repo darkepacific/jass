@@ -19,7 +19,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     */
     globals
-        private real PosX = 0.4
+        private real PosX = 0.6//0.4
         private real PosY = 0.30
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
@@ -764,14 +764,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
-        call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
+        // call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
     // Panel hover leave: mark outside panel
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
-        call Debug("PanelHover LEAVE: player " + I2S(pId) + ", PanelHover=false")
+        call Debug("PanelHover LEAVE")
     endfunction
 
     // Global mouse up handler: right-click = withdraw, left-click = popup
@@ -785,10 +785,19 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer bagIndex
         local item bi
         local boolean didSomething = false
+        local string panelStr
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
         endif
+
+        if PanelHover[pId] then
+            set panelStr = "true"
+        else
+            set panelStr = "false"
+        endif
+        call Debug("Global MOUSE_UP: invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
+
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
             // Always hide the popup on any right-click while the bag UI is open
             if GetLocalPlayer() == p then
