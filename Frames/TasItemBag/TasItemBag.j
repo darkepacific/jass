@@ -640,34 +640,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Mouse UP: handle quick equip on right-click, popup on left-click
-        if evt == FRAMEEVENT_MOUSE_UP then
-            set mouseButton = BlzGetTriggerPlayerMouseButton()
-            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-                set btnStr = "RIGHT"
-            else
-                set btnStr = "LEFT"
-            endif
-            set evtStr = "MOUSE_UP"
-            call Debug("BagButton " + evtStr + ": pId=" + I2S(pId) + ", src=" + frameSrc + ", btn=" + btnStr + ", rawIndex=" + I2S(rawIndex) + ", bagIndex=" + I2S(bagIndex))
-            // Quick equip on right-click
-            if mouseButton == MOUSE_BUTTON_TYPE_RIGHT then
-                if rawIndex <= 0 then
-                    set targetIndex = ResolveBagIndexFromMouse()
-                    if targetIndex > 0 then
-                        set rawIndex = targetIndex
-                        set bagIndex = rawIndex + Offset[pId]
-                    endif
+        if evt == FRAMEEVENT_CONTROL_CLICK then
+            // If we're in swap mode, finalize swap on click.
+            if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
+                call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
+                call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
+                set SwapIndex[pId] = 0
+                if GetLocalPlayer() == p then
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
                 endif
-                if rawIndex > 0 then
-                    set it = BagItem[pId].item[bagIndex]
-                    if it != null then
-                        call Debug("Withdraw (right-click): bag index " + I2S(bagIndex))
-                        call ItemBag2Equip(p, it)
-                    endif
-                endif
-                // Show popup on left-click
             else
+                // Normal left-click: open popup for the clicked slot (if it contains an item)
                 if rawIndex <= 0 then
                     set targetIndex = ResolveBagIndexFromMouse()
                     if targetIndex > 0 then
@@ -684,31 +668,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
                             call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
 
+                            // Split button only for charged items with charges > 1
                             set itemCharges = GetItemCharges(TransferItem[pId])
                             set itemType = GetItemType(TransferItem[pId])
-                            if itemType == ITEM_TYPE_CHARGED then
-                                call Debug("Popup item check: CHARGED, charges=" + I2S(itemCharges))
-                                if itemCharges > 1 then
-                                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
-                                endif
+                            if itemType == ITEM_TYPE_CHARGED and itemCharges > 1 then
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
                             else
-                                call Debug("Popup item check: NOT CHARGED, charges=" + I2S(itemCharges))
                                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
                             endif
-                            
                         endif
                     endif
-                endif
-            endif
-            // CONTROL_CLICK: keep swap finalize behavior when menu triggers a swap mode
-        elseif evt == FRAMEEVENT_CONTROL_CLICK then
-            if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
-                call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
-                call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
-                set SwapIndex[pId] = 0
-                if GetLocalPlayer() == p then
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
                 endif
             endif
         endif
@@ -835,66 +804,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             endif
             // If the click was not on inventory or bag, do nothing (let it be a move order, etc.)
-            if not didSomething then
-                return
-            endif
-            // Reset drag only when we actually handled the click
-            set DragOriginType[pId] = 0
-            set DragOriginIndex[pId] = 0
-            set DragActive[pId] = false
-            call FrameLoseFocus()
-        elseif btn == MOUSE_BUTTON_TYPE_LEFT then
-            // Left-click: show popup when over bag; handle swaps/drops
-            if PanelHover[pId] then
-                set rawIdx = ResolveBagIndexFromMouse()
-                if rawIdx <= 0 and targetIndex > 0 then
-                    set bagIndex = targetIndex
-                    set rawIdx = bagIndex - Offset[pId]
-                else
-                    set bagIndex = rawIdx + Offset[pId]
-                endif
-                if rawIdx > 0 and rawIdx <= Cols * Rows then
-                    set bi = BagItem[pId].item[bagIndex]
-                    if bi != null then
-                        set TransferIndex[pId] = bagIndex
-                        set TransferItem[pId] = bi
-                        if GetLocalPlayer() == p then
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
-                            call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
-                            call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIdx), FRAMEPOINT_TOPRIGHT, 0.004, 0)
-                            
-                            set itemCharges = GetItemCharges(TransferItem[pId])
-                            set itemType = GetItemType(TransferItem[pId])
-                            if itemType == ITEM_TYPE_CHARGED then
-                                call Debug("Popup item check: CHARGED, charges=" + I2S(itemCharges))
-                                if itemCharges > 1 then
-                                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
-                                endif
-                            else
-                                call Debug("Popup item check: NOT CHARGED, charges=" + I2S(itemCharges))
-                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
-                            endif
-                        
-                        endif
-                        call Debug("Popup (global left-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                        set didSomething = true
-                    else
-                        call Debug("Popup suppressed: empty at bagIndex=" + I2S(bagIndex))
-                    endif
-                endif
-            elseif DragOriginType[pId] == 2 and DragOriginIndex[pId] > 0 then
-                if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                    // Left-click release over inventory does nothing for bag-origin drags
-                elseif targetIndex > 0 and targetIndex != DragOriginIndex[pId] then
-                    call Debug("Swap: bag " + I2S(DragOriginIndex[pId]) + " <-> " + I2S(targetIndex))
-                    call TasItemBagSwap(Selected[pId], DragOriginIndex[pId], targetIndex)
-                    set didSomething = true
-                elseif not PanelHover[pId] then
-                    call Debug("Drop: bag index " + I2S(DragOriginIndex[pId]))
-                    call TasItemBagRemoveIndex(Selected[pId], DragOriginIndex[pId], true)
-                    set didSomething = true
-                endif
-            endif
             if not didSomething then
                 return
             endif
