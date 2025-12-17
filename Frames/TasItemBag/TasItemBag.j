@@ -124,6 +124,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Split UI state (per-player)
         public integer array SplitRequested
+        public integer array SplitAmount
 
         private unit array ItemGainTimerUnit
         private timer ItemGainTimer
@@ -525,25 +526,188 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPopupActionSplit takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
+        local item it
+        local integer charges
         if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             // For now: open the (stub) split panel. No actual splitting logic yet.
             set SplitRequested[pId] = TransferIndex[pId]
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), true)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split amount UI (todo)")
+                set it = TransferItem[pId]
+                if it != null then
+                    set charges = GetItemCharges(it)
+                    if charges < 2 then
+                        set SplitAmount[pId] = 1
+                    else
+                        set SplitAmount[pId] = charges / 2
+                        if SplitAmount[pId] < 1 then
+                            set SplitAmount[pId] = 1
+                        endif
+                        if SplitAmount[pId] >= charges then
+                            set SplitAmount[pId] = charges - 1
+                        endif
+                    endif
+                else
+                    set SplitAmount[pId] = 1
+                endif
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
             endif
         endif
+        set it = null
         call FrameLoseFocus()
     endfunction
 
     private function BagPopupActionSplitAccept takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        // Stub: just close the split panel.
+        local item src
+        local item newItem
+        local integer total
+        local integer take
+        local integer remain
+        local integer playerKey
+        // Perform split: move "take" charges into a new bank item.
+        set src = TransferItem[pId]
+        if src == null or SplitRequested[pId] <= 0 then
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            set SplitRequested[pId] = 0
+            set SplitAmount[pId] = 0
+            call FrameLoseFocus()
+            return
+        endif
+        set total = GetItemCharges(src)
+        if total < 2 then
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            set SplitRequested[pId] = 0
+            set SplitAmount[pId] = 0
+            call FrameLoseFocus()
+            return
+        endif
+        set take = SplitAmount[pId]
+        if take < 1 then
+            set take = 1
+        endif
+        if take >= total then
+            set take = total - 1
+        endif
+        // Respect bank stacking cap of 20 charges.
+        if take > 20 then
+            set take = 20
+        endif
+
+        set remain = total - take
+        if remain < 1 then
+            set remain = 1
+            set take = total - 1
+        endif
+
+        // Ensure bank has room for a new item (or stacking will absorb it).
+        set playerKey = GetPlayerId(p)
+        if BagItem[playerKey].integer[0] >= ItemBagSize then
+            call ErrorMessage("Bank is full.", p)
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            set SplitRequested[pId] = 0
+            set SplitAmount[pId] = 0
+            call FrameLoseFocus()
+            return
+        endif
+
+        // Update source item charges (stays in bank).
+        call SetItemCharges(src, remain)
+
+        // Create a new item of same type and add it to the bank.
+        set newItem = CreateItem(GetItemTypeId(src), GetUnitX(udg_Heroes[GetPlayerNumber(p)]), GetUnitY(udg_Heroes[GetPlayerNumber(p)]))
+        call SetItemCharges(newItem, take)
+        call TasItemBagAddItem(udg_Heroes[GetPlayerNumber(p)], newItem)
+        set newItem = null
+
+        // Close split + popup
+        if GetLocalPlayer() == p then
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+        endif
+        set SplitRequested[pId] = 0
+        set SplitAmount[pId] = 0
+        set src = null
+        call FrameLoseFocus()
+    endfunction
+
+    private function BagPopupActionSplitMinus takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        local item it = TransferItem[pId]
+        local integer total
+        if GetLocalPlayer() != p then
+            set it = null
+            return
+        endif
+        if it == null then
+            set SplitAmount[pId] = 1
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
+            set it = null
+            return
+        endif
+        set total = GetItemCharges(it)
+        if total < 2 then
+            set SplitAmount[pId] = 1
+        else
+            set SplitAmount[pId] = SplitAmount[pId] - 1
+            if SplitAmount[pId] < 1 then
+                set SplitAmount[pId] = 1
+            endif
+            if SplitAmount[pId] >= total then
+                set SplitAmount[pId] = total - 1
+            endif
+        endif
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
+        set it = null
+    endfunction
+
+    private function BagPopupActionSplitPlus takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        local item it = TransferItem[pId]
+        local integer total
+        if GetLocalPlayer() != p then
+            set it = null
+            return
+        endif
+        if it == null then
+            set SplitAmount[pId] = 1
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
+            set it = null
+            return
+        endif
+        set total = GetItemCharges(it)
+        if total < 2 then
+            set SplitAmount[pId] = 1
+        else
+            set SplitAmount[pId] = SplitAmount[pId] + 1
+            if SplitAmount[pId] >= total then
+                set SplitAmount[pId] = total - 1
+            endif
+            if SplitAmount[pId] > 20 then
+                set SplitAmount[pId] = 20
+            endif
+        endif
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
+        set it = null
+    endfunction
+
+    private function BagPopupActionSplitCancel takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
         set SplitRequested[pId] = 0
+        set SplitAmount[pId] = 0
         call FrameLoseFocus()
     endfunction
 
@@ -1176,20 +1340,38 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame3, FRAMEEVENT_CONTROL_CLICK)
         call BlzFrameSetVisible(frame3, false)
 
-        // Minimal split panel (stub): info text + accept button
+        // Split panel: info text + - / + / accept / cancel
         set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
         call BlzFrameSetLevel(frame2, 12)
-        call BlzFrameSetSize(frame2, 0.16, 0.09)
+        call BlzFrameSetSize(frame2, 0.18, 0.11)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_CENTER, panel, FRAMEPOINT_CENTER, 0.0, 0.0)
 
         set frame3 = BlzCreateFrameByType("TEXT", "TasItemBagSplitInfo", frame2, "", 0)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_TOPLEFT, 0.01, -0.01)
         call BlzFrameSetText(frame3, "Split amount UI (todo)")
 
+        set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitMinus", frame2, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame, 0.03, 0.03)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.01, 0.01)
+        call BlzFrameSetText(frame, "-")
+        call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame, FRAMEEVENT_CONTROL_CLICK)
+
+        set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitPlus", frame2, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame, 0.03, 0.03)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, BlzGetFrameByName("TasItemBagSplitMinus", 0), FRAMEPOINT_BOTTOMRIGHT, 0.005, 0.0)
+        call BlzFrameSetText(frame, "+")
+        call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame, FRAMEEVENT_CONTROL_CLICK)
+
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame, 0.08, 0.03)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOM, frame2, FRAMEPOINT_BOTTOM, 0.0, 0.01)
-        call BlzFrameSetText(frame, "ACCEPT")
+        call BlzFrameSetSize(frame, 0.06, 0.03)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.01, 0.01)
+        call BlzFrameSetText(frame, "OK")
+        call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
+
+        set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitCancel", frame2, "ScriptDialogButton", 0)
+        call BlzFrameSetSize(frame, 0.06, 0.03)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.005, 0.0)
+        call BlzFrameSetText(frame, "CANCEL")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
 
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -1277,6 +1459,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set TriggerUISplitAccept = CreateTrigger()
         call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitAccept)
+        call TriggerAddAction(TriggerUISplit, function BagPopupActionSplitMinus)
+        call TriggerAddAction(TriggerUISplit, function BagPopupActionSplitPlus)
+        call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitCancel)
 
         // Hover tracking for slot buttons
         set TriggerUIHover = CreateTrigger()
