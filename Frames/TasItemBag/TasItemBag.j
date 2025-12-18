@@ -102,6 +102,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUISwap
         public trigger TriggerUISplit
         public trigger TriggerUISplitAccept
+        public trigger TriggerUISplitMinus
+        public trigger TriggerUISplitPlus
+        public trigger TriggerUISplitCancel
         public trigger TriggerUIHover
         public trigger TriggerUIPanelHover
         public trigger TriggerUIMouseUp
@@ -535,6 +538,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 // Hide the popup menu while splitting to avoid click-through/interference
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), true)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitMinus", 0), true)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPlus", 0), true)
                 set it = TransferItem[pId]
                 if it != null then
                     set charges = GetItemCharges(it)
@@ -1349,24 +1354,33 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Ensure split panel is above popup menu and captures clicks
         call BlzFrameSetLevel(frame2, 20)
         call BlzFrameSetSize(frame2, 0.28, 0.18)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_CENTER, panel, FRAMEPOINT_CENTER, 0.0, 0.0)
+        // Place the split panel clearly to the LEFT of the bag panel.
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.06, 0.0)
 
         set frame3 = BlzCreateFrameByType("TEXT", "TasItemBagSplitInfo", frame2, "", 0)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOP, frame2, FRAMEPOINT_TOP, 0.0, -0.02)
         call BlzFrameSetText(frame3, "Split amount UI (todo)")
 
+        // +/- buttons: use GLUETEXTBUTTON (text rendering is more consistent) + a solid backdrop behind.
+        set frame3 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitMinusBg", frame2, "EscMenuBackdrop", 0)
+        call BlzFrameSetSize(frame3, 0.055, 0.045)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.02, 0.02)
+
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitMinus", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.05, 0.04)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.02, 0.02)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_CENTER, frame3, FRAMEPOINT_CENTER, 0.0, 0.0)
         call BlzFrameSetText(frame, "-")
-        call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(TriggerUISplitMinus, frame, FRAMEEVENT_CONTROL_CLICK)
+
+        set frame3 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPlusBg", frame2, "EscMenuBackdrop", 0)
+        call BlzFrameSetSize(frame3, 0.055, 0.045)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.09, 0.02)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitPlus", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.05, 0.04)
-        // Anchor directly to the split panel to guarantee visibility
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.09, 0.02)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_CENTER, frame3, FRAMEPOINT_CENTER, 0.0, 0.0)
         call BlzFrameSetText(frame, "+")
-        call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(TriggerUISplitPlus, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.08, 0.04)
@@ -1378,7 +1392,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetSize(frame, 0.10, 0.04)
         call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.01, 0.0)
         call BlzFrameSetText(frame, "CANCEL")
-        call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(TriggerUISplitCancel, frame, FRAMEEVENT_CONTROL_CLICK)
 
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
 
@@ -1465,9 +1479,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set TriggerUISplitAccept = CreateTrigger()
         call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitAccept)
-        call TriggerAddAction(TriggerUISplit, function BagPopupActionSplitMinus)
-        call TriggerAddAction(TriggerUISplit, function BagPopupActionSplitPlus)
-        call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitCancel)
+
+        set TriggerUISplitMinus = CreateTrigger()
+        call TriggerAddAction(TriggerUISplitMinus, function BagPopupActionSplitMinus)
+
+        set TriggerUISplitPlus = CreateTrigger()
+        call TriggerAddAction(TriggerUISplitPlus, function BagPopupActionSplitPlus)
+
+        set TriggerUISplitCancel = CreateTrigger()
+        call TriggerAddAction(TriggerUISplitCancel, function BagPopupActionSplitCancel)
 
         // Hover tracking for slot buttons
         set TriggerUIHover = CreateTrigger()
