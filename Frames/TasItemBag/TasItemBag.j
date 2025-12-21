@@ -386,7 +386,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // loop all items in the bag and remove it if found
         loop
             exitwhen loopA <= 0
-            if BagItem[playerKey].item[loopA] == i then
+            if BagItem[playerKey].item[loopA] != null and BagItem[playerKey].item[loopA] == i then
                 call TasItemBagRemoveIndex(u, loopA, drop)
                 return true
             endif
@@ -566,8 +566,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
+            // Stable slots: remove by item handle to avoid index mismatches.
+            call TasItemBagRemoveItem(Selected[pId], TransferItem[pId], true)
         endif
-        call TasItemBagRemoveIndex(Selected[pId], TransferIndex[pId], true)
         call FrameLoseFocus()
     endfunction
 
@@ -964,7 +965,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer btnIndex
         local integer rawIdx
 
-        call Debug("HoverAction triggered")
+        // call Debug("HoverAction triggered")
         // Prefer numeric text when present (slot button), else resolve by frame handle (backdrop/container)
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -990,7 +991,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local integer btnIndex
 
-        call Debug("HoverLeaveAction triggered")
+        // call Debug("HoverLeaveAction triggered")
         // Clear overlay text if leaving the button; do not flip PanelHover here
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -1008,7 +1009,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
-        call Debug("BagPanelEnterAction ENTER")
+        // call Debug("BagPanelEnterAction ENTER")
         // call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
@@ -1016,7 +1017,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
-        call Debug("BagPanelLeaveAction LEAVE")
+        // call Debug("BagPanelLeaveAction LEAVE")
     endfunction
 
     // Global mouse up handler: right-click = withdraw, left-click = popup
@@ -1529,7 +1530,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
         // Ensure split panel is above popup menu and captures clicks
         call BlzFrameSetLevel(frame2, 20)
-        call BlzFrameSetSize(frame2, 0.2, 0.14)
+        call BlzFrameSetSize(frame2, 0.17, 0.14)
         // Place the split panel clearly to the LEFT of the bag panel.
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.04, 0.0)
 
@@ -1541,13 +1542,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // +/- buttons: no BACKDROP (removes the annoying EscMenuBackdrop border).
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitMinus", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.035, 0.035)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.035, 0.05)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.04, 0.055)
         call BlzFrameSetText(frame, "-")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitMinus, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitPlus", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.035, 0.035)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.125, 0.05)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.13, 0.055)
         call BlzFrameSetText(frame, "+")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitPlus, frame, FRAMEEVENT_CONTROL_CLICK)
 
