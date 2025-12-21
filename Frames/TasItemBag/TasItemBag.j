@@ -82,12 +82,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public Table ItemIsInBag
         public HashTable BagItem
 
-        // Reverse map: item handle id -> backing index in BagItem[playerKey].item[]
-        private Table BagIndexOfItem
-
-        // Stable slot mode: BagItem[p].integer[0] is treated as capacity (highest used index)
-        // and BagItem[p].integer[1] tracks the smallest free index (min-hole) for faster inserts.
-
         private abilityintegerlevelfield AbilityFieldDrop
         private abilityintegerlevelfield AbilityFieldUse
         private abilityintegerlevelfield AbilityFieldCanDrop
@@ -179,8 +173,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer remaining
         local integer maxCharges
         local integer space
-        local integer cap
-        local integer free
         // Move banked items to the island and mark with custom value > 0
         call SetItemPositionLoc(i, itemIsland)
         call SetItemUserData(i, 1)
@@ -247,50 +239,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call SetItemCharges(i, incomingCharges)
         endif
 
-        if not ItemIsInBag.boolean[GetHandleId(i)] then
-            // Count-based fullness does not work with holes; use capacity + next-free scan.
-            set cap = BagItem[playerKey].integer[0]
-            set free = BagItem[playerKey].integer[1]
-            if free <= 0 then
-                set free = 1
-            endif
-            // Ensure free points at an actually empty slot.
-            loop
-                exitwhen free > cap or BagItem[playerKey].item[free] == null
-                set free = free + 1
-            endloop
-            // If we ran past current capacity, we append at cap+1.
-            if free > cap then
-                set free = cap + 1
-            endif
-            // Enforce max bag size.
-            if free > ItemBagSize then
-                // Bag full
-                call RemoveLocation(itemIsland)
-                return
-            endif
-
-            // Insert
-            if free > cap then
-                set BagItem[playerKey].integer[0] = free
-                set cap = free
-            endif
+        if not ItemIsInBag.boolean[GetHandleId(i)] and BagItem[playerKey].integer[0] < ItemBagSize then
+            set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] + 1
             set ItemIsInBag.boolean[GetHandleId(i)] = true
             call SetItemVisible(i, false)
-            set BagItem[playerKey].item[free] = i
-            set BagIndexOfItem.integer[GetHandleId(i)] = free
-
-            // Update min-hole pointer to the next empty slot.
-            set free = free + 1
-            loop
-                exitwhen free > cap or BagItem[playerKey].item[free] == null
-                set free = free + 1
-            endloop
-            if free > cap then
-                set BagItem[playerKey].integer[1] = cap + 1
-            else
-                set BagItem[playerKey].integer[1] = free
-            endif
+            set BagItem[playerKey].item[BagItem[playerKey].integer[0]] = i
         elseif ItemIsInBag.boolean[GetHandleId(i)] then
             call SetItemVisible(i, false)
         endif
@@ -320,8 +273,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetHandleId(i) > 0 and GetHandleId(i2) > 0 then
             set BagItem[playerKey].item[indexB] = i
             set BagItem[playerKey].item[indexA] = i2
-            set BagIndexOfItem.integer[GetHandleId(i)] = indexB
-            set BagIndexOfItem.integer[GetHandleId(i2)] = indexA
             set i = null
             set i2 = null
             return true
@@ -335,40 +286,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local item i
         local integer playerKey = BankKeyForUnit(u)
         local location dropSpot = GetUnitLoc(u)
-        local integer cap
         if BagItem[playerKey].integer[0] <= 0 then
             return false
         endif
-        set cap = BagItem[playerKey].integer[0]
-        if index <= 0 or index > cap then
-            return false
-        endif
+    
         set i = BagItem[playerKey].item[index]
-        if i == null then
-            return false
-        endif
-
-        // Stable slot removal: leave a hole.
-        set BagItem[playerKey].item[index] = null
-        set BagIndexOfItem.integer[GetHandleId(i)] = 0
-        // Maintain min-hole pointer.
-        if BagItem[playerKey].integer[1] <= 0 or index < BagItem[playerKey].integer[1] then
-            set BagItem[playerKey].integer[1] = index
-        endif
-
-        // If we removed from the end, shrink capacity while the tail is empty.
-        if index == cap then
-            loop
-                exitwhen cap <= 0 or BagItem[playerKey].item[cap] != null
-                set cap = cap - 1
-            endloop
-            set BagItem[playerKey].integer[0] = cap
-            // If min-hole is beyond cap, reset it to cap+1.
-            if BagItem[playerKey].integer[1] > cap then
-                set BagItem[playerKey].integer[1] = cap + 1
-            endif
-        endif
-
+        set BagItem[playerKey].item[index] = BagItem[playerKey].item[BagItem[playerKey].integer[0]]
+        set BagItem[playerKey].item[BagItem[playerKey].integer[0]] = null
+        set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] - 1   
         set ItemIsInBag.boolean[GetHandleId(i)] = false
         if drop and GetHandleId(i) > 0 then
             // Place dropped-from-bank items on the island and mark them to avoid cleanup
@@ -386,11 +311,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     function TasItemBagRemoveItem takes unit u, item i, boolean drop returns boolean
         local integer playerKey = BankKeyForUnit(u)
-        local integer idx
-        set idx = BagIndexOfItem.integer[GetHandleId(i)]
-        if idx > 0 then
-            return TasItemBagRemoveIndex(u, idx, drop)
+        local integer loopA = BagItem[playerKey].integer[0]
+        if loopA <= 0 then
+            return false
         endif
+        // loop all items in the bag and remove it if found
+        loop
+            exitwhen loopA <= 0
+            if BagItem[playerKey].item[loopA] == i then
+                call TasItemBagRemoveIndex(u, loopA, drop)
+                return true
+            endif
+            set loopA = loopA - 1
+        endloop
+
         return false
     endfunction
 
@@ -545,8 +479,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         set playerKey = GetPlayerId(p)
-        // Stable slots: capacity may be >= ItemBagSize even with holes; rely on min-hole.
-        if BagItem[playerKey].integer[1] > ItemBagSize and BagItem[playerKey].integer[0] >= ItemBagSize then
+        if BagItem[playerKey].integer[0] >= ItemBagSize then
             call ErrorMessage("Bank is full.", p)
             set it = null
             return
@@ -564,12 +497,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
-            // Stable slots: remove by item handle to avoid index mismatches.
-            call TasItemBagRemoveItem(Selected[pId], TransferItem[pId], true)
-            if GetLocalPlayer() == p then
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            endif
         endif
+        call TasItemBagRemoveIndex(Selected[pId], TransferIndex[pId], true)
         call FrameLoseFocus()
     endfunction
 
@@ -581,7 +510,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             endif
         endif
         call FrameLoseFocus()
@@ -688,7 +616,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Ensure bank has room for a new item (or stacking will absorb it).
         set playerKey = GetPlayerId(p)
-        if BagItem[playerKey].integer[1] > ItemBagSize and BagItem[playerKey].integer[0] >= ItemBagSize then
+        if BagItem[playerKey].integer[0] >= ItemBagSize then
             call ErrorMessage("Bank is full.", p)
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -785,9 +713,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
         if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            // Keep popup closed after cancel; user can re-open with a left-click
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
         set SplitRequested[pId] = 0
         set SplitAmount[pId] = 0
@@ -852,10 +779,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(GetTriggerPlayer())
         local integer rawIndex = 0
         local integer bagIndex
-        local integer cap
-        local integer scan
-        local integer toSkip
-        local integer backingIndex
         local string frameSrc
         local unit hero
         local item it
@@ -884,25 +807,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set frameSrc = "Button(handle)"
             endif
         endif
-        // With stable slots (holes), rawIndex/Offset refer to the Nth visible item, not the backing array index.
-        // Map (Offset + rawIndex - 1)-th non-null entry to its backing index.
-        set cap = BagItem[pId].integer[0]
-        set toSkip = Offset[pId] + rawIndex - 1
-        set backingIndex = 0
-        set scan = 1
-        loop
-            exitwhen scan > cap
-            if BagItem[pId].item[scan] != null then
-                if toSkip > 0 then
-                    set toSkip = toSkip - 1
-                else
-                    set backingIndex = scan
-                    exitwhen true
-                endif
-            endif
-            set scan = scan + 1
-        endloop
-        set bagIndex = backingIndex
+        set bagIndex = rawIndex + Offset[pId]
         set hero = udg_Heroes[GetPlayerNumber(p)]
         if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             set hero = null
@@ -930,11 +835,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
                 if rawIndex > 0 then
                     set TransferIndex[pId] = bagIndex
-                    if bagIndex > 0 then
-                        set TransferItem[pId] = BagItem[pId].item[bagIndex]
-                    else
-                        set TransferItem[pId] = null
-                    endif
+                    set TransferItem[pId] = BagItem[pId].item[bagIndex]
                     if TransferItem[pId] != null then
                         if GetLocalPlayer() == p then
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
@@ -967,7 +868,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer btnIndex
         local integer rawIdx
 
-        // call Debug("HoverAction triggered")
+        call Debug("HoverAction triggered")
         // Prefer numeric text when present (slot button), else resolve by frame handle (backdrop/container)
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -977,8 +878,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set btnIndex = rawIdx
         endif
         if rawIdx > 0 then
-            // With holes, rawIdx is the visible cell. Keep it as-is (do not add Offset).
-            set LastHoveredIndex[pId] = rawIdx
+            set LastHoveredIndex[pId] = rawIdx + Offset[pId]
             set PanelHover[pId] = true
             // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
@@ -994,7 +894,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local integer btnIndex
 
-        // call Debug("HoverLeaveAction triggered")
+        call Debug("HoverLeaveAction triggered")
         // Clear overlay text if leaving the button; do not flip PanelHover here
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -1012,7 +912,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
-        // call Debug("BagPanelEnterAction ENTER")
+        call Debug("BagPanelEnterAction ENTER")
         // call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
@@ -1020,7 +920,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
-        // call Debug("BagPanelLeaveAction LEAVE")
+        call Debug("BagPanelLeaveAction LEAVE")
     endfunction
 
     // Global mouse up handler: right-click = withdraw, left-click = popup
@@ -1032,9 +932,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
         local integer rawIdx
         local integer bagIndex
-        local integer cap
-        local integer scan
-        local integer toSkip
         local item bi
         local boolean didSomething = false
         local string panelStr
@@ -1068,31 +965,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             elseif PanelHover[pId] then
                 set rawIdx = ResolveBagIndexFromMouse()
-                if rawIdx <= 0 then
-                    set rawIdx = targetIndex
+                if rawIdx <= 0 and targetIndex > 0 then
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex - Offset[pId]
+                else
+                    set bagIndex = rawIdx + Offset[pId]
                 endif
-                // Map visible cell to backing index (stable slots)
                 if rawIdx > 0 and rawIdx <= Cols * Rows then
-                    set cap = BagItem[pId].integer[0]
-                    set toSkip = Offset[pId] + rawIdx - 1
-                    set bagIndex = 0
-                    set scan = 1
-                    loop
-                        exitwhen scan > cap
-                        if BagItem[pId].item[scan] != null then
-                            if toSkip > 0 then
-                                set toSkip = toSkip - 1
-                            else
-                                set bagIndex = scan
-                                exitwhen true
-                            endif
-                        endif
-                        set scan = scan + 1
-                    endloop
-                    set bi = null
-                    if bagIndex > 0 then
-                        set bi = BagItem[pId].item[bagIndex]
-                    endif
+                    set bi = BagItem[pId].item[bagIndex]
                     if bi != null then
                         call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
                         call ItemBag2Equip(p, bi)
@@ -1133,6 +1013,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetLocalPlayer() == GetTriggerPlayer() then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
         call FrameLoseFocus()
     endfunction
@@ -1161,11 +1042,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetLocalPlayer() == GetTriggerPlayer() then
             if ShowButtonCloses and BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             else
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             endif
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             // Quick Deposit: click handling disabled for now
             // set s = 0
             // loop
@@ -1258,8 +1139,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
-        local integer cap = BagItem[pId].integer[0]
-        local integer itemCount = 0
+        local integer itemCount = BagItem[pId].integer[0]
         local integer offset = Offset[pId]
         local integer max
         local integer itemCode
@@ -1267,8 +1147,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local string text = ""
         local integer dataIndex
         local integer i
-        local integer scan
-        local integer toSkip
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
             set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
@@ -1279,23 +1157,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), not ShowButtonNeedsInventory or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
-        // Count filled slots (holes supported)
-        set scan = 1
-        loop
-            exitwhen scan > cap
-            if BagItem[pId].item[scan] != null then
-                set itemCount = itemCount + 1
-            endif
-            set scan = scan + 1
-        endloop
-
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
 
         if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
 
             if itemCount > 0 then
 
-                // scroll by rows (based on filled count)
+                // scroll by rows
                 set max = IMaxBJ(0, (itemCount + Cols - Cols * Rows) / Cols)
             
                 call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, max)
@@ -1308,53 +1176,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set i = 1
             loop
                 exitwhen i > Cols * Rows
-                // Map visible grid index -> Nth filled item starting at (offset*Cols)
-                set toSkip = offset
-                set scan = 1
-                set dataIndex = 0
-                loop
-                    exitwhen scan > cap
-                    if BagItem[pId].item[scan] != null then
-                        if toSkip > 0 then
-                            set toSkip = toSkip - 1
-                        else
-                            set dataIndex = scan
-                            exitwhen true
-                        endif
-                    endif
-                    set scan = scan + 1
-                endloop
-
-                // Advance within the current page by (i-1)
-                if dataIndex != 0 then
-                    set toSkip = i - 1
-                    set scan = dataIndex
-                    loop
-                        exitwhen scan > cap or toSkip <= 0
-                        set scan = scan + 1
-                        if scan <= cap and BagItem[pId].item[scan] != null then
-                            set toSkip = toSkip - 1
-                        endif
-                    endloop
-                    // If we ran past cap, no item for this cell
-                    if scan > cap then
-                        set dataIndex = 0
-                    else
-                        // Ensure scan points at a filled slot
-                        loop
-                            exitwhen scan > cap or BagItem[pId].item[scan] != null
-                            set scan = scan + 1
-                        endloop
-                        if scan > cap then
-                            set dataIndex = 0
-                        else
-                            set dataIndex = scan
-                        endif
-                    endif
-                endif
-
-                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), dataIndex != 0)
-                if dataIndex != 0 then
+                set dataIndex = i + offset
+                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), dataIndex <= itemCount)
+                if dataIndex <= itemCount then
                     set it = BagItem[pId].item[dataIndex]
                     set itemCode = GetItemTypeId(it)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetAbilityIcon(itemCode), 0, true)
@@ -1532,7 +1356,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame3, FRAMEEVENT_CONTROL_CLICK)
         call BlzFrameSetVisible(frame3, false)
 
-        // Split panel: info text + - / + / accept / cancel
+         // Split panel: info text + - / + / accept / cancel
         set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
         // Ensure split panel is above popup menu and captures clicks
         call BlzFrameSetLevel(frame2, 20)
@@ -1542,7 +1366,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set frame3 = BlzCreateFrameByType("TEXT", "TasItemBagSplitInfo", frame2, "", 0)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOP, frame2, FRAMEPOINT_TOP, 0.0, -0.02)
-        call BlzFrameSetText(frame3, "|cffffcc00Split:|r")
+        call BlzFrameSetText(frame3, SplitLabelPrefix)
         call BlzFrameSetScale(frame3, 1.25)
 
         // +/- buttons: no BACKDROP (removes the annoying EscMenuBackdrop border).
@@ -1589,7 +1413,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         
         set ItemAbilityNeed = Table.create()
         set ItemIsInBag = Table.create()
-        set BagIndexOfItem = Table.create()
         
         set BagItem = HashTable.create()
         set TimerUpdate = CreateTimer()
@@ -1656,14 +1479,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUISplit = CreateTrigger()
         call TriggerAddAction(TriggerUISplit, function BagPopupActionSplit)
 
+        set TriggerUISplitAccept = CreateTrigger()
+        call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitAccept)
+
         set TriggerUISplitMinus = CreateTrigger()
         call TriggerAddAction(TriggerUISplitMinus, function BagPopupActionSplitMinus)
 
         set TriggerUISplitPlus = CreateTrigger()
         call TriggerAddAction(TriggerUISplitPlus, function BagPopupActionSplitPlus)
-
-        set TriggerUISplitAccept = CreateTrigger()
-        call TriggerAddAction(TriggerUISplitAccept, function BagPopupActionSplitAccept)
 
         set TriggerUISplitCancel = CreateTrigger()
         call TriggerAddAction(TriggerUISplitCancel, function BagPopupActionSplitCancel)
