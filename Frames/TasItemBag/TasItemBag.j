@@ -124,6 +124,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array SplitRequested
         public integer array SplitAmount
 
+        // Swap highlight (per-player): shows an autocast-like border on the source slot while swap is armed
+        private framehandle array SwapHighlight
+
         private constant string SplitLabelPrefix = "|cffffcc00Split:|r "
 
         private unit array ItemGainTimerUnit
@@ -132,6 +135,26 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private integer ItemGainTimerCount = 0
 
     endglobals
+
+
+    private function SwapHighlightHide takes integer pId returns nothing
+        if GetLocalPlayer() == Player(pId) then
+            if SwapHighlight[pId] != null then
+                call BlzFrameSetVisible(SwapHighlight[pId], false)
+            endif
+        endif
+    endfunction
+
+    private function SwapHighlightShowOnSlot takes integer pId, integer rawSlotIndex returns nothing
+        if GetLocalPlayer() == Player(pId) then
+            if SwapHighlight[pId] != null and rawSlotIndex > 0 then
+                call BlzFrameClearAllPoints(SwapHighlight[pId])
+                call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_TOPLEFT, 0, 0)
+                call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_BOTTOMRIGHT, 0, 0)
+                call BlzFrameSetVisible(SwapHighlight[pId], true)
+            endif
+        endif
+    endfunction
 
 
     // Per-player bank key helper
@@ -494,6 +517,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
             set SwapIndex[pId] = TransferIndex[pId]
+            call SwapHighlightShowOnSlot(pId, SwapIndex[pId] - Offset[pId])
         endif
         call FrameLoseFocus()
     endfunction
@@ -790,6 +814,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
                 call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
                 set SwapIndex[pId] = 0
+                call SwapHighlightHide(pId)
                 if GetLocalPlayer() == p then
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -921,6 +946,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call Debug("Global MOUSE_UP: invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
 
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
+            // WoW-like: right-click cancels an armed swap without side-effects
+            if SwapIndex[pId] > 0 then
+                set SwapIndex[pId] = 0
+                call SwapHighlightHide(pId)
+                if GetLocalPlayer() == p then
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                endif
+                return
+            endif
             // Always hide the popup on any right-click while the bag UI is open
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
@@ -978,6 +1013,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function CloseButtonAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set SwapIndex[pId] = 0
+        call SwapHighlightHide(pId)
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
         if GetLocalPlayer() == GetTriggerPlayer() then
@@ -1000,6 +1036,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
+        set SwapIndex[GetPlayerId(p)] = 0
+        call SwapHighlightHide(GetPlayerId(p))
         call FrameLoseFocus()
     endfunction
 
@@ -1007,6 +1045,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(GetTriggerPlayer())
         local integer s
         set SwapIndex[pId] = 0
+        call SwapHighlightHide(pId)
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
         if GetLocalPlayer() == GetTriggerPlayer() then
@@ -1055,6 +1094,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function ESCAction takes nothing returns nothing
+        local integer pId = GetPlayerId(GetTriggerPlayer())
+        // WoW-like: ESC cancels swap first, then closes UI on subsequent ESC
+        if SwapIndex[pId] > 0 then
+            set SwapIndex[pId] = 0
+            call SwapHighlightHide(pId)
+            if GetLocalPlayer() == GetTriggerPlayer() then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            return
+        endif
         if GetLocalPlayer() == GetTriggerPlayer() then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
         endif
@@ -1216,6 +1266,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetAllPoints(BlzCreateFrame("TasItemBagBox", panel, 0, 0), panel)
         call BlzTriggerRegisterFrameEvent(TriggerUIWheel, panel, FRAMEEVENT_MOUSE_WHEEL)
         call BlzCreateFrameByType("BUTTON", "TasItemBagTooltipPanel", panel, "", 0)
+
+        // Swap highlight (autocast border) - per player context, positioned on demand
+        set invIndex = 0
+        loop
+            exitwhen invIndex >= bj_MAX_PLAYERS
+            set SwapHighlight[invIndex] = BlzCreateFrameByType("SPRITE", "TasItemBagSwapHighlight", panel, "", invIndex)
+            call BlzFrameSetModel(SwapHighlight[invIndex], "UI\\Feedback\\Autocast\\UI-ModalButtonOn.mdl", 0)
+            call BlzFrameSetVisible(SwapHighlight[invIndex], false)
+            call BlzFrameSetLevel(SwapHighlight[invIndex], 10)
+            set invIndex = invIndex + 1
+        endloop
         // Custom Bag
         set count = 0
         set buttonIndex = 1
