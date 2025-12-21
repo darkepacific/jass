@@ -566,6 +566,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             // Stable slots: remove by item handle to avoid index mismatches.
             call TasItemBagRemoveItem(Selected[pId], TransferItem[pId], true)
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            endif
         endif
         call FrameLoseFocus()
     endfunction
@@ -578,6 +581,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             endif
         endif
         call FrameLoseFocus()
@@ -726,7 +730,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         if it == null then
             set SplitAmount[pId] = 1
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), SplitLabelPrefix + I2S(SplitAmount[pId]))
             set it = null
             return
         endif
@@ -757,7 +761,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         if it == null then
             set SplitAmount[pId] = 1
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), "Split: " + I2S(SplitAmount[pId]))
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), SplitLabelPrefix + I2S(SplitAmount[pId]))
             set it = null
             return
         endif
@@ -1585,6 +1589,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         
         set ItemAbilityNeed = Table.create()
         set ItemIsInBag = Table.create()
+        set BagIndexOfItem = Table.create()
         
         set BagItem = HashTable.create()
         set TimerUpdate = CreateTimer()
@@ -1687,7 +1692,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
     
     private function init_function takes nothing returns nothing
-        set BagIndexOfItem = Table.create()
         set ItemGainTimer = CreateTimer()
         call TimerStart(ItemGainTimer, 0, false, function At0s)        
 
