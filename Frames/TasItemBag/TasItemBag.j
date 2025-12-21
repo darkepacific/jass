@@ -82,6 +82,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public Table ItemIsInBag
         public HashTable BagItem
 
+        // Reverse map: item handle id -> backing index in BagItem[playerKey].item[]
+        private Table BagIndexOfItem
+
         // Stable slot mode: BagItem[p].integer[0] is treated as capacity (highest used index)
         // and BagItem[p].integer[1] tracks the smallest free index (min-hole) for faster inserts.
 
@@ -275,6 +278,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set ItemIsInBag.boolean[GetHandleId(i)] = true
             call SetItemVisible(i, false)
             set BagItem[playerKey].item[free] = i
+            set BagIndexOfItem.integer[GetHandleId(i)] = free
 
             // Update min-hole pointer to the next empty slot.
             set free = free + 1
@@ -316,6 +320,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetHandleId(i) > 0 and GetHandleId(i2) > 0 then
             set BagItem[playerKey].item[indexB] = i
             set BagItem[playerKey].item[indexA] = i2
+            set BagIndexOfItem.integer[GetHandleId(i)] = indexB
+            set BagIndexOfItem.integer[GetHandleId(i2)] = indexA
             set i = null
             set i2 = null
             return true
@@ -344,6 +350,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Stable slot removal: leave a hole.
         set BagItem[playerKey].item[index] = null
+        set BagIndexOfItem.integer[GetHandleId(i)] = 0
         // Maintain min-hole pointer.
         if BagItem[playerKey].integer[1] <= 0 or index < BagItem[playerKey].integer[1] then
             set BagItem[playerKey].integer[1] = index
@@ -379,20 +386,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     function TasItemBagRemoveItem takes unit u, item i, boolean drop returns boolean
         local integer playerKey = BankKeyForUnit(u)
-        local integer loopA = BagItem[playerKey].integer[0]
-        if loopA <= 0 then
-            return false
+        local integer idx
+        set idx = BagIndexOfItem.integer[GetHandleId(i)]
+        if idx > 0 then
+            return TasItemBagRemoveIndex(u, idx, drop)
         endif
-        // loop all items in the bag and remove it if found
-        loop
-            exitwhen loopA <= 0
-            if BagItem[playerKey].item[loopA] != null and BagItem[playerKey].item[loopA] == i then
-                call TasItemBagRemoveIndex(u, loopA, drop)
-                return true
-            endif
-            set loopA = loopA - 1
-        endloop
-
         return false
     endfunction
 
@@ -975,7 +973,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set btnIndex = rawIdx
         endif
         if rawIdx > 0 then
-            set LastHoveredIndex[pId] = rawIdx + Offset[pId]
+            // With holes, rawIdx is the visible cell. Keep it as-is (do not add Offset).
+            set LastHoveredIndex[pId] = rawIdx
             set PanelHover[pId] = true
             // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
@@ -1065,6 +1064,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             elseif PanelHover[pId] then
                 set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 then
+                    set rawIdx = targetIndex
+                endif
                 // Map visible cell to backing index (stable slots)
                 if rawIdx > 0 and rawIdx <= Cols * Rows then
                     set cap = BagItem[pId].integer[0]
@@ -1685,6 +1687,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
     
     private function init_function takes nothing returns nothing
+        set BagIndexOfItem = Table.create()
         set ItemGainTimer = CreateTimer()
         call TimerStart(ItemGainTimer, 0, false, function At0s)        
 
