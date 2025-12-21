@@ -62,11 +62,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // can Equip only EquipClassLimit of one Item Class at one time
         public integer EquipClassLimit = 999
 
-
-        // InventorySkills are the Inventory Abilities in the used map
-        // They are used for drop on death
-        // public integer array InventorySkills 
-
         // An unit that can not use Items (cause of it's inventory skills) does not need to fullfill the requirments
         private boolean IgnoreNeedWhenCanNotUse = true
 
@@ -144,18 +139,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetPlayerId(GetOwningPlayer(u))
     endfunction
 
-
     private function IsBankUnit takes unit u returns boolean
         return GetUnitTypeId(u) == 'n002'
-    endfunction
-
-    private function UserInit takes nothing returns nothing
-        // set InventorySkills[0] = 'AInv'
-        // set InventorySkills[1] = 'Apak'
-        // set InventorySkills[2] = 'Aiun'
-        // set InventorySkills[3] = 'Aien'
-        // set InventorySkills[4] = 'Aihn'
-        // set InventorySkills[5] = 'Aion'
     endfunction
 
     function TasItemBagAddItem takes unit u, item i returns nothing
@@ -336,37 +321,19 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     public function TasItemBagUnitCanUseItems takes unit u returns boolean
+        // check for the USE flag
         if GetUnitAbilityLevel(u, 'AInv') > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, 'AInv'), AbilityFieldUse, 0) > 0 then
             return true
         endif
-
-        // // check all Inventory skills for the USE flag
-        // local integer i = 0
-        // loop    
-        //     exitwhen InventorySkills[i] == 0 
-        //     if GetUnitAbilityLevel(u, InventorySkills[i]) > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, InventorySkills[i]), AbilityFieldUse, 0) > 0 then
-        //         return true
-        //     endif
-        //     set i = i + 1
-        // endloop
 
         return false
     endfunction
 
     public function TasItemBagUnitIsDropItems takes unit u returns boolean
+        // check for the DROP flag
         if GetUnitAbilityLevel(u, 'AInv') > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, 'AInv'), AbilityFieldDrop, 0) > 0 then
             return true
         endif
-
-        // // check all Inventory skills for the DROP flag
-        // local integer i = 0
-        // loop    
-        //     exitwhen InventorySkills[i] == 0 
-        //     if GetUnitAbilityLevel(u, InventorySkills[i]) > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, InventorySkills[i]), AbilityFieldDrop, 0) > 0 then
-        //         return true
-        //     endif
-        //     set i = i + 1
-        // endloop
 
         return false
     endfunction
@@ -397,19 +364,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function UnitCanDropItems takes unit u returns boolean
+        // check for the CAN DROP flag
         if GetUnitAbilityLevel(u, 'AInv') > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, 'AInv'), AbilityFieldCanDrop, 0) == 0 then
             return false
         endif
-
-        // check all Inventory skills for the DROP flag
-        // local integer i = 0
-        // loop    
-        //     exitwhen InventorySkills[i] == 0 
-        //     if GetUnitAbilityLevel(u, InventorySkills[i]) > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, InventorySkills[i]), AbilityFieldCanDrop, 0) == 0 then
-        //         return false
-        //     endif
-        //     set i = i + 1
-        // endloop
 
         return true    
     endfunction
