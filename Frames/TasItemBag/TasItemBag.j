@@ -866,6 +866,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local integer btnIndex
         local integer rawIdx
+
+        call Debug("HoverAction triggered")
         // Prefer numeric text when present (slot button), else resolve by frame handle (backdrop/container)
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -890,6 +892,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
         local integer btnIndex
+
+        call Debug("HoverLeaveAction triggered")
         // Clear overlay text if leaving the button; do not flip PanelHover here
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -907,6 +911,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
+        call Debug("BagPanelEnterAction ENTER")
         // call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
@@ -914,7 +919,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
-        call Debug("PanelHover LEAVE")
+        call Debug("BagPanelLeaveAction LEAVE")
     endfunction
 
     // Global mouse up handler: right-click = withdraw, left-click = popup
@@ -1353,9 +1358,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
         // Ensure split panel is above popup menu and captures clicks
         call BlzFrameSetLevel(frame2, 20)
-        call BlzFrameSetSize(frame2, 0.28, 0.18)
+        call BlzFrameSetSize(frame2, 0.20, 0.15)
         // Place the split panel clearly to the LEFT of the bag panel.
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.06, 0.0)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.04, 0.0)
 
         set frame3 = BlzCreateFrameByType("TEXT", "TasItemBagSplitInfo", frame2, "", 0)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOP, frame2, FRAMEPOINT_TOP, 0.0, -0.02)
@@ -1363,34 +1368,38 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // +/- buttons: use GLUETEXTBUTTON (text rendering is more consistent) + a solid backdrop behind.
         set frame3 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitMinusBg", frame2, "EscMenuBackdrop", 0)
-        call BlzFrameSetSize(frame3, 0.055, 0.045)
-        call BlzFrameSetPoint(frame3, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.02, 0.02)
+        // Slightly smaller than the +/- buttons so the backdrop border never peeks out
+        call BlzFrameSetSize(frame3, 0.03, 0.03)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.10, 0.08)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitMinus", frame2, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame, 0.05, 0.04)
+        call BlzFrameSetSize(frame, 0.04, 0.04)
         call BlzFrameSetPoint(frame, FRAMEPOINT_CENTER, frame3, FRAMEPOINT_CENTER, 0.0, 0.0)
         call BlzFrameSetText(frame, "-")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitMinus, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame3 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPlusBg", frame2, "EscMenuBackdrop", 0)
-        call BlzFrameSetSize(frame3, 0.055, 0.045)
-        call BlzFrameSetPoint(frame3, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.09, 0.02)
+        // Slightly smaller than the +/- buttons so the backdrop border never peeks out
+        call BlzFrameSetSize(frame3, 0.03, 0.03)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.20, 0.08)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitPlus", frame2, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame, 0.05, 0.04)
+        call BlzFrameSetSize(frame, 0.04, 0.04)
         call BlzFrameSetPoint(frame, FRAMEPOINT_CENTER, frame3, FRAMEPOINT_CENTER, 0.0, 0.0)
         call BlzFrameSetText(frame, "+")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitPlus, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.08, 0.04)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.02, 0.02)
+        // Move OK down a bit to avoid overlapping +/- row
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.015, 0.02)
         call BlzFrameSetText(frame, "OK")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitCancel", frame2, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame, 0.10, 0.04)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.01, 0.0)
+        call BlzFrameSetSize(frame, 0.08, 0.04)
+        // Keep CANCEL aligned with OK, but also lower
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.05, 0.0)
         call BlzFrameSetText(frame, "CANCEL")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitCancel, frame, FRAMEEVENT_CONTROL_CLICK)
 
