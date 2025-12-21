@@ -810,14 +810,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         if evt == FRAMEEVENT_CONTROL_CLICK then
             // If we're in swap mode, finalize swap on click.
-            if SwapIndex[pId] > 0 and SwapIndex[pId] != bagIndex then
-                call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
-                call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
-                set SwapIndex[pId] = 0
-                call SwapHighlightHide(pId)
-                if GetLocalPlayer() == p then
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            if SwapIndex[pId] > 0 then
+                // WoW-like: clicking the source slot again cancels swap
+                if SwapIndex[pId] == bagIndex then
+                    set SwapIndex[pId] = 0
+                    call SwapHighlightHide(pId)
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    endif
+                else
+                    call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
+                    call TasItemBagSwap(Selected[pId], SwapIndex[pId], bagIndex)
+                    set SwapIndex[pId] = 0
+                    call SwapHighlightHide(pId)
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    endif
                 endif
             else
                 // Normal left-click: open popup for the clicked slot (if it contains an item)
@@ -1273,6 +1283,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             exitwhen invIndex >= bj_MAX_PLAYERS
             set SwapHighlight[invIndex] = BlzCreateFrameByType("SPRITE", "TasItemBagSwapHighlight", panel, "", invIndex)
             call BlzFrameSetModel(SwapHighlight[invIndex], "UI\\Feedback\\Autocast\\UI-ModalButtonOn.mdl", 0)
+            call BlzFrameSetScale(SwapHighlight[invIndex], 0.70)
             call BlzFrameSetVisible(SwapHighlight[invIndex], false)
             call BlzFrameSetLevel(SwapHighlight[invIndex], 10)
             set invIndex = invIndex + 1
@@ -1387,7 +1398,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame3, FRAMEEVENT_CONTROL_CLICK)
         call BlzFrameSetVisible(frame3, false)
 
-         // Split panel: info text + - / + / accept / cancel
+        // Split panel: info text + - / + / accept / cancel
         set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
         // Ensure split panel is above popup menu and captures clicks
         call BlzFrameSetLevel(frame2, 20)
@@ -1409,21 +1420,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitPlus", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.035, 0.035)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.13, 0.055)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.10, 0.055)
         call BlzFrameSetText(frame, "+")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitPlus, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.07, 0.035)
         // Move OK down a bit to avoid overlapping +/- row
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.02, 0.02)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.018, 0.02)
         call BlzFrameSetText(frame, "Accept")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitCancel", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.07, 0.035)
         // Keep CANCEL aligned with OK, but also lower
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.01, 0.0)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.005, 0.0)
         call BlzFrameSetText(frame, "Cancel")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitCancel, frame, FRAMEEVENT_CONTROL_CLICK)
 
