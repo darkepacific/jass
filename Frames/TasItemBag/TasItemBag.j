@@ -570,7 +570,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer remain
         local integer playerKey
         // Perform split: move "take" charges into a new bank item.
+        call Debug("Performing split for index " + I2S(SplitRequested[pId]) + ", amount " + I2S(SplitAmount[pId]))
         set src = TransferItem[pId]
+        call Debug("Source item: " + GetItemName(src))
         if src == null or SplitRequested[pId] <= 0 then
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -1402,7 +1404,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame2 = BlzCreateFrameByType("BACKDROP", "TasItemBagSplitPanel", panel, "EscMenuBackdrop", 0)
         // Ensure split panel is above popup menu and captures clicks
         call BlzFrameSetLevel(frame2, 20)
-        call BlzFrameSetSize(frame2, 0.17, 0.14)
+        call BlzFrameSetSize(frame2, 0.17, 0.13)
         // Place the split panel clearly to the LEFT of the bag panel.
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.04, 0.0)
 
@@ -1427,14 +1429,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.07, 0.035)
         // Move OK down a bit to avoid overlapping +/- row
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.018, 0.02)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.012, 0.02)
         call BlzFrameSetText(frame, "Accept")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitCancel", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.07, 0.035)
         // Keep CANCEL aligned with OK, but also lower
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.005, 0.0)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.0015, 0.0)
         call BlzFrameSetText(frame, "Cancel")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitCancel, frame, FRAMEEVENT_CONTROL_CLICK)
 
