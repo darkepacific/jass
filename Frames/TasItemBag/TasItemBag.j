@@ -434,6 +434,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function ItemBag2Equip takes player p, item i returns nothing
         local unit u = udg_Heroes[GetPlayerNumber(p)]
+        local integer pId = GetPlayerId(p)
+        local integer bagIndex = TransferIndex[pId]
         // Inventory Full?
         if UnitInventoryCount(u) >= UnitInventorySize(u) then
             call ErrorMessage("Inventory is full.", GetOwningPlayer(u))
@@ -451,7 +453,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
         call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
         if UnitAddItem(u, i) then
-            call TasItemBagRemoveItem(u, i, false)
+            // WC3 can merge charged items in inventory and delete one of the handles.
+            // If that happens, remove-by-handle can fail and leave a null/bugged entry in the bag.
+            // Prefer removing by the known bag index when possible.
+            if bagIndex > 0 and BagItem[pId].item[bagIndex] == i then
+                call TasItemBagRemoveIndex(u, bagIndex, false)
+            else
+                call TasItemBagRemoveItem(u, i, false)
+            endif
         endif
         set EquipNow = false
         set u = null
@@ -1062,6 +1071,81 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call FrameLoseFocus()
     endfunction
 
+    private function UpdateUI takes nothing returns nothing
+        local integer pId = GetPlayerId(GetLocalPlayer())
+        local integer itemCount = BagItem[pId].integer[0]
+        local integer offset = Offset[pId]
+        local integer max
+        local integer itemCode
+        local item it
+        local string text = ""
+        local integer dataIndex
+        local integer i
+        // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
+        if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
+            set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
+        endif
+        if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)) > 0 then
+            call BlzFrameSetScale(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)))
+        endif
+
+        call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), not ShowButtonNeedsInventory or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
+
+        if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
+
+            if itemCount > 0 then
+
+                // scroll by rows
+                set max = IMaxBJ(0, (itemCount + Cols - Cols * Rows) / Cols)
+            
+                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, max)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), I2S(R2I(offset / Cols)) + "/" + I2S(max))
+            else
+                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
+            endif
+
+            set i = 1
+            loop
+                exitwhen i > Cols * Rows
+                set dataIndex = i + offset
+                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), dataIndex <= itemCount)
+                if dataIndex <= itemCount then
+                    set it = BagItem[pId].item[dataIndex]
+                    set itemCode = GetItemTypeId(it)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetAbilityIcon(itemCode), 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetAbilityIcon(itemCode), 0, true)
+                    if AddNeedText then
+                        set text = "|nNEED " + GetLocalizedString("REQUIREDLEVELTOOLTIP") + " " + I2S(GetItemLevel(it))
+                        if ItemAbilityNeed[itemCode] > 0 then
+                            set text = text + "|nNEED " + GetObjectName(ItemAbilityNeed[itemCode])
+                        endif
+                    endif
+
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), GetObjectName(itemCode) + "|n" + BlzGetAbilityExtendedTooltip(itemCode, 0) + "|n|n" + text)
+                
+                    if GetItemCharges(it) > 0 then
+                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), I2S(GetItemCharges(it)))
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), true)
+                    else
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
+                    endif
+                else
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), "")
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), "")
+                    // Ensure empty slots don't show stale textures for a frame
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), "", 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), "", 0, true)
+                endif
+                set i = i + 1
+            endloop
+        endif
+        set it = null
+    endfunction
+
     private function ShowButtonAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         local integer s
@@ -1070,6 +1154,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
         if GetLocalPlayer() == GetTriggerPlayer() then
+            // Update once before showing to avoid a one-frame flash of stale/null slot data
+            call UpdateUI()
             if ShowButtonCloses and BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
             else
@@ -1106,6 +1192,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Open banking UI when a Bank unit is selected
         if IsBankUnit(Selected[pId]) then
             if GetLocalPlayer() == GetTriggerPlayer() then
+                // Update once before showing to avoid a one-frame flash of stale/null slot data
+                call UpdateUI()
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
                 // Auto-reselect the hero so their inventory is visible while banking
                 set IgnoreNextSelection[pId] = true
@@ -1176,77 +1264,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if MoveUsedItemsIntoBag then
             call ItemEquip2Bag(GetTriggerUnit(), GetManipulatedItem())
         endif
-    endfunction
-
-    private function UpdateUI takes nothing returns nothing
-        local integer pId = GetPlayerId(GetLocalPlayer())
-        local integer itemCount = BagItem[pId].integer[0]
-        local integer offset = Offset[pId]
-        local integer max
-        local integer itemCode
-        local item it
-        local string text = ""
-        local integer dataIndex
-        local integer i
-        // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
-        if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
-            set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
-        endif
-        if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)) > 0 then
-            call BlzFrameSetScale(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)))
-        endif
-
-        call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), not ShowButtonNeedsInventory or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
-        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
-
-        if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
-
-            if itemCount > 0 then
-
-                // scroll by rows
-                set max = IMaxBJ(0, (itemCount + Cols - Cols * Rows) / Cols)
-            
-                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, max)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), I2S(R2I(offset / Cols)) + "/" + I2S(max))
-            else
-                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
-            endif
-
-            set i = 1
-            loop
-                exitwhen i > Cols * Rows
-                set dataIndex = i + offset
-                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), dataIndex <= itemCount)
-                if dataIndex <= itemCount then
-                    set it = BagItem[pId].item[dataIndex]
-                    set itemCode = GetItemTypeId(it)
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetAbilityIcon(itemCode), 0, true)
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetAbilityIcon(itemCode), 0, true)
-                    if AddNeedText then
-                        set text = "|nNEED " + GetLocalizedString("REQUIREDLEVELTOOLTIP") + " " + I2S(GetItemLevel(it))
-                        if ItemAbilityNeed[itemCode] > 0 then
-                            set text = text + "|nNEED " + GetObjectName(ItemAbilityNeed[itemCode])
-                        endif
-                    endif
-
-                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), GetObjectName(itemCode) + "|n" + BlzGetAbilityExtendedTooltip(itemCode, 0) + "|n|n" + text)
-                
-                    if GetItemCharges(it) > 0 then
-                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), I2S(GetItemCharges(it)))
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), true)
-                    else
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
-                    endif
-                else
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
-                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), "")
-                endif
-                set i = i + 1
-            endloop
-        endif
-        set it = null
     endfunction
      
     private function CreateTextTooltip takes framehandle frame, string wantedframeName, integer wantedCreateContext, string text returns framehandle
