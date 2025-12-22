@@ -11,7 +11,7 @@ library MultiPageInventorySystem
 
     globals 
         //udg_Bag_Page has now been moved to globals for easier access across libraries
-        private integer maxPages = 3
+        private integer maxPages = 2
         
         private trigger trigInvMain = CreateTrigger() 
         private trigger trigInvLeft = CreateTrigger() 
@@ -442,8 +442,8 @@ library MultiPageInventorySystem
         local integer i = 0
         loop
             exitwhen i > 23
-            set hkMain[i] = OSKEY_X
-            set hkMainStr[i] = "X"
+            set hkMain[i] = OSKEY_V
+            set hkMainStr[i] = "V"
 
             set hkRight[i] = OSKEY_Z
             set hkRightStr[i] = "Z"

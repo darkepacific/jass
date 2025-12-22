@@ -149,8 +149,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetLocalPlayer() == Player(pId) then
             if SwapHighlight[pId] != null and rawSlotIndex > 0 then
                 call BlzFrameClearAllPoints(SwapHighlight[pId])
-                call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_TOPLEFT, 0, 0)
-                call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_BOTTOMRIGHT, 0, 0)
+                call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_TOPLEFT, 0, -0.002)
+                call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_BOTTOMRIGHT, 0, -0.002)
                 call BlzFrameSetVisible(SwapHighlight[pId], true)
             endif
         endif
@@ -166,7 +166,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetUnitTypeId(u) == 'n002'
     endfunction
 
-    function TasItemBagAddItem takes unit u, item i returns nothing
+    function TasItemBagAddItemEx takes unit u, item i, boolean allowMerge returns nothing
         local integer playerKey = BankKeyForUnit(u)
         local location itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
         local integer itemCode
@@ -185,66 +185,68 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemPositionLoc(i, itemIsland)
         call SetItemUserData(i, 1)
 
-        // Stack consumable charges into an existing item of the same type (if possible)
-        // Only applies to charged consumables.
-        set incomingCharges = GetItemCharges(i)
-        if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
-            // Standardize max stack size for all charged consumables.
-            set maxCharges = 20
-            if incomingCharges > maxCharges then
-                set incomingCharges = maxCharges
+        if allowMerge then
+            // Stack consumable charges into an existing item of the same type (if possible)
+            // Only applies to charged consumables.
+            set incomingCharges = GetItemCharges(i)
+            if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
+                // Standardize max stack size for all charged consumables.
+                set maxCharges = 20
+                if incomingCharges > maxCharges then
+                    set incomingCharges = maxCharges
+                    call SetItemCharges(i, incomingCharges)
+                endif
+                set itemCode = GetItemTypeId(i)
+                set loopA = BagItem[playerKey].integer[0]
+                loop
+                    exitwhen loopA <= 0 or incomingCharges <= 0
+                    set existing = BagItem[playerKey].item[loopA]
+                    if existing != null and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                        // Clamp existing stack too (in case it was already over).
+                        set existingCharges = GetItemCharges(existing)
+                        if existingCharges > maxCharges then
+                            set existingCharges = maxCharges
+                            call SetItemCharges(existing, existingCharges)
+                        endif
+
+                        // Add up to available space in this stack.
+                        set beforeCharges = existingCharges
+                        set space = maxCharges - beforeCharges
+                        if space > 0 then
+                            if incomingCharges > space then
+                                set addCharges = space
+                            else
+                                set addCharges = incomingCharges
+                            endif
+                            call SetItemCharges(existing, beforeCharges + addCharges)
+                        else
+                            set addCharges = 0
+                        endif
+                        set afterCharges = GetItemCharges(existing)
+
+                        // Determine how many charges were actually absorbed.
+                        set absorbed = afterCharges - beforeCharges
+                        if absorbed < 0 then
+                            set absorbed = 0
+                        endif
+                        set remaining = incomingCharges - absorbed
+                        if remaining < 0 then
+                            set remaining = 0
+                        endif
+                        set incomingCharges = remaining
+                    endif
+                    set loopA = loopA - 1
+                endloop
+                // Fully merged -> remove the incoming item
+                if incomingCharges <= 0 then
+                    call RemoveItem(i)
+                    call RemoveLocation(itemIsland)
+                    set existing = null
+                    return
+                endif
+                // Partially merged -> keep remaining charges on the incoming item before storing it
                 call SetItemCharges(i, incomingCharges)
             endif
-            set itemCode = GetItemTypeId(i)
-            set loopA = BagItem[playerKey].integer[0]
-            loop
-                exitwhen loopA <= 0 or incomingCharges <= 0
-                set existing = BagItem[playerKey].item[loopA]
-                if existing != null and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
-                    // Clamp existing stack too (in case it was already over).
-                    set existingCharges = GetItemCharges(existing)
-                    if existingCharges > maxCharges then
-                        set existingCharges = maxCharges
-                        call SetItemCharges(existing, existingCharges)
-                    endif
-
-                    // Add up to available space in this stack.
-                    set beforeCharges = existingCharges
-                    set space = maxCharges - beforeCharges
-                    if space > 0 then
-                        if incomingCharges > space then
-                            set addCharges = space
-                        else
-                            set addCharges = incomingCharges
-                        endif
-                        call SetItemCharges(existing, beforeCharges + addCharges)
-                    else
-                        set addCharges = 0
-                    endif
-                    set afterCharges = GetItemCharges(existing)
-
-                    // Determine how many charges were actually absorbed.
-                    set absorbed = afterCharges - beforeCharges
-                    if absorbed < 0 then
-                        set absorbed = 0
-                    endif
-                    set remaining = incomingCharges - absorbed
-                    if remaining < 0 then
-                        set remaining = 0
-                    endif
-                    set incomingCharges = remaining
-                endif
-                set loopA = loopA - 1
-            endloop
-            // Fully merged -> remove the incoming item
-            if incomingCharges <= 0 then
-                call RemoveItem(i)
-                call RemoveLocation(itemIsland)
-                set existing = null
-                return
-            endif
-            // Partially merged -> keep remaining charges on the incoming item before storing it
-            call SetItemCharges(i, incomingCharges)
         endif
 
         if not ItemIsInBag.boolean[GetHandleId(i)] and BagItem[playerKey].integer[0] < ItemBagSize then
@@ -256,6 +258,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call SetItemVisible(i, false)
         endif
         call RemoveLocation(itemIsland)
+    endfunction
+
+    function TasItemBagAddItem takes unit u, item i returns nothing
+        call TasItemBagAddItemEx(u, i, true)
     endfunction
 
     function TasItemBagGetItem takes unit u, integer index returns item
@@ -624,14 +630,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         // Update source item charges (stays in bank).
+        call Debug("Settng source item: "+  GetItemName(src) + "charges: " + I2S(remain))
         call SetItemCharges(src, remain)
 
         // Create a new item of same type and add it to the bank.
         set newItem = CreateItem(GetItemTypeId(src), GetUnitX(udg_Heroes[GetPlayerNumber(p)]), GetUnitY(udg_Heroes[GetPlayerNumber(p)]))
         call SetItemCharges(newItem, take)
-        call TasItemBagAddItem(udg_Heroes[GetPlayerNumber(p)], newItem)
+        // Do not auto-merge split-created stacks back into the source stack.
+        call TasItemBagAddItemEx(udg_Heroes[GetPlayerNumber(p)], newItem, false)
+        call Debug("Created new item: " + GetItemName(newItem) + " charges: " + I2S(take))
         set newItem = null
-
+        
         // Close split + popup
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -1429,14 +1438,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitAccept", frame2, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.07, 0.035)
         // Move OK down a bit to avoid overlapping +/- row
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.012, 0.02)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, frame2, FRAMEPOINT_BOTTOMRIGHT, -0.015, 0.02)
         call BlzFrameSetText(frame, "Accept")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitAccept, frame, FRAMEEVENT_CONTROL_CLICK)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagSplitCancel", frame2, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame, 0.07, 0.035)
+        call BlzFrameSetSize(frame, 0.069, 0.035)
         // Keep CANCEL aligned with OK, but also lower
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.0015, 0.0)
+        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, BlzGetFrameByName("TasItemBagSplitAccept", 0), FRAMEPOINT_BOTTOMLEFT, -0.0010, 0.0)
         call BlzFrameSetText(frame, "Cancel")
         call BlzTriggerRegisterFrameEvent(TriggerUISplitCancel, frame, FRAMEEVENT_CONTROL_CLICK)
 
