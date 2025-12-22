@@ -436,9 +436,69 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit u = udg_Heroes[GetPlayerNumber(p)]
         local integer pId = GetPlayerId(p)
         local integer bagIndex = TransferIndex[pId]
+        local integer maxCharges
+        local integer incomingCharges
+        local integer existingCharges
+        local integer space
+        local integer addCharges
+        local integer slot
+        local item invItem
         // Inventory Full?
         if UnitInventoryCount(u) >= UnitInventorySize(u) then
+            // If inventory is full, still try to merge charged consumables into an existing stack.
+            // This matches WC3's natural behavior when adding/picking up charged items.
+            if i != null and GetItemType(i) == ITEM_TYPE_CHARGED and GetItemCharges(i) > 0 then
+                set maxCharges = 20
+                set incomingCharges = GetItemCharges(i)
+                if incomingCharges > maxCharges then
+                    set incomingCharges = maxCharges
+                endif
+                set slot = 0
+                loop
+                    exitwhen slot >= bj_MAX_INVENTORY or incomingCharges <= 0
+                    set invItem = UnitItemInSlot(u, slot)
+                    if invItem != null and GetItemType(invItem) == ITEM_TYPE_CHARGED and GetItemTypeId(invItem) == GetItemTypeId(i) then
+                        set existingCharges = GetItemCharges(invItem)
+                        if existingCharges < 0 then
+                            set existingCharges = 0
+                        endif
+                        if existingCharges < maxCharges then
+                            set space = maxCharges - existingCharges
+                            if incomingCharges > space then
+                                set addCharges = space
+                            else
+                                set addCharges = incomingCharges
+                            endif
+                            call SetItemCharges(invItem, existingCharges + addCharges)
+                            set incomingCharges = incomingCharges - addCharges
+                        endif
+                    endif
+                    set slot = slot + 1
+                endloop
+
+                // If we managed to merge anything, update the bank item accordingly.
+                if incomingCharges < GetItemCharges(i) then
+                    if incomingCharges <= 0 then
+                        // Fully absorbed into an inventory stack; remove the bank item entry.
+                        if bagIndex > 0 and BagItem[pId].item[bagIndex] == i then
+                            call TasItemBagRemoveIndex(u, bagIndex, false)
+                        else
+                            call TasItemBagRemoveItem(u, i, false)
+                        endif
+                    else
+                        // Partially absorbed; keep the bank item with remaining charges.
+                        call SetItemCharges(i, incomingCharges)
+                        call SetItemVisible(i, false)
+                    endif
+                    set invItem = null
+                    set u = null
+                    return
+                endif
+            endif
+
             call ErrorMessage("Inventory is full.", GetOwningPlayer(u))
+            set invItem = null
+            set u = null
             return
         endif
     
