@@ -126,7 +126,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Charged item stack cap (assumption for now).
         // Some items may need custom caps later; keep this centralized.
-        private constant integer ChargedMaxStackDefault = 20
+        private constant integer DEFAULT_MAX_CHARGES = 20
 
         // Swap highlight (per-player): shows an autocast-like border on the source slot while swap is armed
         private framehandle array SwapHighlight
