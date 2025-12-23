@@ -228,7 +228,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     call SetItemCharges(i, incomingCharges)
                 endif
                 set itemCode = GetItemTypeId(i)
-                set loopA = BagItem[playerKey].integer[0]
+                // Holes-based: scan all 24 slots for merge targets
+                set loopA = Cols * Rows
                 loop
                     exitwhen loopA <= 0 or incomingCharges <= 0
                     set existing = BagItem[playerKey].item[loopA]
@@ -287,6 +288,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set ItemIsInBag.boolean[GetHandleId(i)] = true
                 call SetItemVisible(i, false)
                 set BagItem[playerKey].item[targetSlot] = i
+            else
+                // Bank is full (no empty slots). Keep item in world and unmark it.
+                call SetItemUserData(i, 0)
+                call SetItemVisible(i, true)
+                call ErrorMessage("Bank is full.", GetOwningPlayer(u))
             endif
         elseif ItemIsInBag.boolean[GetHandleId(i)] then
             call SetItemVisible(i, false)
