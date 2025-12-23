@@ -128,6 +128,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Some items may need custom caps later; keep this centralized.
         private constant integer DEFAULT_MAX_CHARGES = 20
 
+        // Debug toggle: when true, prints key bag interaction events.
+        private constant boolean DEBUG_MODE = false
+
         // Swap highlight (per-player): shows an autocast-like border on the source slot while swap is armed
         private framehandle array SwapHighlight
 
@@ -139,6 +142,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private integer ItemGainTimerCount = 0
 
     endglobals
+
+    private function DebugMsg takes player p, string s returns nothing
+        if DEBUG_MODE then
+            call DisplayTimedTextToPlayer(p, 0, 0, 6.0, s)
+        endif
+    endfunction
 
 
     private function SwapHighlightHide takes integer pId returns nothing
@@ -467,6 +476,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit u = udg_Heroes[GetPlayerNumber(p)]
         local integer pId = GetPlayerId(p)
         local integer bagIndex = TransferIndex[pId]
+        local item slotItem
         local integer maxCharges
         local integer incomingCharges
         local integer existingCharges
@@ -510,9 +520,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 // If we managed to merge anything, update the bank item accordingly.
                 if incomingCharges < GetItemCharges(i) then
                     if incomingCharges <= 0 then
-                        // Fully absorbed into an inventory stack; remove the bank item entry.
-                        if bagIndex > 0 and BagItem[pId].item[bagIndex] == i then
-                            call TasItemBagRemoveIndex(u, bagIndex, false)
+                        // Fully absorbed into an inventory stack; clear the originating bag slot.
+                        if bagIndex > 0 and bagIndex <= Cols * Rows then
+                            set slotItem = BagItem[pId].item[bagIndex]
+                            if slotItem != null and GetItemTypeId(slotItem) == GetItemTypeId(i) then
+                                call TasItemBagRemoveIndex(u, bagIndex, false)
+                            else
+                                call TasItemBagRemoveItem(u, i, false)
+                            endif
                         else
                             call TasItemBagRemoveItem(u, i, false)
                         endif
@@ -544,10 +559,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
         call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
         if UnitAddItem(u, i) then
-            // WC3 can merge charged items in inventory and delete one of the handles.
-            // If that happens, remove-by-handle can fail and leave a null/bugged entry in the bag.
-            // Prefer removing by the known bag index when possible.
-            if bagIndex > 0 and BagItem[pId].item[bagIndex] == i then
+            // Holes-based bag: if the add succeeded, clear the originating slot.
+            // Don't rely on handle equality (charged stacking can delete/merge handles).
+            if bagIndex > 0 and bagIndex <= Cols * Rows then
                 call TasItemBagRemoveIndex(u, bagIndex, false)
             else
                 call TasItemBagRemoveItem(u, i, false)
@@ -898,7 +912,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer itemCharges
         local itemtype itemType
 
-        call Debug("BagButtonAction triggered")
+        // call Debug("BagButtonAction triggered")
         // Try to read numeric text first; if empty, resolve by frame handle
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set rawIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -986,7 +1000,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer btnIndex
         local integer rawIdx
 
-        call Debug("HoverAction triggered")
+        // call Debug("HoverAction triggered")
         // Prefer numeric text when present (slot button), else resolve by frame handle (backdrop/container)
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -1012,7 +1026,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local integer btnIndex
 
-        call Debug("HoverLeaveAction triggered")
+        // call Debug("HoverLeaveAction triggered")
         // Clear overlay text if leaving the button; do not flip PanelHover here
         if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
             set btnIndex = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
@@ -1030,7 +1044,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
-        call Debug("BagPanelEnterAction ENTER")
+        // call Debug("BagPanelEnterAction ENTER")
         // call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
@@ -1038,7 +1052,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelLeaveAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = false
-        call Debug("BagPanelLeaveAction LEAVE")
+        // call Debug("BagPanelLeaveAction LEAVE")
     endfunction
 
     // Global mouse up handler: right-click = withdraw, left-click = popup
@@ -1056,8 +1070,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer itemCharges
         local itemtype itemType
 
+        call DebugMsg(p, "[Bag] MOUSE_UP fired")
+
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
+            call DebugMsg(p, "[Bag] ignored: panel not visible")
             return
         endif
 
@@ -1069,6 +1086,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call Debug("Global MOUSE_UP: invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
 
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
+            call DebugMsg(p, "[Bag] RIGHT click")
             // WoW-like: right-click cancels an armed swap without side-effects
             if SwapIndex[pId] > 0 then
                 set SwapIndex[pId] = 0
@@ -1088,32 +1106,36 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 if GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
                     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
+                    call DebugMsg(p, "[Bag] deposit inv slot " + I2S(invIndex))
                     call DepositInventorySlot(p, invIndex)
                     set didSomething = true
                 endif
-            elseif PanelHover[pId] then
+            else
+                // Do not depend on PanelHover; resolve by mouse position first.
                 set rawIdx = ResolveBagIndexFromMouse()
                 if rawIdx <= 0 and targetIndex > 0 then
-                    set bagIndex = targetIndex
-                else
-                    set bagIndex = rawIdx
+                    set rawIdx = targetIndex
                 endif
-                if rawIdx > 0 and rawIdx <= Cols * Rows then
+                set bagIndex = rawIdx
+                if bagIndex > 0 and bagIndex <= Cols * Rows then
                     set bi = BagItem[pId].item[bagIndex]
                     if bi != null then
                         call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                        // Keep TransferIndex/TransferItem in sync so ItemBag2Equip removes the correct slot.
+                        call DebugMsg(p, "[Bag] withdraw slot " + I2S(bagIndex))
                         set TransferIndex[pId] = bagIndex
                         set TransferItem[pId] = bi
                         call ItemBag2Equip(p, bi)
                         set didSomething = true
                     else
-                        call Debug("Withdraw suppressed: empty at bagIndex=" + I2S(bagIndex))
+                        call DebugMsg(p, "[Bag] withdraw blocked: empty slot " + I2S(bagIndex))
                     endif
+                else
+                    call DebugMsg(p, "[Bag] click not on bag grid")
                 endif
             endif
             // If the click was not on inventory or bag, do nothing (let it be a move order, etc.)
             if not didSomething then
+                call DebugMsg(p, "[Bag] no action taken")
                 return
             endif
             // Reset drag only when we actually handled the click
