@@ -572,7 +572,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         set playerKey = GetPlayerId(p)
-        if BagItem[playerKey].integer[0] >= ItemBagSize then
+        if BagFindFirstEmpty(playerKey) <= 0 then
             call ErrorMessage("Bank is full.", p)
             set it = null
             return
@@ -617,7 +617,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
             set SwapIndex[pId] = TransferIndex[pId]
-            call SwapHighlightShowOnSlot(pId, SwapIndex[pId] - Offset[pId])
+            call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
         endif
         call FrameLoseFocus()
     endfunction
@@ -712,7 +712,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Ensure bank has room for a new item (or stacking will absorb it).
         set playerKey = GetPlayerId(p)
-        if BagItem[playerKey].integer[0] >= ItemBagSize then
+        if BagFindFirstEmpty(playerKey) <= 0 then
             call ErrorMessage("Bank is full.", p)
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -906,7 +906,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set frameSrc = "Button(handle)"
             endif
         endif
-        set bagIndex = rawIndex + Offset[pId]
+        set bagIndex = rawIndex
         set hero = udg_Heroes[GetPlayerNumber(p)]
         if not GetPlayerAlliance(GetOwningPlayer(Selected[pId]), p, ALLIANCE_SHARED_CONTROL) then
             set hero = null
@@ -940,7 +940,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     set targetIndex = ResolveBagIndexFromMouse()
                     if targetIndex > 0 then
                         set rawIndex = targetIndex
-                        set bagIndex = rawIndex + Offset[pId]
+                        set bagIndex = rawIndex
                     endif
                 endif
                 if rawIndex > 0 then
@@ -988,7 +988,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set btnIndex = rawIdx
         endif
         if rawIdx > 0 then
-            set LastHoveredIndex[pId] = rawIdx + Offset[pId]
+            set LastHoveredIndex[pId] = rawIdx
             set PanelHover[pId] = true
             // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
@@ -1087,9 +1087,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set rawIdx = ResolveBagIndexFromMouse()
                 if rawIdx <= 0 and targetIndex > 0 then
                     set bagIndex = targetIndex
-                    set rawIdx = bagIndex - Offset[pId]
                 else
-                    set bagIndex = rawIdx + Offset[pId]
+                    set bagIndex = rawIdx
                 endif
                 if rawIdx > 0 and rawIdx <= Cols * Rows then
                     set bi = BagItem[pId].item[bagIndex]
@@ -1115,14 +1114,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
     
     private function WheelAction takes nothing returns nothing
-        local boolean upwards = BlzGetTriggerFrameValue() > 0
-        if GetLocalPlayer() == GetTriggerPlayer() then
-            if upwards then 
-                call BlzFrameSetValue(BlzGetFrameByName("TasItemBagSlider", 0), BlzFrameGetValue(BlzGetFrameByName("TasItemBagSlider", 0)) + 1)
-            else
-                call BlzFrameSetValue(BlzGetFrameByName("TasItemBagSlider", 0), BlzFrameGetValue(BlzGetFrameByName("TasItemBagSlider", 0)) - 1)
-            endif
-        endif
+        // Holes-based bag: fixed 24 slots, no wheel scrolling
     endfunction
 
     private function CloseButtonAction takes nothing returns nothing
@@ -1251,7 +1243,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function SliderAction takes nothing returns nothing
-        set Offset[GetPlayerId(GetTriggerPlayer())] = R2I(BlzGetTriggerFrameValue() * Cols)
+        // Holes-based bag: fixed 24 slots, no slider scrolling
+        set Offset[GetPlayerId(GetTriggerPlayer())] = 0
     endfunction
 
     private function SelectAction takes nothing returns nothing
