@@ -558,10 +558,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function ItemEquip2Bag takes unit u, item i returns nothing
-        // Ensure item is removed from the unit's inventory before stashing
-        // if UnitHasItem(u, i) then
-        //     call UnitRemoveItem(u, i)
-        // endif
+        // Ensure item is removed from the unit's inventory before stashing.
+        // With holes-based banking (and charged-item stacking), leaving it in inventory can cause
+        // WC3 inventory auto-merge/remove behavior to double-handle the same item.
+        if UnitHasItem(u, i) then
+            call UnitRemoveItem(u, i)
+        endif
         call TasItemBagAddItem(u, i)
     endfunction
 
@@ -1100,6 +1102,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     set bi = BagItem[pId].item[bagIndex]
                     if bi != null then
                         call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        // Keep TransferIndex/TransferItem in sync so ItemBag2Equip removes the correct slot.
+                        set TransferIndex[pId] = bagIndex
+                        set TransferItem[pId] = bi
                         call ItemBag2Equip(p, bi)
                         set didSomething = true
                     else
@@ -1468,23 +1473,27 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         call BlzFrameSetLevel(BlzGetFrameByName("TasItemBagTooltipPanel", 0), 8)
         // Bag Popup (programmatic, original style)
+        // Give it a high frame level so it stays clickable over the command card.
         set frame = BlzCreateFrameByType("BUTTON", "TasItemBagPopUpPanel", panel, "", 0)
-        call BlzFrameSetLevel(frame, 9)
+        call BlzFrameSetLevel(frame, 30)
         // Give the popup panel enough height to contain 4 buttons
         call BlzFrameSetSize(frame, 0.1, 0.12)
         set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonEquip", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetLevel(frame2, 31)
         call BlzFrameSetSize(frame2, 0.1, 0.03)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0, 0)
         call BlzFrameSetText(frame2, "EQUIP")
         call BlzTriggerRegisterFrameEvent(TriggerUIEquip, frame2, FRAMEEVENT_CONTROL_CLICK)
 
         set frame3 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonDrop", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetLevel(frame3, 31)
         call BlzFrameSetSize(frame3, 0.1, 0.03)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0)
         call BlzFrameSetText(frame3, "DROP")
         call BlzTriggerRegisterFrameEvent(TriggerUIDrop, frame3, FRAMEEVENT_CONTROL_CLICK)
 
         set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSwap", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetLevel(frame2, 31)
         call BlzFrameSetSize(frame2, 0.1, 0.03)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_BOTTOMLEFT, 0, 0)
         call BlzFrameSetText(frame2, "SWAP")
@@ -1492,6 +1501,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // 4th popup button: Split (conditionally shown)
         set frame3 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSplit", frame, "ScriptDialogButton", 0)
+        call BlzFrameSetLevel(frame3, 31)
         call BlzFrameSetSize(frame3, 0.1, 0.03)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0)
         call BlzFrameSetText(frame3, "SPLIT")
