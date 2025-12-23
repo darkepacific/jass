@@ -170,9 +170,36 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetUnitTypeId(u) == 'n002'
     endfunction
 
+    // --- Holes-based bag helpers (fixed 24 slots) ---
+    private function BagSlotCount takes integer playerKey returns integer
+        local integer c = 0
+        local integer s = 1
+        loop
+            exitwhen s > Cols * Rows
+            if BagItem[playerKey].item[s] != null then
+                set c = c + 1
+            endif
+            set s = s + 1
+        endloop
+        return c
+    endfunction
+
+    private function BagFindFirstEmpty takes integer playerKey returns integer
+        local integer s = 1
+        loop
+            exitwhen s > Cols * Rows
+            if BagItem[playerKey].item[s] == null then
+                return s
+            endif
+            set s = s + 1
+        endloop
+        return 0
+    endfunction
+
     function TasItemBagAddItemEx takes unit u, item i, boolean allowMerge returns nothing
         local integer playerKey = BankKeyForUnit(u)
         local location itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
+        local integer targetSlot
         local integer itemCode
         local integer incomingCharges
         local integer loopA
@@ -253,11 +280,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
 
-        if not ItemIsInBag.boolean[GetHandleId(i)] and BagItem[playerKey].integer[0] < ItemBagSize then
-            set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] + 1
-            set ItemIsInBag.boolean[GetHandleId(i)] = true
-            call SetItemVisible(i, false)
-            set BagItem[playerKey].item[BagItem[playerKey].integer[0]] = i
+        // Holes-based storage: place into the first empty slot (1..24)
+        if not ItemIsInBag.boolean[GetHandleId(i)] then
+            set targetSlot = BagFindFirstEmpty(playerKey)
+            if targetSlot > 0 then
+                set ItemIsInBag.boolean[GetHandleId(i)] = true
+                call SetItemVisible(i, false)
+                set BagItem[playerKey].item[targetSlot] = i
+            endif
         elseif ItemIsInBag.boolean[GetHandleId(i)] then
             call SetItemVisible(i, false)
         endif
@@ -270,9 +300,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     function TasItemBagGetItem takes unit u, integer index returns item
         local integer playerKey = BankKeyForUnit(u)    
-        if BagItem[playerKey].integer[0] <= 0 then
-            return null
-        endif
         return BagItem[playerKey].item[index]    
     endfunction
     
@@ -280,38 +307,35 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer playerKey = BankKeyForUnit(u)
         local item i
         local item i2
-        if BagItem[playerKey].integer[0] <= 0 then
+        if indexA <= 0 or indexB <= 0 then
             return false
         endif
-        if indexA <= 0 or indexB <= 0 then
+        if indexA > Cols * Rows or indexB > Cols * Rows then
             return false
         endif
         set i = BagItem[playerKey].item[indexA]
         set i2 = BagItem[playerKey].item[indexB]
-        if GetHandleId(i) > 0 and GetHandleId(i2) > 0 then
-            set BagItem[playerKey].item[indexB] = i
-            set BagItem[playerKey].item[indexA] = i2
-            set i = null
-            set i2 = null
-            return true
-        endif
+        // Allow swapping with empty slots (move)
+        set BagItem[playerKey].item[indexB] = i
+        set BagItem[playerKey].item[indexA] = i2
         set i = null
         set i2 = null
-        return false
+        return true
     endfunction
 
     function TasItemBagRemoveIndex takes unit u, integer index, boolean drop returns boolean
         local item i
         local integer playerKey = BankKeyForUnit(u)
         local location dropSpot = GetUnitLoc(u)
-        if BagItem[playerKey].integer[0] <= 0 then
+        if index <= 0 or index > Cols * Rows then
             return false
         endif
-    
         set i = BagItem[playerKey].item[index]
-        set BagItem[playerKey].item[index] = BagItem[playerKey].item[BagItem[playerKey].integer[0]]
-        set BagItem[playerKey].item[BagItem[playerKey].integer[0]] = null
-        set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] - 1   
+        if i == null then
+            return false
+        endif
+        // Holes-based removal: clear this slot; do not compact
+        set BagItem[playerKey].item[index] = null
         set ItemIsInBag.boolean[GetHandleId(i)] = false
         if drop and GetHandleId(i) > 0 then
             // Place dropped-from-bank items on the island and mark them to avoid cleanup
@@ -329,10 +353,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     function TasItemBagRemoveItem takes unit u, item i, boolean drop returns boolean
         local integer playerKey = BankKeyForUnit(u)
-        local integer loopA = BagItem[playerKey].integer[0]
-        if loopA <= 0 then
-            return false
-        endif
+        local integer loopA = Cols * Rows
         // loop all items in the bag and remove it if found
         loop
             exitwhen loopA <= 0
@@ -1137,13 +1158,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
-        local integer itemCount = BagItem[pId].integer[0]
-        local integer offset = Offset[pId]
-        local integer max
+        local integer itemCount = BagSlotCount(pId)
         local integer itemCode
         local item it
         local string text = ""
-        local integer dataIndex
         local integer i
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
@@ -1159,25 +1177,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
 
-            if itemCount > 0 then
-
-                // scroll by rows
-                set max = IMaxBJ(0, (itemCount + Cols - Cols * Rows) / Cols)
-            
-                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, max)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), I2S(R2I(offset / Cols)) + "/" + I2S(max))
-            else
-                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
-            endif
+            // Holes-based bag: fixed 24 slots, no scrolling
+            call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
 
             set i = 1
             loop
                 exitwhen i > Cols * Rows
-                set dataIndex = i + offset
-                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), dataIndex <= itemCount)
-                if dataIndex <= itemCount then
-                    set it = BagItem[pId].item[dataIndex]
+                set it = BagItem[pId].item[i]
+                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), it != null)
+                if it != null then
                     set itemCode = GetItemTypeId(it)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetAbilityIcon(itemCode), 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetAbilityIcon(itemCode), 0, true)
