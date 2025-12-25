@@ -341,24 +341,30 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     function TasItemBagRemoveIndex takes unit u, integer index, boolean drop returns boolean
         local item i
         local integer playerKey = BankKeyForUnit(u)
-        local location dropSpot = GetUnitLoc(u)
+        local string dropStr = "false"
+
+        if drop then
+            set dropStr = "true"
+        endif
+        call Debug("Removing item at index " + I2S(index) + " from bag of " + GetUnitName(u) + ", drop=" + dropStr)
+        
         if index <= 0 or index > Cols * Rows then
             return false
         endif
         set i = BagItem[playerKey].item[index]
         if i == null then
+            call Debug("No item found at that index.")
             return false
         endif
+        
         // Holes-based removal: clear this slot; do not compact
         set BagItem[playerKey].item[index] = null
         set ItemIsInBag.boolean[GetHandleId(i)] = false
         if drop and GetHandleId(i) > 0 then
             // Place dropped-from-bank items on the island and mark them to avoid cleanup
-            set dropSpot = GetUnitLoc(u)
-            call SetItemPositionLoc(i, dropSpot)
+            call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
             call SetItemUserData(i, 0)
             call SetItemVisible(i, true)
-            call RemoveLocation(dropSpot)
             set i = null
             return true
         endif
