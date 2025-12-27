@@ -113,6 +113,8 @@ function TalentFeralDruid takes nothing returns nothing
 	
 	//Cat - increased duration on bleeds
 	//Cat - increase base crit chance to 50%
+	//Cat - Feral Frenzy - Gain the feral frenzy ability, a channeled ability which supress and stuns the enemy causing them to take percent health damage over 3 sec
+
 	//Rip + Agility x Number of Dots, Shred 120 + 1x bonus agi
 	
 

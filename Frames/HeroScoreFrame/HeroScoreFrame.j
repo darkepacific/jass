@@ -106,6 +106,11 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
         public boolean AllowDuelAllies = true
         public boolean AllowShareAdv = true
         public boolean AllowShare = true
+
+        // When true, enables ALLIANCE_SHARED_ADVANCED_CONTROL for allied player pairs at game start.
+        // Note: This affects gameplay (resource spending / advanced control) but can be used even if the
+        // allied resources multiboard is suppressed via MultiboardSuppressDisplay(true).
+        public boolean AutoEnableShareAdvAtStart = true
         
         public boolean AllowSendGoldAlly = true
         public boolean AllowSendLumberAlly = true
@@ -130,6 +135,37 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
         
         public string DUEL_COMBAT_ERROR_MSG = "Can't duel while a player is in combat."
     endglobals
+
+    private function EnableShareAdv takes nothing returns nothing
+        local integer i = 0
+        local integer j
+        local player pi
+        local player pj
+
+        if not AutoEnableShareAdvAtStart then
+            return
+        endif
+
+        loop
+            set pi = Player(i)
+            if GetPlayerSlotState(pi) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(pi) == MAP_CONTROL_USER then
+                set j = 0
+                loop
+                    set pj = Player(j)
+                    if i != j and GetPlayerSlotState(pj) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(pj) == MAP_CONTROL_USER and IsPlayerAlly(pi, pj) then
+                        call SetPlayerAlliance(pi, pj, ALLIANCE_SHARED_ADVANCED_CONTROL, true)
+                    endif
+                    set j = j + 1
+                    exitwhen j >= bj_MAX_PLAYER_SLOTS
+                endloop
+            endif
+            set i = i + 1
+            exitwhen i >= bj_MAX_PLAYER_SLOTS
+        endloop
+
+        set pi = null
+        set pj = null
+    endfunction
     
     // can be used to prevent players from taking an UI
     // return false when no UI shall be used by that player
@@ -897,6 +933,8 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
         local trigger t = CreateTrigger()
         local integer loopIndex = 0
         call InitFrames()
+
+        call EnableShareAdv()
             
         loop
             call BlzTriggerRegisterPlayerKeyEvent(t, Player(loopIndex), TriggerKey, 0, true)
