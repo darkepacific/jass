@@ -69,7 +69,7 @@ function TalentFeralDruid takes nothing returns nothing
 	set choice = TalentChoiceCreateBooleanWithAddedFunction(11, 2)
 	set udg_TalentChoiceHead[choice] = "Prowl"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNProwl.blp"
-	set udg_TalentChoiceText[choice] = "Gain stealth for 5 sec when shifting into Cat form and also gain the ability to cast Shadowmeld while in cat form."
+	set udg_TalentChoiceText[choice] = "Gain stealth for 7 sec when shifting into Cat form and also gain the ability to cast Shadowmeld while in cat form."
 
 	// LEVEL 40
 	call TalentHeroTierCreate(heroTypeId, 40)

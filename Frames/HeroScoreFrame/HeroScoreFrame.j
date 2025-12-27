@@ -687,9 +687,7 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
     
     private function HeroScoreFrameAllyButtonShareAdvAction takes nothing returns nothing
         if GetTriggerPlayer() != SelectedPlayer[GetPlayerId(GetTriggerPlayer())] then
-    
-            //SetPlayerAlliance(GetTriggerPlayer(), SelectedPlayer[GetPlayerId(GetTriggerPlayer())], ALLIANCE_SHARED_ADVANCED_CONTROL, not GetPlayerAlliance(GetTriggerPlayer(), SelectedPlayer[GetPlayerId(GetTriggerPlayer())], ALLIANCE_SHARED_ADVANCED_CONTROL))
-    
+        
             // The clicking Player wants to see the face of the target Player
             call SetPlayerAlliance(SelectedPlayer[GetPlayerId(GetTriggerPlayer())], GetTriggerPlayer(), ALLIANCE_SHARED_ADVANCED_CONTROL, not GetPlayerAlliance(SelectedPlayer[GetPlayerId(GetTriggerPlayer())], GetTriggerPlayer(), ALLIANCE_SHARED_ADVANCED_CONTROL))
     
@@ -916,7 +914,10 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
         static if LIBRARY_FrameLoader then
             call FrameLoaderAdd(function InitFrames)
         endif
+
+        call MultiboardSuppressDisplay(true)
     endfunction
+    
     private function init_function takes nothing returns nothing
         if AutoRun then
             call TimerStart(CreateTimer(), 0, false, function HeroScoreFrameInit)

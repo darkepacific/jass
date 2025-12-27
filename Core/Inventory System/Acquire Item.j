@@ -9,6 +9,24 @@ function Trig_Acquire_Item_Conditions takes nothing returns boolean
     return false
 endfunction
 
+function HasBanshees takes unit u returns boolean
+    local integer playerNum = GetPlayerHeroNumber(GetOwningPlayer(u))
+    local integer i = 1
+
+    loop
+        exitwhen i > 6
+        if(GetItemTypeId(UnitItemInSlotBJ(u, i)) == 'I06Z' and BlzGetUnitAbilityCooldownRemaining(udg_Heroes[playerNum], 'ANss') <= 0.00) then
+            call DestroyEffect(udg_Banshees[playerNum])
+            call AddSpecialEffectTargetUnitBJ("origin", udg_Heroes[playerNum], "war3mapImported\\MagicShield_Blue.mdx")
+            set udg_Banshees[playerNum] = GetLastCreatedEffectBJ()
+            return true
+        endif
+        set i = i + 1
+    endloop
+
+    return false
+endfunction
+
 //Fires after the item is acquired
 function Trig_Acquire_Item_Actions takes nothing returns nothing
     local unit u = GetTriggerUnit()
@@ -56,18 +74,7 @@ function Trig_Acquire_Item_Actions takes nothing returns nothing
 
     // Banshees/Elune's Veil
     if(itemId == 'I06Z') then
-        set i = 1
-        loop
-            exitwhen i > 6
-            if(GetItemTypeId(UnitItemInSlotBJ(u, i)) == 'I06Z' and BlzGetUnitAbilityCooldownRemaining(udg_Heroes[playerNum], 'ANss') <= 0.00) then
-                call DestroyEffect(udg_Banshees[playerNum])
-                call AddSpecialEffectTargetUnitBJ("origin", udg_Heroes[playerNum], "war3mapImported\\MagicShield_Blue.mdx")
-                set udg_Banshees[playerNum] = GetLastCreatedEffectBJ()
-                exitwhen true
-            endif
-            set i = i + 1
-        endloop
-
+        call HasBanshees(u)
     endif
 
     // Dummy Orb Swap
