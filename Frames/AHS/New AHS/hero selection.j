@@ -70,6 +70,10 @@ library HeroSelection requires HeroSelectionConfig, HeroDeclaration, SaveHelperL
 		private integer b2
 
 		private location moveableLoc = Location(0, 0)
+
+		// Guard against intermittent "UI not ready yet" races.
+		private timer enableHeroSelectionRetryTimer = CreateTimer()
+		private integer enableHeroSelectionRetryAttempts = 0
 		
 		private integer storePlayerIndex
 		private integer storeHeroIndex
@@ -103,6 +107,10 @@ library HeroSelection requires HeroSelectionConfig, HeroDeclaration, SaveHelperL
 		private framehandle array inventoryTooltipText[6]
 
 	endglobals
+
+	private function HeroSelectionUIReady takes nothing returns boolean
+		return heroSelectionMenu != null and heroInfo != null and heroAcceptButton != null and heroBanButton != null and heroResetButton != null and timerFrame != null and captionFrame != null
+	endfunction
 	
 	private function interface playerCallback takes player whichPlayer returns nothing
 	private function interface playerHeroCallback takes player whichPlayer, Hero whichHero returns nothing
@@ -2661,6 +2669,22 @@ library HeroSelection requires HeroSelectionConfig, HeroDeclaration, SaveHelperL
 		endif
 
 		call InitCrashCheck("EnableHeroSelection")
+
+		// If any required frames are still null, touching them can crash the game.
+		// Retry briefly instead of proceeding.
+		if not HeroSelectionUIReady() then
+			set enableHeroSelectionRetryAttempts = enableHeroSelectionRetryAttempts + 1
+			if enableHeroSelectionRetryAttempts <= 200 then
+				call TimerStart(enableHeroSelectionRetryTimer, 0.03, false, function EnableHeroSelection)
+			else
+				static if HERO_SELECTION_ENABLE_DEBUG_MODE then
+					call BJDebugMsg("|cffff0000Warning:|r EnableHeroSelection UI not ready after retries.")
+				endif
+				set enableHeroSelectionRetryAttempts = 0
+			endif
+			return
+		endif
+		set enableHeroSelectionRetryAttempts = 0
 
 		if TIME_LIMIT != 0 then
 			call BlzFrameSetVisible(timerFrame, isInHeroSelection[localPlayerId])

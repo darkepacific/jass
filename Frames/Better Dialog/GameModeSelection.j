@@ -1,31 +1,53 @@
 scope GameModeSelection initializer Init
     globals
 		private string gameMode = "Normal" //default state of button
+		private boolean array closeRequested
+		private timer closeTimer = CreateTimer()
+		private boolean closeTimerRunning = false
     endglobals
+
+	private function CloseRequestedDialogs takes nothing returns nothing
+		local integer i = 0
+		loop
+			exitwhen i >= bj_MAX_PLAYERS
+			if closeRequested[i] then
+				set closeRequested[i] = false
+				call CloseOpenDialogForPlayer(Player(i))
+			endif
+			set i = i + 1
+		endloop
+		set closeTimerRunning = false
+	endfunction
 
     // function SelectGameMode takes framehandle whichDialog, player whichPlayer, string buttonName returns nothing
 	// 	set gameMode = buttonName
     // endfunction
 
     function Confirm takes framehandle whichDialog, player whichPlayer, string buttonName returns nothing
-		local real frameWaitTime = 11.0
+		local integer pid = GetPlayerId(whichPlayer)
 		
-		call CloseDialog(whichDialog)
-		call NeatMessage(GetPlayerName(whichPlayer) + " votes for: " + buttonName )
-		if (buttonName == "Normal") then
-			set udg_GameVoteArray[GetPlayerId(whichPlayer)] = 1
-		else
-			set udg_GameVoteArray[GetPlayerId(whichPlayer)] = 2
+		// IMPORTANT: do not destroy frames during their own click event.
+		// Closing/destroying the dialog here can intermittently crash Warcraft 3.
+		if udg_GameVoteArray[pid] > 0 then
+			return
 		endif
 
-		//Check which mode has the highest votes
-		if TimerGetRemaining(udg_GameVoteTimer) > frameWaitTime then
-			// call Debug("Waiting for " + R2S(TimerGetRemaining(udg_GameVoteTimer) - frameWaitTime))
-			// call TriggerSleepAction((TimerGetRemaining(udg_GameVoteTimer) - frameWaitTime))
-			call TimerStart(CreateTimer(), (TimerGetRemaining(udg_GameVoteTimer) - frameWaitTime), false, function CheckGameModeSelection)
-		else
-			call CheckGameModeSelection()
+		// Close the dialog safely (next tick), instead of destroying frames during the click event.
+		set closeRequested[pid] = true
+		if not closeTimerRunning then
+			set closeTimerRunning = true
+			call TimerStart(closeTimer, 0.00, false, function CloseRequestedDialogs)
 		endif
+
+		call NeatMessage(GetPlayerName(whichPlayer) + " votes for: " + buttonName )
+		if (buttonName == "Normal") then
+			set udg_GameVoteArray[pid] = 1
+		else
+			set udg_GameVoteArray[pid] = 2
+		endif
+
+		// Defer to next tick to ensure we're out of the UI event handler.
+		call TimerStart(CreateTimer(), 0.00, false, function CheckGameModeSelection)
     endfunction
 	
 	private function Create takes nothing returns nothing
