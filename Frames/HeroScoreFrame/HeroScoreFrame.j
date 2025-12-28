@@ -132,9 +132,62 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
     
         private player array SelectedPlayer
         private boolean array Duel
+
+        // Duel alliance-state snapshot (only one duel at a time in this map).
+        private boolean DuelAllianceSnapshotValid = false
+        private player DuelAlliancePlayerA = null
+        private player DuelAlliancePlayerB = null
+        private boolean DuelAllianceAtoBShared = false
+        private boolean DuelAllianceAtoBAdv = false
+        private boolean DuelAllianceBtoAShared = false
+        private boolean DuelAllianceBtoAAdv = false
         
         public string DUEL_COMBAT_ERROR_MSG = "Can't duel while a player is in combat."
     endglobals
+
+    // Saves the current per-direction shared-control flags between 2 players.
+    // Intended use: call right before duels set bj_ALLIANCE_UNALLIED.
+    function HeroScoreFrameDuelSaveAllianceFlags takes player a, player b returns nothing
+        if a == null or b == null or a == b then
+            set DuelAllianceSnapshotValid = false
+            set DuelAlliancePlayerA = null
+            set DuelAlliancePlayerB = null
+            return
+        endif
+
+        set DuelAlliancePlayerA = a
+        set DuelAlliancePlayerB = b
+        set DuelAllianceAtoBShared = GetPlayerAlliance(a, b, ALLIANCE_SHARED_CONTROL)
+        set DuelAllianceAtoBAdv = GetPlayerAlliance(a, b, ALLIANCE_SHARED_ADVANCED_CONTROL)
+        set DuelAllianceBtoAShared = GetPlayerAlliance(b, a, ALLIANCE_SHARED_CONTROL)
+        set DuelAllianceBtoAAdv = GetPlayerAlliance(b, a, ALLIANCE_SHARED_ADVANCED_CONTROL)
+        set DuelAllianceSnapshotValid = true
+    endfunction
+
+    // Restores the previously saved shared-control flags between the last duel participants.
+    // Call this from your end-duel trigger after you have restored the base alliance state (ally/enemy) as desired.
+    function HeroScoreFrameDuelRestoreAllianceFlags takes nothing returns nothing
+        if not DuelAllianceSnapshotValid or DuelAlliancePlayerA == null or DuelAlliancePlayerB == null then
+            return
+        endif
+
+        // If someone left the game during the duel, do not attempt to restore.
+        if GetPlayerSlotState(DuelAlliancePlayerA) != PLAYER_SLOT_STATE_PLAYING or GetPlayerSlotState(DuelAlliancePlayerB) != PLAYER_SLOT_STATE_PLAYING then
+            set DuelAllianceSnapshotValid = false
+            set DuelAlliancePlayerA = null
+            set DuelAlliancePlayerB = null
+            return
+        endif
+
+        call SetPlayerAlliance(DuelAlliancePlayerA, DuelAlliancePlayerB, ALLIANCE_SHARED_CONTROL, DuelAllianceAtoBShared)
+        call SetPlayerAlliance(DuelAlliancePlayerA, DuelAlliancePlayerB, ALLIANCE_SHARED_ADVANCED_CONTROL, DuelAllianceAtoBAdv)
+        call SetPlayerAlliance(DuelAlliancePlayerB, DuelAlliancePlayerA, ALLIANCE_SHARED_CONTROL, DuelAllianceBtoAShared)
+        call SetPlayerAlliance(DuelAlliancePlayerB, DuelAlliancePlayerA, ALLIANCE_SHARED_ADVANCED_CONTROL, DuelAllianceBtoAAdv)
+
+        set DuelAllianceSnapshotValid = false
+        set DuelAlliancePlayerA = null
+        set DuelAlliancePlayerB = null
+    endfunction
 
     private function EnableShareAdv takes nothing returns nothing
         local integer i = 0
@@ -688,6 +741,9 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
                     call PercentHealthRestore(100, udg_Heroes[heroNumbB])
                     call PercentManaRestore(100, udg_Heroes[heroNumbA])
                     call PercentManaRestore(100, udg_Heroes[heroNumbB])
+
+                    // The duel temporarily unallies players; preserve original Share/ShareAdv flags for restoration later.
+                    call HeroScoreFrameDuelSaveAllianceFlags(playerA, playerB)
 
                     call SetForceAllianceStateBJ( forceA, forceB, bj_ALLIANCE_UNALLIED )
                     call SetForceAllianceStateBJ( forceB, forceA, bj_ALLIANCE_UNALLIED )
