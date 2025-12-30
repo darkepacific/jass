@@ -115,7 +115,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array TransferIndex
         public integer array SwapIndex
         public integer array Offset
-        public unit array Selected
         public boolean array IgnoreNextSelection // Need to refactor this out
         // The UI moves all picked up items into the bag, RpgCustomUI.EquipNow = true prevents that
         public boolean EquipNow = false
@@ -1247,14 +1246,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function SelectAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
+
         if IgnoreNextSelection[pId] then
             set IgnoreNextSelection[pId] = false
             return
         endif
-        set Selected[pId] = GetTriggerUnit()
+
         set Offset[pId] = 0
         // Open banking UI when a Bank unit is selected
-        if IsBankUnit(Selected[pId]) then
+        if IsBankUnit(GetTriggerUnit()) then
             if GetLocalPlayer() == GetTriggerPlayer() then
                 // Update once before showing to avoid a one-frame flash of stale/null slot data
                 call UpdateUI()

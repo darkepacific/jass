@@ -511,13 +511,33 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
     endfunction
         
     private function HeroScoreFrameAction takes nothing returns nothing
-        set SelectedPlayer[GetPlayerId(GetTriggerPlayer())] = UiTargetPlayer[(S2I(BlzFrameGetText(BlzGetTriggerFrame())))]
+        local player clicked = UiTargetPlayer[(S2I(BlzFrameGetText(BlzGetTriggerFrame())))]
+        // Clicking your own card should not open the options popup.
+        if clicked == GetTriggerPlayer() then
+            if GetLocalPlayer() == GetTriggerPlayer() then
+                call BlzFrameSetVisible(BlzGetFrameByName("HeroScoreFrameAlly", 0), false)
+            endif
+            set clicked = null
+            return
+        endif
+        set SelectedPlayer[GetPlayerId(GetTriggerPlayer())] = clicked
         call ShowFrameAlly(GetTriggerPlayer(), BlzGetTriggerFrame())
+        set clicked = null
     endfunction
     
     private function HeroScoreFrameFaceAction takes nothing returns nothing
-        set SelectedPlayer[GetPlayerId(GetTriggerPlayer())] = UiTargetPlayer[(S2I(BlzFrameGetText(BlzGetTriggerFrame())))]
+        local player clicked = UiTargetPlayer[(S2I(BlzFrameGetText(BlzGetTriggerFrame())))]
+        // Clicking your own card should not open the options popup.
+        if clicked == GetTriggerPlayer() then
+            if GetLocalPlayer() == GetTriggerPlayer() then
+                call BlzFrameSetVisible(BlzGetFrameByName("HeroScoreFrameAlly", 0), false)
+            endif
+            set clicked = null
+            return
+        endif
+        set SelectedPlayer[GetPlayerId(GetTriggerPlayer())] = clicked
         call ShowFrameAlly(GetTriggerPlayer(), BlzFrameGetParent(BlzGetTriggerFrame()))
+        set clicked = null
     endfunction
         
     

@@ -643,6 +643,11 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set udg_SaveItemType[i] = 'I05R'
     set i = i + 1
 
+    //--- Forgotten Items ---
+    // |c0000FF00Ring of the Archmagi|r
+    set udg_SaveItemType[i] = 'ram3'
+    set i = i + 1
+
     // -------------------
     // Purchasable
     // -------------------
@@ -712,7 +717,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set udg_SaveItemType[i] = 'I04W'
     set i = i + 1
     // Champion's Helm
-    set udg_SaveItemType[i] = 'I04V'
+    set udg_SaveItemType[i] = 0  //Removed Item Test
     set i = i + 1
     // Hammer of Berserk
     set udg_SaveItemType[i] = 'I04U'
