@@ -442,8 +442,8 @@ library MultiPageInventorySystem
         local integer i = 0
         loop
             exitwhen i > 23
-            set hkMain[i] = OSKEY_X
-            set hkMainStr[i] = "X"
+            set hkMain[i] = OSKEY_V
+            set hkMainStr[i] = "V"
 
             set hkRight[i] = OSKEY_Z
             set hkRightStr[i] = "Z"
