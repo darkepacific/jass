@@ -100,6 +100,8 @@ function TalentBalDruid takes nothing returns nothing
 		//Moon - Solar Power deals 20% increase damage to targets with moonfire
 	//Moon - Stellar Drift - Ecplise now empowers Starfall causing the spell to cast 40% faster
 	//Moon - Twin Moons - Moonfire hits 1 additional enemy
+	//Both - Wild Mushroom - Grow a magical mushroom at the target location, after 1 second the mushroom explodes dealing AoE damage instantly and over time,
+		//as well as slowing enemies hit by 30% for 4 sec
 	
 	//Moon - [Lunar Magic] - Damagine a target with Moonfire now refreshes the spell causing it to be recast on them automatically, 
 		//this effect has a 3 second cooldown
@@ -124,10 +126,12 @@ function TalentBalDruid takes nothing returns nothing
 	//Wellspring Vitality
 	// set choice = TalentChoiceCreateRegen(15.0, 15.0, 450, 450)
 	// set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNWellSpring.blp"	
+
+	//Hibernate gain the ability to put a target to sleep for 4 sec
 		
-
-
 	//|nYou will also gain Starfall and Tranquility in Moonkin and Treant forms resepectively 
+
+		
 endfunction
 
 //===========================================================================

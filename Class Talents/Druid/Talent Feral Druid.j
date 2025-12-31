@@ -93,16 +93,17 @@ function TalentFeralDruid takes nothing returns nothing
 
 	//LEVEL 60
 	// 	1. Greatly Inc hp in bear form, and roar now also reduces all damage done nearby enemies by 20% for 5 sec
+	//Bear - Iron Fur - Reduce all incoming damage by 15% for 6 sec
 	//https://www.hiveworkshop.com/threads/bear-bundle.328106/
 	// 2. Ursocs Fury - Perm Inc str and agi each time you kill an enemy hero 10 lvls within ur own, up to 30 times
-	// 3. Cat Attack - The base damage of rip is increased to 700 and 100% crit chance
+	//Cat - [Feral Frenzy] - Channeled ability which supress for 3 sec causing them to take % health damage over 3 sec
+
 	
 	//Tiger's Fury- When below 50% health deal 20% more damage
 	//Rip and Tear - Rip now allies another DoT that deals an additional 20% of the total damage over 5 sec
 
 
 	//Thrasher - reduces the cooldown of thrash by 1 sec, the mana cost by 50, and increases the damage by 20%
-	
 	//  Gain full stealth in cat form and 100% base crit chance
 
 	//Defense of the Ancients - Gain 650 Health and Mana, Casting your ultimate now grants you a shield for 20% max health for 6 sec	
@@ -110,14 +111,15 @@ function TalentFeralDruid takes nothing returns nothing
 	//BTNEnchantedBears.blp
 	//Bear - Demoralizing Roar, roar now also reduces the damage of all nearby enemies by 25% for 5 sec
 	//Both - [Remove Corruption] Rejuvination now removes negative buff
+	//Bear - Iron Fur - Reduce all incoming damage by 15% for 6 sec
+	//Bear - [Ursocs Fury] - Each time you kill an enemy hero 10 lvls within ur own, gain 2% permanent strength, up to 30 times
+	//Cat - [Tiger's Fury] - When below 50% health deal 15% more damage for 6 sec
 	
-	//Cat - increased duration on bleeds
-	//Cat - increase base crit chance to 50%
-	//Cat - Feral Frenzy - Gain the feral frenzy ability, a channeled ability which supress and stuns the enemy causing them to take percent health damage over 3 sec
+	//Cat - increased duration on bleeds or increase base crit chance to 50%
 
+		// 3. Cat Attack - The base damage of rip is increased to 700 and 100% crit chance
 	//Rip + Agility x Number of Dots, Shred 120 + 1x bonus agi
 	
-
 	
 
 
