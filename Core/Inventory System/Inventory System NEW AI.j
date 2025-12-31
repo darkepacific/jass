@@ -11,7 +11,7 @@ library MultiPageInventorySystem
 
     globals 
         //udg_Bag_Page has now been moved to globals for easier access across libraries
-        private integer maxPages = 3
+        private integer maxPages = 1
         
         private trigger trigInvMain = CreateTrigger() 
         private trigger trigInvLeft = CreateTrigger() 
