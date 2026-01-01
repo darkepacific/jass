@@ -44,7 +44,7 @@ function Trig_Acquire_Item_Actions takes nothing returns nothing
     call Debug("Acquire Itm: " + GetItemName(it) + " Int Incr: " + I2S(statCalc) )
 
     // Update P_Items with the newly equipped item
-    set udg_P_Items[GetCurrentPItemsIndex(p, GetUnitItemSlot(u, it))] = it
+    set udg_P_Items[GetPItemsCurrentIndex(p, GetUnitItemSlot(u, it))] = it
     
     // Non-Cap Custom Value Set
     if(itemId != 'I06Y') then

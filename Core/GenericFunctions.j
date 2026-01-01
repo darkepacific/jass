@@ -1,4 +1,24 @@
 library GenericFunctions
+    globals
+        // ================================================================
+        // P_Items Layout (single source of truth = udg_BAG_SIZE)
+        // ================================================================
+        // We intentionally keep the stride/bag-size as a GUI-style global (udg_BAG_SIZE)
+        // so it stays easy to reference from GUI-heavy systems.
+        //
+        // Conventions:
+        // - Slot 0 reserved
+        // - Equipped slots come first (page-based inventory)
+        // - Extra bag slots come after equipped
+        //
+        // Extra bag size is driven by these UI grid dimensions.
+        // Total stride per player must be configured via udg_BAG_SIZE.
+        private constant integer PITEMS_EQUIP_PAGE_SLOTS = 6
+        private constant integer PITEMS_EXTRA_COLS = 6
+        private constant integer PITEMS_EXTRA_ROWS = 4
+        private constant integer PITEMS_EXTRA_SLOTS = PITEMS_EXTRA_COLS * PITEMS_EXTRA_ROWS
+    endglobals
+
     function Debug takes string str returns nothing
         if(udg_Debug) then
             call DisplayTextToForce(GetPlayersAll(), str)
@@ -98,7 +118,27 @@ library GenericFunctions
         endloop
         return i
     endfunction
+    
+    //AI ADDED FUNCTION
+    function GetBagSize takes nothing returns integer
+        return udg_BAG_SIZE
+    endfunction
 
+    function GetEquipedSlotsMax takes nothing returns integer
+        // Total usable slots = udg_BAG_SIZE - 1 (slot 0 reserved)
+        // Equipped slots = total usable - extra bag slots
+        local integer equipSlots = (udg_BAG_SIZE - 1) - PITEMS_EXTRA_SLOTS
+        if equipSlots < 0 then
+            set equipSlots = 0
+        endif
+        return equipSlots
+    endfunction
+
+    function GetPItemsExtraSlotsMax takes nothing returns integer
+        return PITEMS_EXTRA_SLOTS
+    endfunction
+
+    // Base index for this player's P_Items block.
     function GetPlayerBagNumber takes player p returns integer
         return GetPlayerHeroNumber(p) * udg_BAG_SIZE
     endfunction
@@ -113,8 +153,14 @@ library GenericFunctions
         return GetPlayerBagNumber(p) +((page - 1) * 6) + slot
     endfunction
 
+    //AI ADDED FUNCTION
+    // Helper function to get the P_Items index for an extra-bag slot (1..GetPItemsExtraSlotsMax()).
+    function GetPItemsExtraBagIndex takes player p, integer extraSlot returns integer
+        return GetPlayerBagNumber(p) + GetPItemsEquipSlotsMax() + extraSlot
+    endfunction
+
     // Helper function to get current equipped slot's P_Items index
-    function GetCurrentPItemsIndex takes player p, integer slot returns integer
+    function GetPItemsCurrentIndex takes player p, integer slot returns integer
         return GetPItemsIndex(p, udg_Bag_Page[GetPlayerNumber(p)], slot)
     endfunction
 

@@ -11,7 +11,7 @@ library MultiPageInventorySystem
 
     globals 
         //udg_Bag_Page has now been moved to globals for easier access across libraries
-        private integer maxPages = 1
+        private integer maxPages = 3
         
         private trigger trigInvMain = CreateTrigger() 
         private trigger trigInvLeft = CreateTrigger() 
@@ -101,10 +101,10 @@ library MultiPageInventorySystem
         local integer bagNum = GetPlayerBagNumber(p)
         local integer i = 0
         
-        // Reset Bag Page
+        // Reset all stored items for this player (equipped + extra bag)
         set i = 0
         loop
-            exitwhen i > 18
+            exitwhen i > udg_BAG_SIZE
             if udg_P_Items[bagNum + i] != null then
                 call RemoveItem(udg_P_Items[bagNum + i])
                 set udg_P_Items[bagNum + i] = null
@@ -140,8 +140,8 @@ library MultiPageInventorySystem
         if item1 != item2 then
             set slot = GetUnitItemSlot(u, item1)
             set toSlot = toSlot + 1 // Adjust to 1-based index
-            set udg_P_Items[GetCurrentPItemsIndex(p, slot)] = item2
-            set udg_P_Items[GetCurrentPItemsIndex(p, toSlot)] = item1
+            set udg_P_Items[GetPItemsCurrentIndex(p, slot)] = item2
+            set udg_P_Items[GetPItemsCurrentIndex(p, toSlot)] = item1
         endif 
 
         set u = null
@@ -442,8 +442,8 @@ library MultiPageInventorySystem
         local integer i = 0
         loop
             exitwhen i > 23
-            set hkMain[i] = OSKEY_V
-            set hkMainStr[i] = "V"
+            set hkMain[i] = OSKEY_X
+            set hkMainStr[i] = "X"
 
             set hkRight[i] = OSKEY_Z
             set hkRightStr[i] = "Z"

@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions
     /*  TasItemBag 1.3
     by Tasyen
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -56,8 +56,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // DestroyUndropAbleItems = true, When by death an undropable item would have to be droped from the TasItemBag, it is destroyed.
         private boolean DestroyUndropAbleItems = true
         
-        // ItemBagSize is the maximum amount of items, an unit can carry in the bag, additional items are droped on pickup
-        private integer ItemBagSize = 48
+        // Bag capacity is driven by Cols*Rows and the udg_P_Items extra-bag layout.
 
         // can Equip only EquipClassLimit of one Item Class at one time
         public integer EquipClassLimit = 999
@@ -74,8 +73,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         //itemCode Require the unit to have ability X to equip
         //itemCode = AbilityCode
         // public Table ItemAbilityNeed
-        public Table ItemIsInBag
-        public HashTable BagItem
 
         private abilityintegerlevelfield AbilityFieldDrop
         private abilityintegerlevelfield AbilityFieldUse
@@ -168,13 +165,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetUnitTypeId(u) == 'n002'
     endfunction
 
+    private function BagSlotArrayIndex takes integer playerKey, integer bagSlot returns integer
+        return GetPItemsExtraBagIndex(Player(playerKey), bagSlot)
+    endfunction
+
     // Finds the next empty (null) slot for this player's bag.
     // Returns 0 when the bag is full.
     private function BagNextEmptySlot takes integer playerKey returns integer
         local integer slot = 1
+        local integer maxSlots = GetPItemsExtraSlotsMax()
+        local integer arrIndex
         loop
-            exitwhen slot > ItemBagSize
-            if BagItem[playerKey].item[slot] == null then
+            exitwhen slot > maxSlots
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            if udg_P_Items[arrIndex] == null then
                 return slot
             endif
             set slot = slot + 1
@@ -182,12 +186,59 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return 0
     endfunction
 
+    private function BagFindItemSlot takes integer playerKey, item i returns integer
+        local integer slot = 1
+        local integer maxSlots = GetPItemsExtraSlotsMax()
+        local integer arrIndex
+        loop
+            exitwhen slot > maxSlots
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            if udg_P_Items[arrIndex] == i then
+                return slot
+            endif
+            set slot = slot + 1
+        endloop
+        return 0
+    endfunction
+
+    private function BagHasMergeSpace takes integer playerKey, item incoming returns boolean
+        local integer incomingCharges
+        local integer itemCode
+        local integer slot = 1
+        local integer maxSlots = GetPItemsExtraSlotsMax()
+        local integer arrIndex
+        local item existing
+        if incoming == null then
+            return false
+        endif
+        set incomingCharges = GetItemCharges(incoming)
+        if incomingCharges <= 0 or GetItemType(incoming) != ITEM_TYPE_CHARGED then
+            return false
+        endif
+        set itemCode = GetItemTypeId(incoming)
+        loop
+            exitwhen slot > maxSlots
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            set existing = udg_P_Items[arrIndex]
+            if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode then
+                if GetItemCharges(existing) < DEFAULT_MAX_CHARGES then
+                    set existing = null
+                    return true
+                endif
+            endif
+            set slot = slot + 1
+        endloop
+        set existing = null
+        return false
+    endfunction
+
     function TasItemBagAddItem takes unit u, item i, boolean allowMerge returns nothing
         local integer playerKey = BankKeyForUnit(u)
-        local location itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
         local integer itemCode
         local integer incomingCharges
-        local integer loopA
+        local integer slot
+        local integer maxSlots
+        local integer arrIndex
         local item existing
         local integer existingCharges
         local integer addCharges
@@ -197,36 +248,37 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer remaining
         local integer maxCharges
         local integer space
-        
-        // Move banked items to the island and mark with custom value > 0
-        call SetItemPositionLoc(i, itemIsland)
-        call SetItemUserData(i, 1)
+        local integer emptySlot
+        local location itemIsland
+
+        if i == null then
+            return
+        endif
 
         // Stack consumable charges into an existing item of the same type (if possible)
         // Only applies to charged consumables.
         if allowMerge then
             set incomingCharges = GetItemCharges(i)
             if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
-                // Standardize max stack size for all charged consumables.
-                set maxCharges = 20
+                set maxCharges = DEFAULT_MAX_CHARGES
                 if incomingCharges > maxCharges then
                     set incomingCharges = maxCharges
                     call SetItemCharges(i, incomingCharges)
                 endif
                 set itemCode = GetItemTypeId(i)
-                set loopA = BagItem[playerKey].integer[0]
+                set slot = 1
+                set maxSlots = GetPItemsExtraSlotsMax()
                 loop
-                    exitwhen loopA <= 0 or incomingCharges <= 0
-                    set existing = BagItem[playerKey].item[loopA]
-                    if existing != null and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
-                        // Clamp existing stack too (in case it was already over).
+                    exitwhen slot > maxSlots or incomingCharges <= 0
+                    set arrIndex = BagSlotArrayIndex(playerKey, slot)
+                    set existing = udg_P_Items[arrIndex]
+                    if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
                         set existingCharges = GetItemCharges(existing)
                         if existingCharges > maxCharges then
                             set existingCharges = maxCharges
                             call SetItemCharges(existing, existingCharges)
                         endif
 
-                        // Add up to available space in this stack.
                         set beforeCharges = existingCharges
                         set space = maxCharges - beforeCharges
                         if space > 0 then
@@ -241,7 +293,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         endif
                         set afterCharges = GetItemCharges(existing)
 
-                        // Determine how many charges were actually absorbed.
                         set absorbed = afterCharges - beforeCharges
                         if absorbed < 0 then
                             set absorbed = 0
@@ -252,105 +303,109 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         endif
                         set incomingCharges = remaining
                     endif
-                    set loopA = loopA - 1
+                    set slot = slot + 1
                 endloop
+
                 // Fully merged -> remove the incoming item
                 if incomingCharges <= 0 then
                     call RemoveItem(i)
-                    call RemoveLocation(itemIsland)
                     set existing = null
                     return
                 endif
+
                 // Partially merged -> keep remaining charges on the incoming item before storing it
                 call SetItemCharges(i, incomingCharges)
             endif
         endif
 
-        if not ItemIsInBag.boolean[GetHandleId(i)] and BagItem[playerKey].integer[0] < ItemBagSize then
-            set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] + 1
-            set ItemIsInBag.boolean[GetHandleId(i)] = true
-            set BagItem[playerKey].item[BagItem[playerKey].integer[0]] = i
+        // Need a free slot if the item still exists after any merge
+        set emptySlot = BagNextEmptySlot(playerKey)
+        if emptySlot <= 0 then
+            call ErrorMessage("Bag is full.", GetOwningPlayer(u))
+            return
         endif
+
+        set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
+        call SetItemPositionLoc(i, itemIsland)
+        call SetItemVisible(i, false)
+        call SetItemUserData(i, 1)
         call RemoveLocation(itemIsland)
+
+        set arrIndex = BagSlotArrayIndex(playerKey, emptySlot)
+        set udg_P_Items[arrIndex] = i
     endfunction
 
     function TasItemBagGetItem takes unit u, integer index returns item
-        local integer playerKey = BankKeyForUnit(u)    
-        if BagItem[playerKey].integer[0] <= 0 then
+        local integer playerKey = BankKeyForUnit(u)
+        local integer maxSlots = GetPItemsExtraSlotsMax()
+        if index <= 0 or index > maxSlots then
             return null
         endif
-        return BagItem[playerKey].item[index]    
+        return udg_P_Items[BagSlotArrayIndex(playerKey, index)]
     endfunction
     
     function TasItemBagSwap takes unit u, integer indexA, integer indexB returns boolean
         local integer playerKey = BankKeyForUnit(u)
+        local integer maxSlots = GetPItemsExtraSlotsMax()
+        local integer a
+        local integer b
         local item i
         local item i2
-        if BagItem[playerKey].integer[0] <= 0 then
+        if indexA <= 0 or indexB <= 0 or indexA > maxSlots or indexB > maxSlots or indexA == indexB then
             return false
         endif
-        if indexA <= 0 or indexB <= 0 then
-            return false
-        endif
-        set i = BagItem[playerKey].item[indexA]
-        set i2 = BagItem[playerKey].item[indexB]
-        if GetHandleId(i) > 0 and GetHandleId(i2) > 0 then
-            set BagItem[playerKey].item[indexB] = i
-            set BagItem[playerKey].item[indexA] = i2
-            set i = null
-            set i2 = null
-            return true
-        endif
+        set a = BagSlotArrayIndex(playerKey, indexA)
+        set b = BagSlotArrayIndex(playerKey, indexB)
+        set i = udg_P_Items[a]
+        set i2 = udg_P_Items[b]
+        set udg_P_Items[a] = i2
+        set udg_P_Items[b] = i
         set i = null
         set i2 = null
-        return false
+        return true
     endfunction
 
     function TasItemBagRemoveIndex takes unit u, integer index, boolean drop returns boolean
-        local item i
         local integer playerKey = BankKeyForUnit(u)
-        local location dropSpot = GetUnitLoc(u)
-        if BagItem[playerKey].integer[0] <= 0 then
+        local integer maxSlots = GetPItemsExtraSlotsMax()
+        local integer arrIndex
+        local item i
+        local location dropSpot
+        if index <= 0 or index > maxSlots then
             return false
         endif
-    
-        set i = BagItem[playerKey].item[index]
-        set BagItem[playerKey].item[index] = BagItem[playerKey].item[BagItem[playerKey].integer[0]]
-        set BagItem[playerKey].item[BagItem[playerKey].integer[0]] = null
-        set BagItem[playerKey].integer[0] = BagItem[playerKey].integer[0] - 1   
-        set ItemIsInBag.boolean[GetHandleId(i)] = false
+        set arrIndex = BagSlotArrayIndex(playerKey, index)
+        set i = udg_P_Items[arrIndex]
+        if i == null then
+            return false
+        endif
+        set udg_P_Items[arrIndex] = null
+
         if drop and GetHandleId(i) > 0 then
-            // Place dropped-from-bank items on the island and mark them to avoid cleanup
             set dropSpot = GetUnitLoc(u)
             call SetItemPositionLoc(i, dropSpot)
             call SetItemUserData(i, 0)
             call SetItemVisible(i, true)
             call RemoveLocation(dropSpot)
+            set dropSpot = null
             set i = null
             return true
         endif
 
         set i = null
-        set dropSpot = null
-        return false
+        return true
     endfunction
 
     function TasItemBagRemoveItem takes unit u, item i, boolean drop returns boolean
         local integer playerKey = BankKeyForUnit(u)
-        local integer loopA = BagItem[playerKey].integer[0]
-        if loopA <= 0 then
+        local integer slot
+        if i == null then
             return false
         endif
-        // loop all items in the bag and remove it if found
-        loop
-            exitwhen loopA <= 0
-            if BagItem[playerKey].item[loopA] == i then
-                call TasItemBagRemoveIndex(u, loopA, drop)
-                return true
-            endif
-            set loopA = loopA - 1
-        endloop
-
+        set slot = BagFindItemSlot(playerKey, i)
+        if slot > 0 then
+            return TasItemBagRemoveIndex(u, slot, drop)
+        endif
         return false
     endfunction
 
@@ -448,6 +503,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit u = udg_Heroes[GetPlayerNumber(p)]
         local integer pId = GetPlayerId(p)
         local integer bagIndex = TransferIndex[pId]
+        local integer arrIndex
         local integer maxCharges
         local integer incomingCharges
         local integer existingCharges
@@ -491,12 +547,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 // If we managed to merge anything, update the bank item accordingly.
                 if incomingCharges < GetItemCharges(i) then
                     if incomingCharges <= 0 then
-                        // Fully absorbed into an inventory stack; remove the bank item entry.
-                        if bagIndex > 0 and BagItem[pId].item[bagIndex] == i then
-                            call TasItemBagRemoveIndex(u, bagIndex, false)
-                        else
-                            call TasItemBagRemoveItem(u, i, false)
+                        // Fully absorbed into an inventory stack; remove the bag item entry and destroy it.
+                        if bagIndex <= 0 or TasItemBagGetItem(u, bagIndex) != i then
+                            set bagIndex = BagFindItemSlot(pId, i)
                         endif
+                        if bagIndex > 0 then
+                            set arrIndex = BagSlotArrayIndex(pId, bagIndex)
+                            set udg_P_Items[arrIndex] = null
+                        endif
+                        call RemoveItem(i)
                     else
                         // Partially absorbed; keep the bank item with remaining charges.
                         call SetItemCharges(i, incomingCharges)
@@ -525,13 +584,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
         call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
         if UnitAddItem(u, i) then
-            // WC3 can merge charged items in inventory and delete one of the handles.
-            // If that happens, remove-by-handle can fail and leave a null/bugged entry in the bag.
-            // Prefer removing by the known bag index when possible.
-            if bagIndex > 0 and BagItem[pId].item[bagIndex] == i then
-                call TasItemBagRemoveIndex(u, bagIndex, false)
-            else
-                call TasItemBagRemoveItem(u, i, false)
+            // Clear the bag slot by index; WC3 may merge charges and delete handles.
+            if bagIndex <= 0 or TasItemBagGetItem(u, bagIndex) != i then
+                set bagIndex = BagFindItemSlot(pId, i)
+            endif
+            if bagIndex > 0 then
+                set arrIndex = BagSlotArrayIndex(pId, bagIndex)
+                set udg_P_Items[arrIndex] = null
             endif
         endif
         set EquipNow = false
@@ -559,8 +618,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         set playerKey = GetPlayerId(p)
-        if BagItem[playerKey].integer[0] >= ItemBagSize then
-            call ErrorMessage("Bank is full.", p)
+        if BagNextEmptySlot(playerKey) <= 0 and not BagHasMergeSpace(playerKey, it) then
+            call ErrorMessage("Bag is full.", p)
             set it = null
             return
         endif
@@ -605,7 +664,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
         set SwapIndex[pId] = TransferIndex[pId]
-        call SwapHighlightShowOnSlot(pId, SwapIndex[pId] - Offset[pId])
+        call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
         call FrameLoseFocus()
     endfunction
 
@@ -891,7 +950,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set frameSrc = "Button(handle)"
             endif
         endif
-        set bagIndex = rawIndex + Offset[pId]
+        set bagIndex = rawIndex
         set hero = udg_Heroes[GetPlayerNumber(p)]
         if hero == null then
             return
@@ -924,12 +983,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     set targetIndex = ResolveBagIndexFromMouse()
                     if targetIndex > 0 then
                         set rawIndex = targetIndex
-                        set bagIndex = rawIndex + Offset[pId]
+                        set bagIndex = rawIndex
                     endif
                 endif
                 if rawIndex > 0 then
                     set TransferIndex[pId] = bagIndex
-                    set TransferItem[pId] = BagItem[pId].item[bagIndex]
+                    set TransferItem[pId] = TasItemBagGetItem(hero, bagIndex)
                     if TransferItem[pId] != null then
                         if GetLocalPlayer() == p then
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
@@ -972,7 +1031,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set btnIndex = rawIdx
         endif
         if rawIdx > 0 then
-            set LastHoveredIndex[pId] = rawIdx + Offset[pId]
+            set LastHoveredIndex[pId] = rawIdx
             set PanelHover[pId] = true
             // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
             if DragActive[pId] then
@@ -1069,12 +1128,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set rawIdx = ResolveBagIndexFromMouse()
                 if rawIdx <= 0 and targetIndex > 0 then
                     set bagIndex = targetIndex
-                    set rawIdx = bagIndex - Offset[pId]
+                    set rawIdx = bagIndex
                 else
-                    set bagIndex = rawIdx + Offset[pId]
+                    set bagIndex = rawIdx
                 endif
                 if rawIdx > 0 and rawIdx <= Cols * Rows then
-                    set bi = BagItem[pId].item[bagIndex]
+                    set bi = udg_P_Items[BagSlotArrayIndex(pId, bagIndex)]
                     if bi != null then
                         call Debug("Withdraw (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
                         call ItemBag2Equip(p, bi)

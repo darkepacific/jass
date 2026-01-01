@@ -26,7 +26,7 @@ function Trig_Lose_Item_Actions takes nothing returns nothing
     set i = 1
     loop
         exitwhen i > 6
-        set pItemsIndex = GetCurrentPItemsIndex(p, i)
+        set pItemsIndex = GetPItemsCurrentIndex(p, i)
         if udg_P_Items[pItemsIndex] == it then
             set udg_P_Items[pItemsIndex] = null
             exitwhen true
