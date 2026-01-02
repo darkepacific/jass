@@ -87,14 +87,26 @@ function TalentBMHunter takes nothing returns nothing
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAspectofthePack.blp"
 	set udg_TalentChoiceText[choice] = "Increases the health, armor, damage and movement speed of your pets. |n|n+500 hp, +4 Armor, +200 damage, +50 speed"
 
-	//[Flare] - reveals all invisible enemies
+
+	//[Camouflage] - you and your pet blend in your surroundings, hides aspect of the hawk
+	
+	//Killshot - When a target is below 50% health, your Q,W,E do 50% more damage
+
+	//[Rawr Dinosaurs] - Dev
+		// Friends of the Wild - Summon an Extra Pet Based on the zone, replace your pet with a legendary one
+		//gain the ability to summon a Devilsaur, a powerful pet that deals massive damage and can cast warstomp
+		//DevilSaur - bear upgrade
+		//Triceratops - turtle upgrade
+		//Pterrodax - raptor upgrade
+		
+		
+	//[Flare] - reveals an area for 30s, reveals stealth heroes
+	// Revive Pets, reduces the cooldown on your pet summon abilities by 15s,
+		// Note: (will require improving 21 abilities OR setting bool in CD Maths to -15 before calc)
 	//[Aspect of the Turtle] - Hides  aspect of the hawk, gain a shield that reduces all incoming damage by 30%
-	//Revive Pets, reduces the cooldown on your pet summon abilities by 15s, (will require improving 21 abilities OR setting bool in CD Maths to -15 before calc)
-	//[Camouflage] - you and your pet blend in your surroundings, replaces aspect of the hawk (similar to hide)
-	//DevilSaur - gain the ability to summon a Devilsaur, a powerful pet that deals massive damage and can cast warstomp
-	//Killshot - When a target is below 20% health, your shot spells 20% more damage
-	//Wing Clip - increases the slow on serpent sting to 50%
-	//Summon an Extra Pet Based on the zone, replace your pet with a legendary one
+	// Wing Clip - increases the slow on serpent sting to 50%
+
+
 
 endfunction
 

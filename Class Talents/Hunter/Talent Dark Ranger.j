@@ -89,35 +89,24 @@ function TalentDarkRanger takes nothing returns nothing
 
 	//50
 	
+	// [Shadow arrow Volley] - black arrow fires at 2 more nearby targets
+	// Back from the Shadowlands - When you die instead enter a stas`is and revive after 5 sec with 50% hp and mana.
+	//[Camouflage] - blend into your surroundings, 
+	//Screaming Wave - increase the range on Haunting Wave by 150 (improve and boolean)
+	//Skeletal Magic - black arrow now summons powerful skeletal mages
+	//Increased Attack Speed
+		// set choice = TalentChoiceCreateImproveWeapon(0, 0, -1.06)	//BM Base is 2.46/1.4 - 1 = 75%
+		// set udg_TalentChoiceHead[choice] = "Increased Attack Speed"
+		// set udg_TalentChoiceText[choice] = "Increase Attack Speed by 75%"
+		// set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNBloodlust.blp"
+
 	//Blighted Quiver - Increase the number of charges on black arrow by 2
 	//Penetrating Darkness - black arrow now pierces through all enemies in a line and applies the debuff
-	//Wailing Arrow - fire a wailing arrows that damages and silences all enemies in an area for 2.5s when recast
-	//Back from the Shadowlands - When you die instead enter a statis and revive after 3 sec with 50% hp and mana.
-		//When you die instead enter a statis and revive after 3 sec with 50% hp and mana. 60 sec CD
 
+
+	
 	//Chains of Domination - root an enemy in place for 1.25s during this time you're able to recast the ability in a target direction, a 2nd chain fires forth that if it makes contact with an another enemy, both are pulled towards each other and rooted for 2.5s, taking X damage
-		//Haunting wave now roots targets for 0.25s
-	//Skeletal Magic - black arrow now summons powerful skeletal mages
-		//Black arrow now fires a second arrow at another nearby target, if this target dies a Skeletal Mage will Spawn from their corpse
-	
-	
-	
-	//[Drain Life]- Drain Life Gain the Drain Life ability
-	// [Blight Hounds]
-	//[Shadow dagger] replaces Black Arrow - creates a plague on the target if the target dies it spawns  a skeleton and spreads to a nearby enemy (retores int for corruption)
-
-
-
-	// set choice = TalentChoiceCreateImproveWeapon(0, 0, -1.06)	//BM Base is 2.46/1.4 - 1 = 75%
-	// set udg_TalentChoiceHead[choice] = "Increased Attack Speed"
-	// set udg_TalentChoiceText[choice] = "Increase Attack Speed by 75%"
-	// set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNBloodlust.blp"
-
-	//[Camouflage] - blend into your surroundings, 
-	//Bone Spear toss a bone spear that stuns and damages the first d
 	//Replace Haunting wave with Chains of Domination, - a skill shot that shoots a chain at an enemy reactivating allows you to target another enemy and pull them both in, stunning and dealing damage
-	//Chains of Domination - root an enemy in place for 1.25s during this time you're able to recast the ability in a target direction, a 2nd chain fires forth that if it makes contact with an another enemy, both are pulled towards each other and rooted for 2.5s, taking X damage
-	//Windrunner - increase the range on Haunting Wave by 150 (improve and boolean)
 
 endfunction
 
