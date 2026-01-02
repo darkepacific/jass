@@ -165,10 +165,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetUnitTypeId(u) == 'n002'
     endfunction
 
-    private function BagSlotArrayIndex takes integer playerKey, integer bagSlot returns integer
-        return GetPItemsExtraBagIndex(Player(playerKey), bagSlot)
-    endfunction
-
     // Finds the next empty (null) slot for this player's bag.
     // Returns 0 when the bag is full.
     private function BagNextEmptySlot takes integer playerKey returns integer
@@ -177,7 +173,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer arrIndex
         loop
             exitwhen slot > maxSlots
-            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
             if udg_P_Items[arrIndex] == null then
                 return slot
             endif
@@ -192,7 +188,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer arrIndex
         loop
             exitwhen slot > maxSlots
-            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
             if udg_P_Items[arrIndex] == i then
                 return slot
             endif
@@ -218,7 +214,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set itemCode = GetItemTypeId(incoming)
         loop
             exitwhen slot > maxSlots
-            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
             set existing = udg_P_Items[arrIndex]
             if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode then
                 if GetItemCharges(existing) < DEFAULT_MAX_CHARGES then
@@ -270,7 +266,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set maxSlots = GetPItemsExtraSlotsMax()
                 loop
                     exitwhen slot > maxSlots or incomingCharges <= 0
-                    set arrIndex = BagSlotArrayIndex(playerKey, slot)
+                    set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
                     set existing = udg_P_Items[arrIndex]
                     if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
                         set existingCharges = GetItemCharges(existing)
@@ -331,7 +327,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemUserData(i, 1)
         call RemoveLocation(itemIsland)
 
-        set arrIndex = BagSlotArrayIndex(playerKey, emptySlot)
+        set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), emptySlot)
         set udg_P_Items[arrIndex] = i
     endfunction
 
@@ -341,7 +337,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if index <= 0 or index > maxSlots then
             return null
         endif
-        return udg_P_Items[BagSlotArrayIndex(playerKey, index)]
+        return udg_P_Items[GetPItemsExtraBagIndex(Player(playerKey), index)]
     endfunction
     
     function TasItemBagSwap takes unit u, integer indexA, integer indexB returns boolean
@@ -354,8 +350,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if indexA <= 0 or indexB <= 0 or indexA > maxSlots or indexB > maxSlots or indexA == indexB then
             return false
         endif
-        set a = BagSlotArrayIndex(playerKey, indexA)
-        set b = BagSlotArrayIndex(playerKey, indexB)
+        set a = GetPItemsExtraBagIndex(Player(playerKey), indexA)
+        set b = GetPItemsExtraBagIndex(Player(playerKey), indexB)
         set i = udg_P_Items[a]
         set i2 = udg_P_Items[b]
         set udg_P_Items[a] = i2
@@ -374,7 +370,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if index <= 0 or index > maxSlots then
             return false
         endif
-        set arrIndex = BagSlotArrayIndex(playerKey, index)
+        set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), index)
         set i = udg_P_Items[arrIndex]
         if i == null then
             return false
