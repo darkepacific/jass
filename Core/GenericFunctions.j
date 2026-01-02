@@ -124,7 +124,7 @@ library GenericFunctions
         return udg_BAG_SIZE
     endfunction
 
-    function GetEquipedSlotsMax takes nothing returns integer
+    function GetEquipSlotsMax takes nothing returns integer
         // Total usable slots = udg_BAG_SIZE - 1 (slot 0 reserved)
         // Equipped slots = total usable - extra bag slots
         local integer equipSlots = (udg_BAG_SIZE - 1) - PITEMS_EXTRA_SLOTS
@@ -153,10 +153,9 @@ library GenericFunctions
         return GetPlayerBagNumber(p) +((page - 1) * 6) + slot
     endfunction
 
-    //AI ADDED FUNCTION
     // Helper function to get the P_Items index for an extra-bag slot (1..GetPItemsExtraSlotsMax()).
     function GetPItemsExtraBagIndex takes player p, integer extraSlot returns integer
-        return GetPlayerBagNumber(p) + GetPItemsEquipSlotsMax() + extraSlot
+        return GetPlayerBagNumber(p) + GetEquipSlotsMax() + extraSlot
     endfunction
 
     // Helper function to get current equipped slot's P_Items index
