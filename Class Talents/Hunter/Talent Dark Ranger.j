@@ -89,11 +89,14 @@ function TalentDarkRanger takes nothing returns nothing
 
 	//50
 	
+	// Gain two charges of Haunting Wave
 	// [Shadow arrow Volley] - black arrow fires at 2 more nearby targets
 	// Back from the Shadowlands - When you die instead enter a stas`is and revive after 5 sec with 50% hp and mana.
+	// Skeletal Magic - black arrow now summons powerful skeletal mages
+
+
 	//[Camouflage] - blend into your surroundings, 
 	//Screaming Wave - increase the range on Haunting Wave by 150 (improve and boolean)
-	//Skeletal Magic - black arrow now summons powerful skeletal mages
 	//Increased Attack Speed
 		// set choice = TalentChoiceCreateImproveWeapon(0, 0, -1.06)	//BM Base is 2.46/1.4 - 1 = 75%
 		// set udg_TalentChoiceHead[choice] = "Increased Attack Speed"
@@ -102,6 +105,7 @@ function TalentDarkRanger takes nothing returns nothing
 
 	//Blighted Quiver - Increase the number of charges on black arrow by 2
 	//Penetrating Darkness - black arrow now pierces through all enemies in a line and applies the debuff
+
 
 
 	
