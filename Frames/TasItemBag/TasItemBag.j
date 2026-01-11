@@ -30,12 +30,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private framepointtype ShowButtonPos = FRAMEPOINT_TOPLEFT
         private string ShowButtonTexture = "ReplaceableTextures/CommandButtons/BTNDustOfAppearance"
         private string ShowButtonTextureDisabled = "ReplaceableTextures/CommandButtonsDisabled/DISBTNDustOfAppearance"
+       
         // show the showButton only when the inventory is shown?
         public boolean ShowButtonNeedsInventory = true
-
-        // showButton closes the UI when clicked while the UI is shown?
-        public boolean ShowButtonCloses = true
-        
 
         private real TooltipWidth = 0.27
         public real TooltipScale = 1.0
@@ -44,14 +41,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private real TooltipFixedPositionY = 0.16
         private framepointtype TooltipFixedPositionPoint = FRAMEPOINT_BOTTOMRIGHT
 
-        public boolean MoveUsedItemsIntoBag = false
-
         // Can drop Items from the TasItemBag regardless of item/Inventory Flags
         public boolean IgnoreUndropAble = true
-
-        // Units with the Locust skill do not move gained items into the bag
-        public boolean IgnoreDummy = true
-        private integer DummySkill = 'Aloc'
 
         // DestroyUndropAbleItems = true, When by death an undropable item would have to be droped from the TasItemBag, it is destroyed.
         private boolean DestroyUndropAbleItems = true
@@ -60,9 +51,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // can Equip only EquipClassLimit of one Item Class at one time
         public integer EquipClassLimit = 999
-
-        // An unit that can not use Items (cause of it's inventory skills) does not need to fullfill the requirments
-        private boolean IgnoreNeedWhenCanNotUse = true
 
         // Display the requirements in the Item Tooltip
         public boolean AddNeedText = true
@@ -413,7 +401,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     public function TasItemBagUnitCanUseItems takes unit u returns boolean
-        // check for the USE flag
+        // check for USE flag
         if GetUnitAbilityLevel(u, 'AInv') > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, 'AInv'), AbilityFieldUse, 0) > 0 then
             return true
         endif
@@ -422,7 +410,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     public function TasItemBagUnitIsDropItems takes unit u returns boolean
-        // check for the DROP flag
+        // check for DROP flag
         if GetUnitAbilityLevel(u, 'AInv') > 0 and BlzGetAbilityIntegerLevelField(BlzGetUnitAbility(u, 'AInv'), AbilityFieldDrop, 0) > 0 then
             return true
         endif
@@ -475,7 +463,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // units that can not use items, ignore requirements hence return true when not
         local boolean canUse = false
         local integer loopA = 0
-        if IgnoreNeedWhenCanNotUse and not TasItemBagUnitCanUseItems(u) then
+        
+        if not TasItemBagUnitCanUseItems(u) then
             return true
         endif
         // use Item Level as requirement. A lower Level can not equip it
@@ -1274,23 +1263,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetLocalPlayer() == GetTriggerPlayer() then
             // Update once before showing to avoid a one-frame flash of stale/null slot data
             call UpdateUI()
-            if ShowButtonCloses and BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
+            //Close/Open Bag Panel
+            if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
             else
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
             endif
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            // Quick Deposit: click handling disabled for now
-            // set s = 0
-            // loop
-            //     exitwhen s >= bj_MAX_INVENTORY
-            //     if BlzGetFrameByName("TasBankDeposit" + I2S(s), 0) == BlzGetTriggerFrame() then
-            //         call DepositInventorySlot(Player(pId), s)
-            //         exitwhen true
-            //     endif
-            //     set s = s + 1
-            // endloop
         endif
         call FrameLoseFocus()
     endfunction
@@ -1350,15 +1330,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function ItemGainAction takes nothing returns nothing
-        // dummies do not use the bag feature
-        if IgnoreDummy and GetUnitAbilityLevel(GetTriggerUnit(), DummySkill) > 0 then 
-            return
-        endif
-        // Banking change: only process pickups when the Bank unit picks up items (drag-drop deposit)
-        // if not IsBankUnit(GetTriggerUnit()) then
-        //     return
-        // endif
-
         // Do not move Powerups that can be used into the bag
         if IsItemPowerup(GetManipulatedItem()) and TasItemBagUnitCanUseItems(GetTriggerUnit()) then 
             return
@@ -1373,15 +1344,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set ItemGainTimerUnit[ItemGainTimerCount] = GetTriggerUnit()
             set ItemGainTimerItem[ItemGainTimerCount] = GetManipulatedItem()
             call TimerStart(ItemGainTimer, 0, false, function ItemGainTimerAction)
-        endif
-    endfunction
-
-    private function ItemUseAction takes nothing returns nothing
-        if IgnoreDummy and GetUnitAbilityLevel(GetTriggerUnit(), DummySkill) > 0 then 
-            return
-        endif
-        if MoveUsedItemsIntoBag then
-            call ItemEquip2Bag(GetTriggerUnit(), GetManipulatedItem())
         endif
     endfunction
      
@@ -1635,10 +1597,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerItemGain = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(TriggerItemGain, EVENT_PLAYER_UNIT_PICKUP_ITEM)
         call TriggerAddAction(TriggerItemGain, function ItemGainAction)
-
-        set TriggerItemUse = CreateTrigger()
-        call TriggerRegisterAnyUnitEventBJ(TriggerItemUse, EVENT_PLAYER_UNIT_USE_ITEM)
-        call TriggerAddAction(TriggerItemUse, function ItemUseAction)
 
         set TriggerUIOpen = CreateTrigger()
         call TriggerAddAction(TriggerUIOpen, function ShowButtonAction)
