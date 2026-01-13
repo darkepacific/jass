@@ -97,10 +97,15 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint
 				// call TriggerRegisterUnitEvent(gg_trg_Autosave_On_Lvl_Up, udg_Heroes[GetPlayerHeroNumber(whichPlayer)], EVENT_UNIT_PICKUP_ITEM)
 			endif
 
-			static if LIBRARY_NeatMessages then
-				call ClearNeatMessages()
-			else
-				call ClearTextMessages()
+			// If Load_GUI detected a bad/corrupted save, it can return the player back into
+			// hero selection via PlayerReturnToHeroSelection(). In that case, do not clear the
+			// message window here, otherwise the error message is immediately wiped.
+			if not isInHeroSelection[pid] then
+				static if LIBRARY_NeatMessages then
+					call ClearNeatMessages()
+				else
+					call ClearTextMessages()
+				endif
 			endif
 		endif
 	endfunction

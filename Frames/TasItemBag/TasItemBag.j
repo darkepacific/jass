@@ -31,8 +31,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private string ShowButtonTexture = "ReplaceableTextures/CommandButtons/BTNDustOfAppearance"
         private string ShowButtonTextureDisabled = "ReplaceableTextures/CommandButtonsDisabled/DISBTNDustOfAppearance"
        
-        // show the showButton only when the inventory is shown?
-        public boolean ShowButtonNeedsInventory = true
+        // Show the bag button even when the inventory UI is hidden?
+        public boolean ShowButtonAlwaysVisible = false
 
         private real TooltipWidth = 0.27
         public real TooltipScale = 1.0
@@ -1184,7 +1184,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), not ShowButtonNeedsInventory or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowButtonAlwaysVisible or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
 
         if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    

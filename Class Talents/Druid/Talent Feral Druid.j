@@ -63,13 +63,13 @@ function TalentFeralDruid takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(10)
 	set udg_TalentChoiceHead[choice] = "Improved Thrash Damage"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAbility_Druid_Rake.blp"
-	set udg_TalentChoiceText[choice] = "Thrash scaling increased to 6 x Bonus Agi/Str."
+	set udg_TalentChoiceText[choice] = "Thrash scaling increased to 6.5 x Bonus Agi/Str."
 	
 	//Cat 
 	set choice = TalentChoiceCreateBooleanWithAddedFunction(11, 2)
 	set udg_TalentChoiceHead[choice] = "Prowl"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNProwl.blp"
-	set udg_TalentChoiceText[choice] = "Gain stealth for 7 sec when shifting into Cat form and also gain the ability to cast Shadowmeld while in cat form."
+	set udg_TalentChoiceText[choice] = "Gain invisibility for 7 sec when shifting into Cat form, also gain the ability to Hide while in cat form. While hidden the druid regains 2.5% mana per second."
 
 	// LEVEL 40
 	call TalentHeroTierCreate(heroTypeId, 40)
