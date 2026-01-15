@@ -44,7 +44,7 @@ function TalentFeralDruid takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(5)
 	set udg_TalentChoiceHead[choice] = "Infected Wound"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAbility_Druid_Disembowel.blp"
-	set udg_TalentChoiceText[choice] = "Rake now slows enemy attack and movement speed by 50% for 4 sec."
+	set udg_TalentChoiceText[choice] = "Rake now slows enemy attack and movement speed by 50% for 4 sec. |nAdditionally, it now scales off Total Agility for its periodic damage, 0.5 x (Base + Bonus)."
 
 	//Level 20
 	call TalentHeroTierCreate(heroTypeId, 20)
@@ -55,7 +55,7 @@ function TalentFeralDruid takes nothing returns nothing
 	//LEVEL 30
 	call TalentHeroTierCreate(heroTypeId, 30)
 	//Bear 
-	set choice = TalentChoiceCreateStatsWithBoolean(16, 0, 0, 9, "Maul now scales off All Strength, 2.5 x (Base + Bonus)")
+	set choice = TalentChoiceCreateStatsWithBoolean(16, 0, 0, 9, "Maul now scales off Total Strength, 2.5 x (Base + Bonus)")
 	set udg_TalentChoiceHead[choice] = "Strength of the Wild"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNStrengthOfTheWild.blp"
 
@@ -69,7 +69,7 @@ function TalentFeralDruid takes nothing returns nothing
 	set choice = TalentChoiceCreateBooleanWithAddedFunction(11, 2)
 	set udg_TalentChoiceHead[choice] = "Prowl"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNProwl.blp"
-	set udg_TalentChoiceText[choice] = "Gain invisibility for 7 sec when shifting into Cat form, also gain the ability to Hide while in cat form. While hidden the druid regains 2.5% mana per second."
+	set udg_TalentChoiceText[choice] = "Gain invisibility for 7 sec when shifting into Cat form, also gain the ability to Hide while in cat form."//"While hidden the druid regains 2.5% mana per second."
 
 	// LEVEL 40
 	call TalentHeroTierCreate(heroTypeId, 40)
@@ -95,16 +95,15 @@ function TalentFeralDruid takes nothing returns nothing
 	// 	1. Greatly Inc hp in bear form, and roar now also reduces all damage done nearby enemies by 20% for 5 sec
 	//Bear - Iron Fur - Reduce all incoming damage by 15% for 6 sec
 	//https://www.hiveworkshop.com/threads/bear-bundle.328106/
-	// 2. Ursocs Fury - Perm Inc str and agi each time you kill an enemy hero 10 lvls within ur own, up to 30 times
+
 	//Cat - [Feral Frenzy] - Channeled ability which supress for 3 sec causing them to take % health damage over 3 sec
 
-	
+	// 2. Ursocs Fury - Perm Inc str and agi each time you kill an enemy hero 10 lvls within ur own, up to 30 times
 	//Tiger's Fury- When below 50% health deal 20% more damage
-	//Rip and Tear - Rip now allies another DoT that deals an additional 20% of the total damage over 5 sec
+	//Rip and Tear - Rip now applies another DoT that deals an additional 20% of the total damage over 5 sec
 
 
 	//Thrasher - reduces the cooldown of thrash by 1 sec, the mana cost by 50, and increases the damage by 20%
-	//  Gain full stealth in cat form and 100% base crit chance
 
 	//Defense of the Ancients - Gain 650 Health and Mana, Casting your ultimate now grants you a shield for 20% max health for 6 sec	
 

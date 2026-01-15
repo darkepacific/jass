@@ -356,7 +356,8 @@ function TalentChoiceBooleanLearn takes nothing returns nothing //whichFunction
 		//Hide Crit
 		if udg_TalentChoiceInt3[udg_Talent__Choice] == 2 then
 			if IsCatForm(udg_Talent__Unit) then
-				call AddSpellHideSpell( udg_Talent__Unit, 'Sshm', 'A038', false)
+				// call AddSpellHideSpell( udg_Talent__Unit, 'Sshm', 'A038', false)
+				call AddSpellHideSpell( udg_Talent__Unit, 'A0GW', 'A038', false)
 			endif
 		endif
 		if udg_TalentChoiceInt3[udg_Talent__Choice] == 3 then
@@ -373,7 +374,8 @@ function TalentChoiceBooleanReset takes nothing returns nothing
 		//Un-Hide Crit
 		if udg_TalentChoiceInt3[udg_Talent__Choice] == 2 then
 			if IsCatForm(udg_Talent__Unit) then
-				call RemoveSpellUnHideSpell( udg_Talent__Unit, 'Sshm', 'A038', true)
+				// call RemoveSpellUnHideSpell( udg_Talent__Unit, 'Sshm', 'A038', true)
+				call RemoveSpellUnHideSpell( udg_Talent__Unit, 'A0GW', 'A038', true)
 			endif
 		endif
 		if udg_TalentChoiceInt3[udg_Talent__Choice] == 3 then

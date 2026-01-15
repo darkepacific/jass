@@ -19,10 +19,11 @@ function Load_GUI takes nothing returns nothing
     // -------------------  
     if not(saveCode.Load(p, udg_SaveCodeString, 1)) then 
         // call DisplayTextToPlayer(p, 0,0, "Error loading save file. Character either belongs to another player or is corrupted.") 
-        // call ClearNeatMessagesForPlayer(p)
         call saveCode.destroy() 
         call PlayerReturnToHeroSelection(p)
-        call NeatMessageToPlayer(p, "Error loading save file. |nCharacter either belongs to another player or file is corrupted.")
+        call ClearNeatMessagesForPlayer(p)
+        call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nCharacter either belongs to another player or file is corrupted.")
+        // call DisplayTextToPlayer(p, 0.35, 0, "Error loading save file. |nCharacter either belongs to another player or file is corrupted.")
         return 
     endif 
     call DisplayTextToPlayer(GetLocalPlayer(), 0, 0, "Loaded " + User[p].nameColored + "'s character!") 

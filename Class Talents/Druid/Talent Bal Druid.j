@@ -61,7 +61,7 @@ function TalentBalDruid takes nothing returns nothing
 	//LEVEL 30
 	call TalentHeroTierCreate(heroTypeId, 30)
 	//Moon
-	set choice = TalentChoiceCreateImproveSpellWithBoolean('A0CW', -35, -1.5, 9)
+	set choice = TalentChoiceCreateImproveSpellWithBoolean('A0CW', -35, -1.75, 9)
 	set udg_TalentChoiceHead[choice] = "Reduced Costs on Eclipse"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNGenericSpellImmunity.blp"
 	
@@ -100,13 +100,19 @@ function TalentBalDruid takes nothing returns nothing
 		//Moon - Solar Power deals 20% increase damage to targets with moonfire
 	//Moon - Stellar Drift - Ecplise now empowers Starfall causing the spell to cast 40% faster
 	//Moon - Twin Moons - Moonfire hits 1 additional enemy
+	
+	//Moon - Starsurge - Blast an enemy with a surge of stellar energy dealing 150 + 1.5 x Int damage, 
+		//if the target is affected by moonfire they take an additional 20% damage
+
 	//Both - Wild Mushroom - Grow a magical mushroom at the target location, after 1 second the mushroom explodes dealing AoE damage instantly and over time,
 		//as well as slowing enemies hit by 30% for 4 sec
 	
+	//Tree - Cenarion Ward -While in Tree form Rejuvination now grants it's target a shield for 6 sec equal to 35% of the full heal amount to be healed
+
+
 	//Moon - [Lunar Magic] - Damagine a target with Moonfire now refreshes the spell causing it to be recast on them automatically, 
 		//this effect has a 3 second cooldown
 	//Defense of the Ancients - Gain 650 Health and Mana, Casting Tranquility, Starfall, Travel Form, Renewal or Moonsoon now grants you a shield for 20% max health for 6 sec	
-	//Tree - Cenarion Ward -While in Tree form Rejuvination now grants it's target a shield for 6 sec equal to 35% of the full heal amount to be healed
 
 		//Revitalize - Return the spirit to a dead party member, reviving them with 50% health and mana
 	//Invigorate - Immediately refresh the duration of your rejuvenate and wild growth, and instantly heal those affected by either for 200 health + 3xint
@@ -121,7 +127,6 @@ function TalentBalDruid takes nothing returns nothing
 	//Save for Druid of the nightmare - Everytime wild growth heals a treant, it now spawns a vine lasher, which attacks nearby enemies 
 		//https://www.hiveworkshop.com/threads/pyrolia.48729/
 
-	//Defense of the Ancients - Gain 650 Health and Mana, Casting your ultimate now grants you a shield for 20% max health for 6 sec	
 
 	//Wellspring Vitality
 	// set choice = TalentChoiceCreateRegen(15.0, 15.0, 450, 450)
@@ -129,7 +134,6 @@ function TalentBalDruid takes nothing returns nothing
 
 	//Hibernate gain the ability to put a target to sleep for 4 sec
 		
-	//|nYou will also gain Starfall and Tranquility in Moonkin and Treant forms resepectively 
 
 		
 endfunction
