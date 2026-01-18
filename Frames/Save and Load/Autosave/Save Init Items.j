@@ -489,6 +489,8 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set udg_SaveItemType[i] = 'I04H'
     set i = i + 1
 
+    //No Sturdy War Axe
+
     //---- T3 ----
     // |c0000FF00Twisted Branch of Insight|r
     set udg_SaveItemType[i] = 'I03G'
