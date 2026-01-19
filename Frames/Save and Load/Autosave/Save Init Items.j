@@ -489,7 +489,6 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set udg_SaveItemType[i] = 'I04H'
     set i = i + 1
 
-    //No Sturdy War Axe
 
     //---- T3 ----
     // |c0000FF00Twisted Branch of Insight|r
@@ -1016,13 +1015,16 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set udg_SaveItemType[i] = 'I03A'
     set i = i + 1
 
+    // Sturdy War Axe
+    set udg_SaveItemType[i] = 'stwa'
+    set i = i + 1
 
     // -------------------  
     // Unused (may be added in the future)
     // -------------------  
-    // // Orb of Slow
-    // set udg_SaveItemType[i] = 'oslo'
-    // set i = i + 1
+    // Orb of Slow
+    set udg_SaveItemType[i] = 'oslo'
+    set i = i + 1
     // // Gem of True Seeing
     // set udg_SaveItemType[i] = 'gemt'
     // set i = i + 1

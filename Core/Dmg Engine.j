@@ -451,12 +451,17 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         elseif target == gg_unit_U043_1599 then
             set damage = damage * 0.85
             set reduced = true
+            //DeathWing
         elseif target == gg_unit_E033_1368 then
-            set damage = damage * 0.95
+            set damage = damage * 0.93
             set reduced = true
             //Kil'Jaeden
         elseif target == gg_unit_Nkjx_2318 then
-            set damage = damage * 0.72
+            set damage = damage * 0.70
+            set reduced = true
+            //Sargeras
+        elseif target == gg_unit_N03U_1885 then
+            set damage = damage * 0.85
             set reduced = true
             //Kael, Whitemane
         elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then
