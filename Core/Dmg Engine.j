@@ -461,7 +461,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Sargeras
         elseif target == gg_unit_N03U_1885 then
-            set damage = damage * 0.85
+            set damage = damage * 0.95
             set reduced = true
             //Kael, Whitemane
         elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then
