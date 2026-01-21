@@ -125,6 +125,29 @@ function Save_GUI takes nothing returns nothing
     // call BJDebugMsg("Saved Name: " + name) 
     // call BJDebugMsg("Name Number: " + I2S(udg_SaveValue[udg_SaveCount])) 
 
+    // ---------------------------------------------------------------------------
+    // Save Metadata (encoded LAST so it decodes FIRST on load)
+    // ---------------------------------------------------------------------------
+    // Mode (1=MP, 2=SP)
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveValue[udg_SaveCount] = SaveHelper.GetCurrentMode()
+    set udg_SaveMaxValue[udg_SaveCount] = 2
+
+    // Faction (1=Alliance, 2=Horde)
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveValue[udg_SaveCount] = SaveHelper.GetFactionId(p)
+    set udg_SaveMaxValue[udg_SaveCount] = 2
+
+    // Save format version
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveValue[udg_SaveCount] = SaveHelper.SAVE_VERSION
+    set udg_SaveMaxValue[udg_SaveCount] = 9999
+
+    // Magic marker
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveValue[udg_SaveCount] = SaveHelper.SAVE_META_MAGIC
+    set udg_SaveMaxValue[udg_SaveCount] = 2048
+
     // ------------------- 
     // Save to disk 
     // ------------------- 
@@ -137,7 +160,7 @@ function Save_GUI takes nothing returns nothing
     endloop 
 
     set udg_SaveCodeString = ""
-    set udg_SaveCodeString = Savecode(saveCodePtr).Save(p, 1) 
+    set udg_SaveCodeString = Savecode(saveCodePtr).Save(p, SaveHelper.GetCurrentSaveKey()) 
 
     // IMPORTANT: free allocated BigNum nodes
     call Savecode(saveCodePtr).destroy() 

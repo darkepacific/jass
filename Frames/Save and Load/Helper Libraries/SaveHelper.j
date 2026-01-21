@@ -4,6 +4,64 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
     private keyword SaveHelperInit
     
     struct SaveHelper extends array
+
+        // =====================================================================
+        // Save Metadata (embedded into Savecode)
+        // =====================================================================
+        // Bump this when your save format changes.
+        static constant integer SAVE_VERSION = 1
+
+        // Magic marker so we can quickly tell whether a save has our metadata.
+        static constant integer SAVE_META_MAGIC = 1313
+
+        static constant integer MODE_MULTIPLAYER = 1
+        static constant integer MODE_SINGLEPLAYER = 2
+
+        // Savecode key/salt. Using different keys makes SP/MP saves incompatible even if copied.
+        static constant integer KEY_MULTIPLAYER = 1
+        static constant integer KEY_SINGLEPLAYER = 2
+
+        static method IsSinglePlayerGame takes nothing returns boolean
+            local integer i = 0
+            local integer humans = 0
+            loop
+                exitwhen i >= bj_MAX_PLAYER_SLOTS
+                if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(Player(i)) == MAP_CONTROL_USER then
+                    set humans = humans + 1
+                endif
+                set i = i + 1
+            endloop
+            return humans <= 1
+        endmethod
+
+        static method GetCurrentMode takes nothing returns integer
+            if thistype.IsSinglePlayerGame() then
+                return thistype.MODE_SINGLEPLAYER
+            endif
+            return thistype.MODE_MULTIPLAYER
+        endmethod
+
+        static method GetCurrentSaveKey takes nothing returns integer
+            if thistype.IsSinglePlayerGame() then
+                return thistype.KEY_SINGLEPLAYER
+            endif
+            return thistype.KEY_MULTIPLAYER
+        endmethod
+
+        static method GetOtherSaveKey takes nothing returns integer
+            if thistype.IsSinglePlayerGame() then
+                return thistype.KEY_MULTIPLAYER
+            endif
+            return thistype.KEY_SINGLEPLAYER
+        endmethod
+
+        static method GetFactionId takes player p returns integer
+            // 1 = Alliance, 2 = Horde
+            if IsAlliancePlayer(p) then
+                return 1
+            endif
+            return 2
+        endmethod
         
         static constant hashtable Hashtable = InitHashtable()
         static constant integer KEY_ITEMS = 1

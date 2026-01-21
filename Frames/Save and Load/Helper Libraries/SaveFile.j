@@ -1,10 +1,12 @@
-library SaveFile requires FileIO
+library SaveFile requires FileIO, GenericFunctions
     
     private keyword SaveFileInit
     
     struct SaveFile extends array
         static constant string ManualPath = "Manual"
         static constant string InvalidPath = "Unknown"
+        static constant string SP_FOLDER = "Singleplayer"
+        static constant string MP_FOLDER = "Multiplayer"
         static constant integer MIN_SLOTS = 1
         static constant integer MAX_SLOTS = 290//12
         
@@ -12,6 +14,26 @@ library SaveFile requires FileIO
 	
         static method operator Folder takes nothing returns string
             return (udg_MapName + "\\")
+        endmethod
+
+        static method IsSinglePlayerGame takes nothing returns boolean
+            local integer i = 0
+            local integer humans = 0
+            loop
+                exitwhen i >= bj_MAX_PLAYER_SLOTS
+                if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(Player(i)) == MAP_CONTROL_USER then
+                    set humans = humans + 1
+                endif
+                set i = i + 1
+            endloop
+            return humans <= 1
+        endmethod
+
+        static method ModeFolder takes nothing returns string
+            if thistype.IsSinglePlayerGame() then
+                return thistype.SP_FOLDER
+            endif
+            return thistype.MP_FOLDER
         endmethod
 
         static method Faction takes player p returns string
@@ -23,52 +45,52 @@ library SaveFile requires FileIO
         endmethod
 
         static method getBankPath takes player p returns string
-            return .Folder + .Faction(p) + "\\Bank.pld"
+            return Folder + ModeFolder() + "\\" + Faction(p) + "\\Bank.pld"
         endmethod
 
         static method getPath takes player p, integer slot returns string
             if (slot == 0) then
-                return .Folder + .Faction(p) + "\\SaveSlot_" + .InvalidPath + ".pld" 
-            elseif (slot > 0 and (slot < .MIN_SLOTS or slot > .MAX_SLOTS)) then
-                return .Folder + .Faction(p) + "\\SaveSlot_" + .InvalidPath + ".pld" 
+                return Folder + ModeFolder() + "\\" + Faction(p) + "\\SaveSlot_" + InvalidPath + ".pld" 
+            elseif (slot > 0 and (slot < MIN_SLOTS or slot > MAX_SLOTS)) then
+                return Folder + ModeFolder() + "\\" + Faction(p) + "\\SaveSlot_" + InvalidPath + ".pld" 
             elseif (slot < 0) then
-                return .Folder + .Faction(p) + "\\SaveSlot_" + .ManualPath + ".pld"
+                return Folder + ModeFolder() + "\\" + Faction(p) + "\\SaveSlot_" + ManualPath + ".pld"
             endif
-            return .Folder + .Faction(p) + "\\SaveSlot_" + I2S(slot) + ".pld"
+            return Folder + ModeFolder() + "\\" + Faction(p) + "\\SaveSlot_" + I2S(slot) + ".pld"
         endmethod
 
         static method getBackupPath takes player p, integer slot, integer saveNumber returns string
             if (slot == 0) then
-                return .Folder + .Faction(p) + "\\Backups\\SaveSlot_" + .InvalidPath + ".pld" 
-            elseif (slot > 0 and (slot < .MIN_SLOTS or slot > .MAX_SLOTS)) then
-                return .Folder + .Faction(p) + "\\Backups\\SaveSlot_" + .InvalidPath + ".pld" 
+                return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + InvalidPath + ".pld" 
+            elseif (slot > 0 and (slot < MIN_SLOTS or slot > MAX_SLOTS)) then
+                return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + InvalidPath + ".pld" 
             elseif (slot < 0) then
-                return .Folder + .Faction(p) + "\\Backups\\SaveSlot_" + .ManualPath + ".pld"
+                return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + ManualPath + ".pld"
             endif
-            return .Folder + .Faction(p) + "\\Backups\\SaveSlot_" + I2S(slot) + "_" + I2S(saveNumber) + ".pld"
+            return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + I2S(slot) + "_" + I2S(saveNumber) + ".pld"
         endmethod
     
         static method create takes player p, string title, string items, integer slot, integer saveNumber, string data returns thistype
             if (GetLocalPlayer() == p) then
-                call FileIO_Write(.getPath(p, slot), title + "\n" + data + "\n" + items)
-                call FileIO_Write(.getBackupPath(p, slot, saveNumber), title + "\n" + data + "\n" + items)
+                call FileIO_Write(getPath(p, slot), title + "\n" + data + "\n" + items)
+                call FileIO_Write(getBackupPath(p, slot, saveNumber), title + "\n" + data + "\n" + items)
             endif
             return slot
         endmethod
         
         static method clear takes player p, integer slot, integer saveNumber returns thistype
             if (GetLocalPlayer() == p) then
-                call FileIO_Write(.getPath(p, slot), "")
-                call FileIO_Write(.getBackupPath(p, slot, saveNumber), "")
+                call FileIO_Write(getPath(p, slot), "")
+                call FileIO_Write(getBackupPath(p, slot, saveNumber), "")
             endif
             return slot
         endmethod
         
         static method exists takes player p, integer slot, integer saveNumber returns boolean // async
             if saveNumber == 0 then
-                return StringLength(FileIO_Read(.getPath(p, slot))) > 1
+                return StringLength(FileIO_Read(getPath(p, slot))) > 1
             else
-                return StringLength(FileIO_Read(.getBackupPath(p, slot, saveNumber))) > 1
+                return StringLength(FileIO_Read(getBackupPath(p, slot, saveNumber))) > 1
             endif
         endmethod
         
@@ -81,14 +103,14 @@ library SaveFile requires FileIO
             local integer i         = 0
             
             if saveNumber == 0 then
-                set contents = FileIO_Read(.getPath(p, this))
-                // call BJDebugMsg("Reading " + .getPath(this) + " with length " + I2S(len))
+                set contents = FileIO_Read(getPath(p, this))
+                // call BJDebugMsg("Reading " + getPath(this) + " with length " + I2S(len))
             elseif saveNumber > 0 then
-                set contents = FileIO_Read(.getBackupPath(p, this, saveNumber))
-                // call BJDebugMsg("Reading " + .getBackupPath(this, saveNumber) + " with length " + I2S(len))
+                set contents = FileIO_Read(getBackupPath(p, this, saveNumber))
+                // call BJDebugMsg("Reading " + getBackupPath(this, saveNumber) + " with length " + I2S(len))
             // else
-            //     set contents = FileIO_Read(.getBankPath(this, saveNumber))
-            //     call BJDebugMsg("Reading " + .getBankPath(this, saveNumber) + " with length " + I2S(len))
+            //     set contents = FileIO_Read(getBankPath(this, saveNumber))
+            //     call BJDebugMsg("Reading " + getBankPath(this, saveNumber) + " with length " + I2S(len))
             endif
             set len = StringLength(contents)
             // call BJDebugMsg("Contents " + contents)
@@ -116,23 +138,23 @@ library SaveFile requires FileIO
         endmethod
         
         method getLine takes player p, integer line, integer saveNumber  returns string // async
-            return .getLines(p, line, false, saveNumber)
+            return this.getLines(p, line, false, saveNumber)
         endmethod
         
         method getTitle takes player p, integer saveNumber returns string // async
-            return .getLines(p, 0, false, saveNumber)
+            return this.getLines(p, 0, false, saveNumber)
         endmethod
         
         method getData takes player p, integer saveNumber returns string // async
-            return .getLines(p, 1, false, saveNumber)
+            return this.getLines(p, 1, false, saveNumber)
         endmethod
 
         method getItems takes player p, integer saveNumber returns string // async
-            return .getLines(p, 2, false, saveNumber)
+            return this.getLines(p, 2, false, saveNumber)
         endmethod
 
         // method getBackupData takes integer saveNumber returns string // async
-        //     return .getLines(1, false, saveNumber)
+        //     return this.getLines(1, false, saveNumber)
         // endmethod
         
         implement SaveFileInit

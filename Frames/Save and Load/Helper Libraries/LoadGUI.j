@@ -10,6 +10,11 @@ function Load_GUI takes nothing returns nothing
     local integer hearthNumber 
     local player p = udg_SaveLoadEvent_Player
     local Savecode saveCode = Savecode.create()
+    local integer metaMagic
+    local integer metaVersion
+    local integer metaFaction
+    local integer metaMode
+    local integer altMagic
     set udg_SaveCount = 0 
    
     // -------------------  
@@ -17,15 +22,83 @@ function Load_GUI takes nothing returns nothing
     // -------------------  
     // Validate  
     // -------------------  
-    if not(saveCode.Load(p, udg_SaveCodeString, 1)) then 
-        // call DisplayTextToPlayer(p, 0,0, "Error loading save file. Character either belongs to another player or is corrupted.") 
+    if not(saveCode.Load(p, udg_SaveCodeString, SaveHelper.GetCurrentSaveKey())) then 
+        // Try the other mode key so we can show a friendlier message.
+        if saveCode.Load(p, udg_SaveCodeString, SaveHelper.GetOtherSaveKey()) then
+            set altMagic = saveCode.Decode(2048)
+            call saveCode.destroy()
+            call PlayerReturnToHeroSelection(p)
+            call ClearNeatMessagesForPlayer(p)
+            if altMagic == SaveHelper.SAVE_META_MAGIC then
+                call NeatMessageToPlayer(p, "|cffffcc00Wrong mode.|r |nThat save is for a different game mode (Singleplayer vs Multiplayer).")
+            else
+                call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nInvalid save code.")
+            endif
+            return
+        endif
         call saveCode.destroy() 
         call PlayerReturnToHeroSelection(p)
         call ClearNeatMessagesForPlayer(p)
         call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nCharacter either belongs to another player or file is corrupted.")
-        // call DisplayTextToPlayer(p, 0.35, 0, "Error loading save file. |nCharacter either belongs to another player or file is corrupted.")
         return 
     endif 
+
+    // -------------------
+    // Load Metadata (these were saved LAST, so they load FIRST)
+    // -------------------
+    // Magic
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 2048
+    call SaveHelper.GUILoadNext(saveCode)
+    set metaMagic = udg_SaveValue[udg_SaveCount]
+
+    // Version
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 9999
+    call SaveHelper.GUILoadNext(saveCode)
+    set metaVersion = udg_SaveValue[udg_SaveCount]
+
+    // Faction
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 2
+    call SaveHelper.GUILoadNext(saveCode)
+    set metaFaction = udg_SaveValue[udg_SaveCount]
+
+    // Mode
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 2
+    call SaveHelper.GUILoadNext(saveCode)
+    set metaMode = udg_SaveValue[udg_SaveCount]
+
+    if metaMagic != SaveHelper.SAVE_META_MAGIC then
+        call saveCode.destroy()
+        call PlayerReturnToHeroSelection(p)
+        call ClearNeatMessagesForPlayer(p)
+        call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nInvalid or outdated save (missing metadata).")
+        return
+    endif
+    if metaVersion != SaveHelper.SAVE_VERSION then
+        call saveCode.destroy()
+        call PlayerReturnToHeroSelection(p)
+        call ClearNeatMessagesForPlayer(p)
+        call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nSave version mismatch.")
+        return
+    endif
+    if metaMode != SaveHelper.GetCurrentMode() then
+        call saveCode.destroy()
+        call PlayerReturnToHeroSelection(p)
+        call ClearNeatMessagesForPlayer(p)
+        call NeatMessageToPlayer(p, "|cffffcc00Wrong mode.|r |nThat save is for a different game mode (Singleplayer vs Multiplayer).")
+        return
+    endif
+    if metaFaction != SaveHelper.GetFactionId(p) then
+        call saveCode.destroy()
+        call PlayerReturnToHeroSelection(p)
+        call ClearNeatMessagesForPlayer(p)
+        call NeatMessageToPlayer(p, "|cffffcc00Wrong faction.|r |nThat save is for the other faction.")
+        return
+    endif
+
     call DisplayTextToPlayer(GetLocalPlayer(), 0, 0, "Loaded " + User[p].nameColored + "'s character!") 
 
     
