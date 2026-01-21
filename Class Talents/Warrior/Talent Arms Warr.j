@@ -63,7 +63,7 @@ function TalentArmsWarr takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(12) 
 	set udg_TalentChoiceHead[choice] = "Deep Wounds"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAbility_BackStab.blp"
-	set udg_TalentChoiceText[choice] = "Bladestorm now deals 35% more damage to targets that are slowed or stunned"
+	set udg_TalentChoiceText[choice] = "Bladestorm now deals 30% more damage to targets that are slowed or stunned"
 
 	set choice = TalentChoiceCreateBooleanWithAddedFunction(13,1) 
 	set udg_TalentChoiceHead[choice] = "Second Wind"
