@@ -22,16 +22,9 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         static constant integer KEY_SINGLEPLAYER = 2
 
         static method IsSinglePlayerGame takes nothing returns boolean
-            local integer i = 0
-            local integer humans = 0
-            loop
-                exitwhen i >= bj_MAX_PLAYER_SLOTS
-                if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(Player(i)) == MAP_CONTROL_USER then
-                    set humans = humans + 1
-                endif
-                set i = i + 1
-            endloop
-            return humans <= 1
+            // NOTE: This intentionally means OFFLINE single-player.
+            // Online/BNet games should always be treated as multiplayer saves (even with one player).
+            return IsOfflineGame()
         endmethod
 
         static method GetCurrentMode takes nothing returns integer

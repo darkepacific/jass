@@ -32,7 +32,7 @@ function Load_GUI takes nothing returns nothing
             if altMagic == SaveHelper.SAVE_META_MAGIC then
                 call NeatMessageToPlayer(p, "|cffffcc00Wrong mode.|r |nThat save is for a different game mode (Singleplayer vs Multiplayer).")
             else
-                call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nInvalid save code.")
+                call NeatMessageToPlayer(p, "|cffffcc00Old save format.|r |nThis save was made before the save system update and can’t be loaded anymore.")
             endif
             return
         endif
@@ -74,7 +74,7 @@ function Load_GUI takes nothing returns nothing
         call saveCode.destroy()
         call PlayerReturnToHeroSelection(p)
         call ClearNeatMessagesForPlayer(p)
-        call NeatMessageToPlayer(p, "|cffffcc00Error loading save file.|r |nInvalid or outdated save (missing metadata).")
+        call NeatMessageToPlayer(p, "|cffffcc00Old save format.|r |nThis save was made before the save system update and can’t be loaded anymore.")
         return
     endif
     if metaVersion != SaveHelper.SAVE_VERSION then

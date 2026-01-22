@@ -52,10 +52,13 @@ scope GameModeSelection initializer Init
 	
 	private function Create takes nothing returns nothing
 		local string array gameModeTooltips
-		
 		local ButtonData newButtonData = InitButtonData()
 		local Button normalModeButton
 		local Button pvpModeButton
+		
+		// Lock offline/online mode early during a global startup UI.
+		// This runs for all clients (timer callback), not a local click event.
+		call IsOfflineGame()
 
 		set gameModeTooltips[1] = "Select the game mode. 
 				

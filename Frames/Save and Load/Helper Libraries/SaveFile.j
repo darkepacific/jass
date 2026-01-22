@@ -1,6 +1,35 @@
 library SaveFile requires FileIO, GenericFunctions
-    
-    private keyword SaveFileInit
+
+    globals
+        // 0 = unknown, 1 = offline, 2 = online
+        integer udg_OfflineModeState = 0
+    endglobals
+
+    function IsOfflineGame takes nothing returns boolean
+        local boolean before
+        local boolean after
+
+        // Lazy detection to avoid init-timing issues.
+        // In offline single-player, Cheat("ItVexesMe") toggles IsNoVictoryCheat().
+        // In online/BNet games, Cheat() does nothing, so the state won't change.
+        //
+        // IMPORTANT: Prefer triggering this from a deterministic global flow
+        // (e.g. GameModeSelection startup UI). This is a safe fallback.
+        if udg_OfflineModeState == 0 then
+            set before = IsNoVictoryCheat()
+            call Cheat("ItVexesMe")
+            set after = IsNoVictoryCheat()
+
+            if after != before then
+                set udg_OfflineModeState = 1
+                // Revert to original state.
+                call Cheat("ItVexesMe")
+            else
+                set udg_OfflineModeState = 2
+            endif
+        endif
+        return udg_OfflineModeState == 1
+    endfunction
     
     struct SaveFile extends array
         static constant string ManualPath = "Manual"
@@ -17,16 +46,9 @@ library SaveFile requires FileIO, GenericFunctions
         endmethod
 
         static method IsSinglePlayerGame takes nothing returns boolean
-            local integer i = 0
-            local integer humans = 0
-            loop
-                exitwhen i >= bj_MAX_PLAYER_SLOTS
-                if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(Player(i)) == MAP_CONTROL_USER then
-                    set humans = humans + 1
-                endif
-                set i = i + 1
-            endloop
-            return humans <= 1
+            // NOTE: This intentionally means OFFLINE single-player.
+            // Online/BNet games should always be treated as multiplayer saves (even with one player).
+            return IsOfflineGame()
         endmethod
 
         static method ModeFolder takes nothing returns string
@@ -59,6 +81,17 @@ library SaveFile requires FileIO, GenericFunctions
             return Folder + ModeFolder() + "\\" + Faction(p) + "\\SaveSlot_" + I2S(slot) + ".pld"
         endmethod
 
+        static method getLegacyPath takes player p, integer slot returns string
+            if (slot == 0) then
+                return Folder + Faction(p) + "\\SaveSlot_" + InvalidPath + ".pld" 
+            elseif (slot > 0 and (slot < MIN_SLOTS or slot > MAX_SLOTS)) then
+                return Folder + Faction(p) + "\\SaveSlot_" + InvalidPath + ".pld" 
+            elseif (slot < 0) then
+                return Folder + Faction(p) + "\\SaveSlot_" + ManualPath + ".pld"
+            endif
+            return Folder + Faction(p) + "\\SaveSlot_" + I2S(slot) + ".pld"
+        endmethod
+
         static method getBackupPath takes player p, integer slot, integer saveNumber returns string
             if (slot == 0) then
                 return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + InvalidPath + ".pld" 
@@ -68,6 +101,17 @@ library SaveFile requires FileIO, GenericFunctions
                 return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + ManualPath + ".pld"
             endif
             return Folder + ModeFolder() + "\\" + Faction(p) + "\\Backups\\SaveSlot_" + I2S(slot) + "_" + I2S(saveNumber) + ".pld"
+        endmethod
+
+        static method getLegacyBackupPath takes player p, integer slot, integer saveNumber returns string
+            if (slot == 0) then
+                return Folder + Faction(p) + "\\Backups\\SaveSlot_" + InvalidPath + ".pld" 
+            elseif (slot > 0 and (slot < MIN_SLOTS or slot > MAX_SLOTS)) then
+                return Folder + Faction(p) + "\\Backups\\SaveSlot_" + InvalidPath + ".pld" 
+            elseif (slot < 0) then
+                return Folder + Faction(p) + "\\Backups\\SaveSlot_" + ManualPath + ".pld"
+            endif
+            return Folder + Faction(p) + "\\Backups\\SaveSlot_" + I2S(slot) + "_" + I2S(saveNumber) + ".pld"
         endmethod
     
         static method create takes player p, string title, string items, integer slot, integer saveNumber, string data returns thistype
@@ -82,15 +126,24 @@ library SaveFile requires FileIO, GenericFunctions
             if (GetLocalPlayer() == p) then
                 call FileIO_Write(getPath(p, slot), "")
                 call FileIO_Write(getBackupPath(p, slot, saveNumber), "")
+                // Also clear legacy files so old saves don't "stick" in UI lists.
+                call FileIO_Write(getLegacyPath(p, slot), "")
+                call FileIO_Write(getLegacyBackupPath(p, slot, saveNumber), "")
             endif
             return slot
         endmethod
         
         static method exists takes player p, integer slot, integer saveNumber returns boolean // async
             if saveNumber == 0 then
-                return StringLength(FileIO_Read(getPath(p, slot))) > 1
+                if StringLength(FileIO_Read(getPath(p, slot))) > 1 then
+                    return true
+                endif
+                return StringLength(FileIO_Read(getLegacyPath(p, slot))) > 1
             else
-                return StringLength(FileIO_Read(getBackupPath(p, slot, saveNumber))) > 1
+                if StringLength(FileIO_Read(getBackupPath(p, slot, saveNumber))) > 1 then
+                    return true
+                endif
+                return StringLength(FileIO_Read(getLegacyBackupPath(p, slot, saveNumber))) > 1
             endif
         endmethod
         
@@ -104,16 +157,22 @@ library SaveFile requires FileIO, GenericFunctions
             
             if saveNumber == 0 then
                 set contents = FileIO_Read(getPath(p, this))
-                // call BJDebugMsg("Reading " + getPath(this) + " with length " + I2S(len))
+                if StringLength(contents) <= 1 then
+                    set contents = FileIO_Read(getLegacyPath(p, this))
+                endif
+                // call Debug("Reading " + getPath(this) + " with length " + I2S(len))
             elseif saveNumber > 0 then
                 set contents = FileIO_Read(getBackupPath(p, this, saveNumber))
-                // call BJDebugMsg("Reading " + getBackupPath(this, saveNumber) + " with length " + I2S(len))
+                if StringLength(contents) <= 1 then
+                    set contents = FileIO_Read(getLegacyBackupPath(p, this, saveNumber))
+                endif
+                // call Debug("Reading " + getBackupPath(this, saveNumber) + " with length " + I2S(len))
             // else
             //     set contents = FileIO_Read(getBankPath(this, saveNumber))
-            //     call BJDebugMsg("Reading " + getBankPath(this, saveNumber) + " with length " + I2S(len))
+            //     call Debug("Reading " + getBankPath(this, saveNumber) + " with length " + I2S(len))
             endif
             set len = StringLength(contents)
-            // call BJDebugMsg("Contents " + contents)
+            // call Debug("Contents " + contents)
 
             loop
                 exitwhen i > len
@@ -156,14 +215,6 @@ library SaveFile requires FileIO, GenericFunctions
         // method getBackupData takes integer saveNumber returns string // async
         //     return this.getLines(1, false, saveNumber)
         // endmethod
-        
-        implement SaveFileInit
     endstruct
-    
-    private module SaveFileInit
-        private static method onInit takes nothing returns nothing
-            //set thistype.Folder = udg_MapName
-        endmethod
-    endmodule
     
 endlibrary
