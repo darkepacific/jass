@@ -249,6 +249,22 @@ function Load_GUI takes nothing returns nothing
     call Debug("Loaded XP: " + I2S(udg_SaveValue[udg_SaveCount]))  
     call SetHeroXP(createdUnit, udg_SaveValue[udg_SaveCount], false) 
 
+    //-------------------  
+    // Load Provisioning
+    // -------------------  
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 300
+    call SaveHelper.GUILoadNext(saveCode)
+    // call SetProvisioningLvl(createdUnit, udg_SaveValue[udg_SaveCount])
+
+    //-------------------
+    // Load Crafting
+    // -------------------
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 300
+    call SaveHelper.GUILoadNext(saveCode)
+    // call SetCraftingLvl(createdUnit, udg_SaveValue[udg_SaveCount])
+
 
     // -------------------  
     // Load Items  
@@ -258,7 +274,7 @@ function Load_GUI takes nothing returns nothing
     call DebugCritical("Loading Items:") 
     set i = 1
     loop 
-        exitwhen i > 18
+        exitwhen i > 48
         //  call Debug("Item Type:") 
         set udg_SaveCount = (udg_SaveCount + 1) 
         set udg_SaveMaxValue[udg_SaveCount] = udg_SaveItemTypeMax 
@@ -272,23 +288,25 @@ function Load_GUI takes nothing returns nothing
         set udg_SaveMaxValue[udg_SaveCount] = 99 
         call SaveHelper.GUILoadNext(saveCode) 
 
+        if i <= 18
 
-        //Create Item
-        set bj_lastCreatedItem = CreateItem(udg_SaveItemType[udg_SaveValue[udg_SaveCount - 2]], -16358.0, -8802.9)
-        call SetItemCharges(bj_lastCreatedItem, udg_SaveValue[udg_SaveCount - 1]) 
-        call SaveHelper.SetItemSpecialCondition(bj_lastCreatedItem, udg_SaveValue[udg_SaveCount]) 
+            //Create Item
+            set bj_lastCreatedItem = CreateItem(udg_SaveItemType[udg_SaveValue[udg_SaveCount - 2]], -16358.0, -8802.9)
+            call SetItemCharges(bj_lastCreatedItem, udg_SaveValue[udg_SaveCount - 1]) 
+            call SaveHelper.SetItemSpecialCondition(bj_lastCreatedItem, udg_SaveValue[udg_SaveCount]) 
 
-        if i <= 6 then
-            call Debug("Loading Inventory Item: " + I2S(i) + " - " + GetItemName(bj_lastCreatedItem) + " with " + I2S(udg_SaveValue[udg_SaveCount - 1]) + " charges and special condition: " + I2S(udg_SaveValue[udg_SaveCount]))
-            call UnitAddItem(createdUnit, bj_lastCreatedItem)
+            if i <= 6 then
+                call Debug("Loading Inventory Item: " + I2S(i) + " - " + GetItemName(bj_lastCreatedItem) + " with " + I2S(udg_SaveValue[udg_SaveCount - 1]) + " charges and special condition: " + I2S(udg_SaveValue[udg_SaveCount]))
+                call UnitAddItem(createdUnit, bj_lastCreatedItem)
+            
+            else
+                call Debug("Loading Bag Item: " + I2S(i) + " - " + GetItemName(bj_lastCreatedItem) + " with " + I2S(udg_SaveValue[udg_SaveCount - 1]) + " charges and special condition: " + I2S(udg_SaveValue[udg_SaveCount]))
+                call SetItemUserData( bj_lastCreatedItem, ( GetItemUserData(bj_lastCreatedItem) + 1 ) )
+            
+            endif 
+            set udg_P_Items[GetPlayerBagNumber(p) + i] = bj_lastCreatedItem 
         
-        else
-            call Debug("Loading Bag Item: " + I2S(i) + " - " + GetItemName(bj_lastCreatedItem) + " with " + I2S(udg_SaveValue[udg_SaveCount - 1]) + " charges and special condition: " + I2S(udg_SaveValue[udg_SaveCount]))
-            call SetItemUserData( bj_lastCreatedItem, ( GetItemUserData(bj_lastCreatedItem) + 1 ) )
-        
-        endif 
-
-        set udg_P_Items[GetPlayerBagNumber(p) + i] = bj_lastCreatedItem 
+        endif
         set i = i + 1 
     endloop 
     
