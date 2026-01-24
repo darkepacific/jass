@@ -1,3 +1,13 @@
+function GetCraftingLvl takes unit u returns integer
+    // Placeholder function - replace with actual implementation
+    return 0 // Example fixed crafting level
+endfunction
+
+function GetProvisioningLvl takes unit u returns integer
+    // Placeholder function - replace with actual implementation
+    return 0 // Example fixed provisioning level
+endfunction
+
 function Save_GUI takes nothing returns nothing 
     local string name 
     local integer i 
@@ -51,11 +61,15 @@ function Save_GUI takes nothing returns nothing
     // ------------------- 
 
     //Save Items (null-safe)
-    set i = 18 
+    set i = 48 
     loop 
         exitwhen i < 1
         set idx = GetPlayerBagNumber(p) + i
-        set it = udg_P_Items[idx]
+        if i > 18 then
+            set it = null
+        else        
+            set it = udg_P_Items[idx]
+        endif
         if it == null then
             set typeId = 0
             set charges = 0
@@ -82,16 +96,16 @@ function Save_GUI takes nothing returns nothing
     // ------------------- 
     // Save Crafting
     // -------------------
-    // set udg_SaveCount = (udg_SaveCount + 1) 
-    // set udg_SaveValue[udg_SaveCount] = GetCraftingLvl(u) 
-    // set udg_SaveMaxValue[udg_SaveCount] = 100
+    set udg_SaveCount = (udg_SaveCount + 1) 
+    set udg_SaveValue[udg_SaveCount] = GetCraftingLvl(u) 
+    set udg_SaveMaxValue[udg_SaveCount] = 300
 
     // ------------------- 
     // Save Provisioning
     // -------------------
-    // set udg_SaveCount = (udg_SaveCount + 1) 
-    // set udg_SaveValue[udg_SaveCount] = GetProvisioningLvl(u) 
-    // set udg_SaveMaxValue[udg_SaveCount] = 100
+    set udg_SaveCount = (udg_SaveCount + 1) 
+    set udg_SaveValue[udg_SaveCount] = GetProvisioningLvl(u)
+    set udg_SaveMaxValue[udg_SaveCount] = 300
 
     // ------------------- 
     // Save Experience
