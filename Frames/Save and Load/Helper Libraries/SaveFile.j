@@ -2,7 +2,7 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
 
     globals
         //  1 = offline, 2 = online
-        integer udg_OfflineModeState = 1
+        integer udg_OfflineModeState = 2
 
         private timer udg_OfflineProbeTimer = null
     endglobals
@@ -17,8 +17,8 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
 
         if udg_OfflineModeState == 1 then
             set msg = "|cffffae00Offline Mode|r"
-            // elseif udg_OfflineModeState == 2 then
-            //     set msg = "|cffffae00Multiplayer Mode (Online/BNet)|r"
+        elseif udg_OfflineModeState == 2 then
+            set msg = "|cffffae00Multiplayer Mode (Online/BNet)|r"
         endif
         call NeatMessage(msg)
 

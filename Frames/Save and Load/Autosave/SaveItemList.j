@@ -2,14 +2,21 @@ globals
     constant integer ITEM_BASE_NONE = 0
     constant integer ITEM_BASE_FOOD = 1
     constant integer ITEM_BASE_DRINKS = 30
-    constant integer ITEM_BASE_FEASTS = 50
-    constant integer ITEM_BASE_POTIONS = 60
+    constant integer ITEM_BASE_FEASTS = 40
+    constant integer ITEM_BASE_POTIONS = 50
+    constant integer ITEM_BASE_SCROLLS = 80
     constant integer ITEM_BASE_MISC = 100
-    constant integer ITEM_BASE_DROPS = 200
-    constant integer ITEM_BASE_PURCHASE = 300
-    constant integer ITEM_BASE_EPICSHOP = 350
-    constant integer ITEM_BASE_ARTIFACT = 400
-    constant integer ITEM_BASE_ORBS = 500
+    constant integer ITEM_BASE_DROPS = 300
+    constant integer ITEM_BASE_DROPS_T1 = 300
+    constant integer ITEM_BASE_DROPS_T2 = 350
+    constant integer ITEM_BASE_DROPS_T3 = 400
+    constant integer ITEM_BASE_DROPS_T4 = 450
+    constant integer ITEM_BASE_DROPS_T5 = 500
+    constant integer ITEM_BASE_PURCHASE = 550
+    constant integer ITEM_BASE_EPICSHOP = 650
+    constant integer ITEM_BASE_ARTIFACT = 700
+    constant integer ITEM_BASE_ORBS = 800
+    constant integer ITEM_BASE_OVERFLOW = 900
 endglobals
 
 function Trig_SaveItemList_Actions takes nothing returns nothing
@@ -18,14 +25,15 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // set udg_SaveItemType[0] = GetItemTypeId(null)
     // set i = i + 1
 
+
+    set i = ITEM_BASE_NONE // 0
+    
     // -------------------  
     // Charged (Consumable)
     // -------------------  
-    set i = 0
-    
     //--- Food ---
-    set i = 1
-    
+    set i = ITEM_BASE_FOOD
+
     // Gummy Treat
     set udg_SaveItemType[i] = 'I06B'
     set i = i + 1
@@ -74,7 +82,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
 
     
     //--- Drinks ---
-    set i = 30
+    set i = ITEM_BASE_DRINKS // 30
 
     // Kul Tiras Wine
     set udg_SaveItemType[i] = 'I02I'
@@ -93,7 +101,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set i = i + 1
 
     //--- Feasts (counts as Food & Drink) ---
-    set i = 40
+    set i = ITEM_BASE_FEASTS // 40
 
     // Keg of Pale Ale
     set udg_SaveItemType[i] = 'I037'
@@ -111,7 +119,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
 
     //--- Potions ---
     // Minor > Lesser > X > Greater > Superior > Major > Runic
-    set i = 50
+    set i = ITEM_BASE_POTIONS // 50
 
     //--- Mana Potions ---
     // Vial of Living Waters
@@ -158,7 +166,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
 
 
     //--- Scrolls --- (All AoE Based)
-    set i = 80
+    set i = ITEM_BASE_SCROLLS // 80
     // Armor 
     // Healing
     // Mana
@@ -172,7 +180,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // -------------------  
     // Miscelanious
     // -------------------  
-    set i = 100
+    set i = ITEM_BASE_MISC // 100
 
     //--- Truly Miscelanious ---
     // Bug Eye
@@ -222,7 +230,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set i = i + 1
 
     //-- Misc but used by quest ---
-    set i = 100 + 30
+    set i = ITEM_BASE_MISC + 30 // 130
 
     // Prawn Egg
     set udg_SaveItemType[i] = 'I024'
@@ -260,7 +268,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
 
     //--- Crafting Related Misc --- (10 each)
     //--- Cloth ---
-    set i = 150
+    set i = ITEM_BASE_MISC + 50 // 150
 
     // Linen Cloth
     set udg_SaveItemType[i] = 'I00G'
@@ -318,7 +326,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     //--- Leather ---
 
     //--- Warlock Exclusive ---
-    set i = 190
+    set i = ITEM_BASE_MISC + 90 // 190
     // |cffc444ffSoul Shard|r
     set udg_SaveItemType[i] = 'I08E'
     set i = i + 1
@@ -328,10 +336,11 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // -------------------  
     // Permanent (NPC drops)
     // -------------------  
-    set i = 200
 
 
     //--- T1 ----
+    set i = ITEM_BASE_DROPS_T1  // 300
+
     // |c0000FF00Golem Helm|r
     set udg_SaveItemType[i] = 'I01O'
     set i = i + 1
@@ -413,6 +422,8 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
 
 
     //---- T2 ----
+    set i = ITEM_BASE_DROPS_T2  // 340
+
     // Spidersilk Drape
     set udg_SaveItemType[i] = 'I003'
     set i = i + 1
@@ -488,9 +499,13 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // |c0000FF00Spider Fang|r
     set udg_SaveItemType[i] = 'I04H'
     set i = i + 1
-
+    // Sturdy War Axe
+    set udg_SaveItemType[i] = 'stwa'
+    set i = i + 1
 
     //---- T3 ----
+    set i = ITEM_BASE_DROPS_T3  // 380
+
     // |c0000FF00Twisted Branch of Insight|r
     set udg_SaveItemType[i] = 'I03G'
     set i = i + 1
@@ -563,9 +578,17 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // |c0000FF00Robe of the Magi|r
     set udg_SaveItemType[i] = 'ciri'
     set i = i + 1
+    // |c0000FF00Torn Fin Tredders|r
+    set udg_SaveItemType[i] = 'I03A'
+    set i = i + 1
+    // |c0000FF00Ring of the Archmagi|r
+    set udg_SaveItemType[i] = 'ram3'
+    set i = i + 1
 
     
     //---- T4 ----
+    set i = ITEM_BASE_DROPS_T4  // 420
+
     // |c0000FF00Scythe of the Seas|r
     set udg_SaveItemType[i] = 'I02H'
     set i = i + 1
@@ -590,10 +613,15 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // |c0000FF00Granite Helm|r
     set udg_SaveItemType[i] = 'I01Y'
     set i = i + 1
+    // |c0000FF00Gauntlets of Retribution|r
+    set udg_SaveItemType[i] = 'I01U'
+    set i = i + 1
 
 
 
     //---- T5 ----
+    set i = ITEM_BASE_DROPS_T5  // 460
+
     // |c0000FF00Zombie Greaves|r
     set udg_SaveItemType[i] = 'I04K'
     set i = i + 1
@@ -629,11 +657,6 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set i = i + 1   
 
 
-    //--- IDK   !!!!!
-    // |c0000FF00Gauntlets of Retribution|r
-    set udg_SaveItemType[i] = 'I01U'
-    set i = i + 1
-
 
 
     //--- Permanent (awarded by quest) ---
@@ -645,14 +668,12 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set i = i + 1
 
     //--- Forgotten Items ---
-    // |c0000FF00Ring of the Archmagi|r
-    set udg_SaveItemType[i] = 'ram3'
-    set i = i + 1
+
 
     // -------------------
     // Purchasable
     // -------------------
-    set i = 300
+    set i = ITEM_BASE_PURCHASE // 500
     
     //--- T1 ---
     // Iron Mace
@@ -707,9 +728,6 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set i = i + 1
     // Sturdy Quarterstaff
     set udg_SaveItemType[i] = 'I05I'
-    set i = i + 1
-    // Orb of Darkness
-    set udg_SaveItemType[i] = 'I05H'
     set i = i + 1
     // The Punisher
     set udg_SaveItemType[i] = 'I052'
@@ -782,7 +800,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set i = i + 1
 
     //--- Purchasable Epics ---
-    set i = 350
+    set i = ITEM_BASE_EPICSHOP // 600
     // |c00FF7F00Arcanite Reaper|r
     set udg_SaveItemType[i] = 'I086'
     set i = i + 1
@@ -835,7 +853,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // -------------------  
     // Artifact (Boss Drops)
     // -------------------  
-    set i = 400
+    set i = ITEM_BASE_ARTIFACT // 700
 
     // |c00FF7F00Kil'Jaeden's Meteor of Destruction|r
     set udg_SaveItemType[i] = 'I073'
@@ -988,7 +1006,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
 
 
     //--- Orbs (needs  home) ---
-    set i = 500
+    set i = ITEM_BASE_ORBS // 800
 
     // Orb of Venom
     set udg_SaveItemType[i] = 'oven'
@@ -996,11 +1014,9 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // Orb of Fire
     set udg_SaveItemType[i] = 'ofr2'
     set i = i + 1
-
     // Orb of Darkness (Custom)
     set udg_SaveItemType[i] = 'I05H'
     set i = i + 1
-
     // Orb of Corruption
     set udg_SaveItemType[i] = 'ocor'
     set i = i + 1
@@ -1010,21 +1026,13 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // |c0000FF00Orb of Lightning|r
     set udg_SaveItemType[i] = 'oli2'
     set i = i + 1
-
-    // |c0000FF00Torn Fin Tredders|r
-    set udg_SaveItemType[i] = 'I03A'
-    set i = i + 1
-
-    // Sturdy War Axe
-    set udg_SaveItemType[i] = 'stwa'
+    // Orb of Slow
+    set udg_SaveItemType[i] = 'oslo'
     set i = i + 1
 
     // -------------------  
     // Unused (may be added in the future)
     // -------------------  
-    // Orb of Slow
-    set udg_SaveItemType[i] = 'oslo'
-    set i = i + 1
     // // Gem of True Seeing
     // set udg_SaveItemType[i] = 'gemt'
     // set i = i + 1
