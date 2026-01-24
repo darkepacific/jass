@@ -126,6 +126,13 @@ function Save_GUI takes nothing returns nothing
     // call BJDebugMsg("Name Number: " + I2S(udg_SaveValue[udg_SaveCount])) 
 
     // ---------------------------------------------------------------------------
+    // Save Hero Slot Id (class slot) (v2+)
+    // ---------------------------------------------------------------------------
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveValue[udg_SaveCount] = GetSlotForHero(u)
+    set udg_SaveMaxValue[udg_SaveCount] = 499
+
+    // ---------------------------------------------------------------------------
     // Save Metadata (encoded LAST so it decodes FIRST on load)
     // ---------------------------------------------------------------------------
     // Mode (1=MP, 2=SP)

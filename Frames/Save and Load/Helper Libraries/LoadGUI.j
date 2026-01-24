@@ -1,3 +1,30 @@
+// Returns the 0-based index of the first occurrence of `needle` in `haystack`, starting at `start`.
+// Returns -1 if not found.
+function StringFind takes string haystack, string needle, integer start returns integer
+    local integer hayLen = StringLength(haystack)
+    local integer needleLen = StringLength(needle)
+    local integer i = start
+
+    if i < 0 then
+        set i = 0
+    endif
+
+    // Empty needle: treat as found at start.
+    if needleLen == 0 then
+        return i
+    endif
+
+    loop
+        exitwhen i > hayLen - needleLen
+        if SubString(haystack, i, i + needleLen) == needle then
+            return i
+        endif
+        set i = i + 1
+    endloop
+
+    return -1
+endfunction
+
 function Load_GUI takes nothing returns nothing
     local location point 
     local unit loadedUnit 
@@ -10,10 +37,14 @@ function Load_GUI takes nothing returns nothing
     local integer hearthNumber 
     local player p = udg_SaveLoadEvent_Player
     local Savecode saveCode = Savecode.create()
+    local string saveStr
+    local integer expectedSlot = 0
+    local integer sep = -1
     local integer metaMagic
     local integer metaVersion
     local integer metaFaction
     local integer metaMode
+    local integer metaHeroSlot = 0
     local integer altMagic
     set udg_SaveCount = 0 
    
@@ -22,9 +53,20 @@ function Load_GUI takes nothing returns nothing
     // -------------------  
     // Validate  
     // -------------------  
-    if not(saveCode.Load(p, udg_SaveCodeString, SaveHelper.GetCurrentSaveKey())) then 
+    // The synced payload may be prefixed as: "<slot>|<savecode>"
+    // Find the first '|' (if present).
+    set sep = StringFind(udg_SaveCodeString, "|", 0)
+
+    if sep > -1 then
+        set expectedSlot = S2I(SubString(udg_SaveCodeString, 0, sep))
+        set saveStr = SubString(udg_SaveCodeString, sep + 1, StringLength(udg_SaveCodeString))
+    else
+        set saveStr = udg_SaveCodeString
+    endif
+
+    if not(saveCode.Load(p, saveStr, SaveHelper.GetCurrentSaveKey())) then 
         // Try the other mode key so we can show a friendlier message.
-        if saveCode.Load(p, udg_SaveCodeString, SaveHelper.GetOtherSaveKey()) then
+        if saveCode.Load(p, saveStr, SaveHelper.GetOtherSaveKey()) then
             set altMagic = saveCode.Decode(2048)
             call saveCode.destroy()
             call PlayerReturnToHeroSelection(p)
@@ -77,7 +119,8 @@ function Load_GUI takes nothing returns nothing
         call NeatMessageToPlayer(p, "|cffffcc00Old save format.|r |nThis save was made before the save system update and can’t be loaded anymore.")
         return
     endif
-    if metaVersion != SaveHelper.SAVE_VERSION then
+    // Allow older versions (we branch behavior below). Reject only future/invalid.
+    if metaVersion < 1 or metaVersion > SaveHelper.SAVE_VERSION then
         call saveCode.destroy()
         call PlayerReturnToHeroSelection(p)
         call ClearNeatMessagesForPlayer(p)
@@ -103,18 +146,39 @@ function Load_GUI takes nothing returns nothing
 
     
     // -------------------  
-    // Load Hero  
-    // -------------------  
-
-    // -------------------  
     // Load Hero String Identifier  
     // -------------------  
+    // Embedded hero slot id is saved right before the hero name id.
+    set udg_SaveCount = (udg_SaveCount + 1)
+    set udg_SaveMaxValue[udg_SaveCount] = 499
+    call SaveHelper.GUILoadNext(saveCode)
+    set metaHeroSlot = udg_SaveValue[udg_SaveCount]
+
     set udg_SaveCount = (udg_SaveCount + 1) 
     set udg_SaveMaxValue[udg_SaveCount] = udg_SaveNameMax 
     call Debug("Name: ")         
     call SaveHelper.GUILoadNext(saveCode) 
     set heroID = SaveHelper.GetHeroNameFromID(udg_SaveValue[udg_SaveCount]) 
     call Debug("Loaded Hero: " + heroID) 
+
+    // Validate that the save matches the selected hero slot.
+    // This prevents renaming a file (e.g. 220 -> 222) and loading the wrong class.
+    if expectedSlot > 0 then
+        if GetSlotForHeroUnitID(ConvertStringToHeroUnitID(heroID)) != expectedSlot then
+            call saveCode.destroy()
+            call PlayerReturnToHeroSelection(p)
+            call ClearNeatMessagesForPlayer(p)
+            call NeatMessageToPlayer(p, "|cffffcc00Wrong class for this slot.|r |nThat save does not match the selected hero slot.")
+            return
+        endif
+        if metaHeroSlot != expectedSlot then
+            call saveCode.destroy()
+            call PlayerReturnToHeroSelection(p)
+            call ClearNeatMessagesForPlayer(p)
+            call NeatMessageToPlayer(p, "|cffffcc00Wrong class for this slot.|r |nThat save does not match the selected hero slot.")
+            return
+        endif
+    endif
 
     //Check if the hero is already being played by another player
     set loadedUnit = ConvertStringtoHero(heroID) 
@@ -273,6 +337,7 @@ function Load_GUI takes nothing returns nothing
     set hearth = null 
     set point = null 
     set p = null
+    set saveStr = null
 endfunction 
 
 //===========================================================================

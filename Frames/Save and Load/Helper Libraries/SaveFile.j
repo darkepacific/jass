@@ -1,35 +1,57 @@
-library SaveFile requires FileIO, GenericFunctions
+library SaveFile initializer Init requires FileIO, GenericFunctions
 
     globals
-        // 0 = unknown, 1 = offline, 2 = online
-        integer udg_OfflineModeState = 0
+        //  1 = offline, 2 = online
+        integer udg_OfflineModeState = 1
+
+        private timer udg_OfflineProbeTimer = null
     endglobals
 
     function IsOfflineGame takes nothing returns boolean
-        local boolean before
-        local boolean after
-
-        // Lazy detection to avoid init-timing issues.
-        // In offline single-player, Cheat("ItVexesMe") toggles IsNoVictoryCheat().
-        // In online/BNet games, Cheat() does nothing, so the state won't change.
-        //
-        // IMPORTANT: Prefer triggering this from a deterministic global flow
-        // (e.g. GameModeSelection startup UI). This is a safe fallback.
-        if udg_OfflineModeState == 0 then
-            set before = IsNoVictoryCheat()
-            call Cheat("ItVexesMe")
-            set after = IsNoVictoryCheat()
-
-            if after != before then
-                set udg_OfflineModeState = 1
-                // Revert to original state.
-                call Cheat("ItVexesMe")
-            else
-                set udg_OfflineModeState = 2
-            endif
-        endif
+        // call BJDebugMsg("Checking offline/online mode...")
         return udg_OfflineModeState == 1
     endfunction
+
+    function AnnounceDetectedMode takes nothing returns nothing
+        local string msg
+
+        if udg_OfflineModeState == 1 then
+            set msg = "|cffffae00Offline Mode|r"
+            // elseif udg_OfflineModeState == 2 then
+            //     set msg = "|cffffae00Multiplayer Mode (Online/BNet)|r"
+        endif
+        call NeatMessage(msg)
+
+        set msg = null
+    endfunction
+
+    private function CheckFirstPlayingUserLumber takes nothing returns nothing
+
+        if GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) > 0 then
+            set udg_OfflineModeState = 1
+            call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 0)
+        endif
+
+        // Clean up timer (no leaks).
+        if udg_OfflineProbeTimer != null then
+            call PauseTimer(udg_OfflineProbeTimer)
+            call DestroyTimer(udg_OfflineProbeTimer)
+            set udg_OfflineProbeTimer = null
+        endif
+
+        call AnnounceDetectedMode()
+    endfunction
+
+    private function Init takes nothing returns nothing
+        call Cheat("LeafItToMe 100")
+        call DisplayTextToForce(GetPlayersAll(), "\n\n\n\n\n\n\n\n\n\n\n\n")
+
+        set udg_OfflineProbeTimer = CreateTimer()
+        call TimerStart(udg_OfflineProbeTimer, 3.0, false, function CheckFirstPlayingUserLumber)
+    endfunction
+
+
+
     
     struct SaveFile extends array
         static constant string ManualPath = "Manual"
@@ -45,14 +67,10 @@ library SaveFile requires FileIO, GenericFunctions
             return (udg_MapName + "\\")
         endmethod
 
-        static method IsSinglePlayerGame takes nothing returns boolean
+        static method ModeFolder takes nothing returns string
             // NOTE: This intentionally means OFFLINE single-player.
             // Online/BNet games should always be treated as multiplayer saves (even with one player).
-            return IsOfflineGame()
-        endmethod
-
-        static method ModeFolder takes nothing returns string
-            if thistype.IsSinglePlayerGame() then
+            if IsOfflineGame() then
                 return thistype.SP_FOLDER
             endif
             return thistype.MP_FOLDER
@@ -134,14 +152,27 @@ library SaveFile requires FileIO, GenericFunctions
         endmethod
         
         static method exists takes player p, integer slot, integer saveNumber returns boolean // async
+            local string contents
+            local string prefix
+            local integer prefixLen
+
+            set prefix = "[" + I2S(slot) + "]"
+            set prefixLen = StringLength(prefix)
             if saveNumber == 0 then
-                if StringLength(FileIO_Read(getPath(p, slot))) > 1 then
-                    return true
+                set contents = FileIO_Read(getPath(p, slot))
+                if StringLength(contents) > 1 then
+                    // If this save uses the new title prefix format, require it to match.
+                    if SubString(contents, 0, 1) != "[" or SubString(contents, 0, prefixLen) == prefix then
+                        return true
+                    endif
                 endif
                 return StringLength(FileIO_Read(getLegacyPath(p, slot))) > 1
             else
-                if StringLength(FileIO_Read(getBackupPath(p, slot, saveNumber))) > 1 then
-                    return true
+                set contents = FileIO_Read(getBackupPath(p, slot, saveNumber))
+                if StringLength(contents) > 1 then
+                    if SubString(contents, 0, 1) != "[" or SubString(contents, 0, prefixLen) == prefix then
+                        return true
+                    endif
                 endif
                 return StringLength(FileIO_Read(getLegacyBackupPath(p, slot, saveNumber))) > 1
             endif
@@ -167,9 +198,9 @@ library SaveFile requires FileIO, GenericFunctions
                     set contents = FileIO_Read(getLegacyBackupPath(p, this, saveNumber))
                 endif
                 // call Debug("Reading " + getBackupPath(this, saveNumber) + " with length " + I2S(len))
-            // else
-            //     set contents = FileIO_Read(getBankPath(this, saveNumber))
-            //     call Debug("Reading " + getBankPath(this, saveNumber) + " with length " + I2S(len))
+                // else
+                //     set contents = FileIO_Read(getBankPath(this, saveNumber))
+                //     call Debug("Reading " + getBankPath(this, saveNumber) + " with length " + I2S(len))
             endif
             set len = StringLength(contents)
             // call Debug("Contents " + contents)

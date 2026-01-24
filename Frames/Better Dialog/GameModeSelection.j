@@ -3,6 +3,8 @@ scope GameModeSelection initializer Init
 		private string gameMode = "Normal" //default state of button
 		private boolean array closeRequested
 		private timer closeTimer = CreateTimer()
+		private timer checkSelectionTimer = CreateTimer()
+		private timer createDialogTimer = CreateTimer()
 		private boolean closeTimerRunning = false
     endglobals
 
@@ -47,7 +49,7 @@ scope GameModeSelection initializer Init
 		endif
 
 		// Defer to next tick to ensure we're out of the UI event handler.
-		call TimerStart(CreateTimer(), 0.00, false, function CheckGameModeSelection)
+		call TimerStart(checkSelectionTimer, 0.00, false, function CheckGameModeSelection)
     endfunction
 	
 	private function Create takes nothing returns nothing
@@ -102,6 +104,6 @@ scope GameModeSelection initializer Init
 	endfunction
 
     private function Init takes nothing returns nothing
-		call TimerStart(CreateTimer(), 0.01, false, function Create)
+		call TimerStart(createDialogTimer, 0.01, false, function Create)
     endfunction
 endscope

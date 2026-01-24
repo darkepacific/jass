@@ -9,9 +9,12 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // Save Metadata (embedded into Savecode)
         // =====================================================================
         // Bump this when your save format changes.
+        // Save FORMAT version (not a public release/version number).
+        // Keeping this at 1.
         static constant integer SAVE_VERSION = 1
 
         // Magic marker so we can quickly tell whether a save has our metadata.
+        // This save format includes embedded hero-slot field (max slot id 499).
         static constant integer SAVE_META_MAGIC = 1313
 
         static constant integer MODE_MULTIPLAYER = 1
@@ -21,28 +24,22 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         static constant integer KEY_MULTIPLAYER = 1
         static constant integer KEY_SINGLEPLAYER = 2
 
-        static method IsSinglePlayerGame takes nothing returns boolean
-            // NOTE: This intentionally means OFFLINE single-player.
-            // Online/BNet games should always be treated as multiplayer saves (even with one player).
-            return IsOfflineGame()
-        endmethod
-
         static method GetCurrentMode takes nothing returns integer
-            if thistype.IsSinglePlayerGame() then
+            if IsOfflineGame() then
                 return thistype.MODE_SINGLEPLAYER
             endif
             return thistype.MODE_MULTIPLAYER
         endmethod
 
         static method GetCurrentSaveKey takes nothing returns integer
-            if thistype.IsSinglePlayerGame() then
+            if IsOfflineGame() then
                 return thistype.KEY_SINGLEPLAYER
             endif
             return thistype.KEY_MULTIPLAYER
         endmethod
 
         static method GetOtherSaveKey takes nothing returns integer
-            if thistype.IsSinglePlayerGame() then
+            if IsOfflineGame() then
                 return thistype.KEY_MULTIPLAYER
             endif
             return thistype.KEY_SINGLEPLAYER
@@ -67,11 +64,11 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         endmethod
     
         static method GetSavesPerSlot takes player p, integer slot returns integer
-            return udg_NumberOfSaves[GetPlayerId(p)*300+slot]
+            return udg_NumberOfSaves[GetPlayerId(p)*500+slot]
         endmethod
 
         static method SetSavesPerSlot takes player p, integer slot, integer saves returns nothing
-           set udg_NumberOfSaves[GetPlayerId(p)*300+slot] = saves
+              set udg_NumberOfSaves[GetPlayerId(p)*500+slot] = saves
         endmethod
         
         static method IsUserLoading takes User user returns boolean
@@ -275,7 +272,7 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         //     set saveCode = Save_GUI(p)
         // endif
         call Debug("Save Code: " + saveCode)
-        call SaveFile(slot).create(p, SaveHelper.GetUnitTitle(u), items, slot, saveNumber, saveCode)
+        call SaveFile(slot).create(p, "[" + I2S(slot) + "] " + SaveHelper.GetUnitTitle(u), items, slot, saveNumber, saveCode)
 
         set p = null
         set saveCode = null
@@ -313,7 +310,8 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         elseif (SaveHelper.IsUserLoading(user)) then
             // call DisplayTextToPlayer(p, 0, 0, "Please wait while your character synchronizes.")
         else
-            set s = savefile.getData(p, saveNumber)
+            // Prefix the slot so Load_GUI can validate that the save matches the selected hero slot.
+            set s = I2S(slot) + "|" + savefile.getData(p, saveNumber)
             if (GetLocalPlayer() == p) then
                 call SyncString(s)
             endif
