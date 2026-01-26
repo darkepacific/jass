@@ -27,7 +27,7 @@ function Trig_Sarg_Dmg_Timer_Actions takes nothing returns nothing
     if(IsUnitAliveBJ(gg_unit_N03U_1885) and not BlzIsUnitInvulnerable(gg_unit_N03U_1885)) then
 
         set bj_wantDestroyGroup = true 
-        call ForGroupBJ(GetUnitsInRectAll(gg_rct_Sunwell_Plateau), function CleanUpSummons) //Kill Summoned units
+        call ForGroupBJ(GetUnitsInRectAll(gg_rct_Dark_Portal), function CleanUpSummons) //Kill Summoned units
 
         set spawn_pt = GetRectCenter(gg_rct_Sargeras)
         call ShowHero(gg_unit_N03U_1885, spawn_pt, false)
@@ -461,7 +461,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Sargeras
         elseif target == gg_unit_N03U_1885 then
-            set damage = damage * 0.95
+            set damage = damage * 0.89
             set reduced = true
             //Kael, Whitemane
         elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then

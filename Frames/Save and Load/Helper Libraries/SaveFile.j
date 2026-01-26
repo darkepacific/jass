@@ -26,10 +26,17 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
     endfunction
 
     private function CheckFirstPlayingUserLumber takes nothing returns nothing
+        local integer i = 0
 
         if GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) > 0 then
             set udg_OfflineModeState = 1
-            call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 0)
+
+            // Revert the cheat-granted lumber for all players.
+            loop
+                exitwhen i >= bj_MAX_PLAYERS
+                call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_LUMBER, 0)
+                set i = i + 1
+            endloop
         endif
 
         // Clean up timer (no leaks).
