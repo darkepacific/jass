@@ -78,7 +78,8 @@ function TalentRetPaladin takes nothing returns nothing
 	set udg_TalentChoiceText[choice] = "Gain 30% Crit Chance. |nStacks multaplicatively with items."
 	
 
-	
+	//Scepeter of Avarice is a good icon for Paladin
+	//ReplaceableTextures\CommandButtons\BTNTransmute.blp
 
 	
 

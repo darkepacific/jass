@@ -44,10 +44,11 @@ function TalentBrewMonk takes nothing returns nothing
 
 	//LEVEL 30
 	call TalentHeroTierCreate(heroTypeId, 30)
-	set choice = TalentChoiceCreateBoolean(9)
+	// set choice = TalentChoiceCreateBoolean(9)
+	set choice = TalentChoiceCreateStatsWithBoolean(10, 0, 0, 9, "Roundhouse Kick now scales off Total Strength, 3 x (Base + Bonus)")
 	set udg_TalentChoiceHead[choice] = "Roundhouse Kick"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNRising Sun Kick.blp"
-	set udg_TalentChoiceText[choice] = "Leg Sweep scaling damage increased to 7x Bonus Str"
+	// set udg_TalentChoiceText[choice] = "Leg Sweep scaling damage increased to 7x Bonus Str"
 
 	set choice = TalentChoiceCreateImproveStatWithBoolean(1, 0, 0, 50.0, 0.0, 10)
 	set udg_TalentChoiceHead[choice] = "Increased Movement Speed"
@@ -63,7 +64,7 @@ function TalentBrewMonk takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(12)
 	set udg_TalentChoiceHead[choice] = "Breath In Breath Out"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNZen_Meditation.blp"
-	set udg_TalentChoiceText[choice] = "If Meditate is cancelled in the first 3 seconds its remaining cooldown is reduced by 60%, and restore 250 mana."
+	set udg_TalentChoiceText[choice] = "If Meditate is cancelled in the first 3 seconds its remaining cooldown is reduced by 60%, and restores 350 mana."
 
 	//set choice = TalentChoiceCreateAddSpell('ANdb', false)
 	set choice = TalentChoiceCreateAddAndHideSpell('ANdb','ANdb', false)

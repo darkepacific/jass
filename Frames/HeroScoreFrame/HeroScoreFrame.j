@@ -485,13 +485,13 @@ library HeroScoreFrame initializer init_function requires optional FrameLoader, 
             if IsPlayerAlly(p, SelectedPlayer[GetPlayerId(p)]) then
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyIconButtonSendGold", 0), AllowSendGoldAlly)
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyIconButtonSendLumber", 0), AllowSendLumberAlly)
-                call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonSwap", 0), AllowDuelAllies)
+                call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonSwap", 0), AllowDuelAllies and udg_GameMode == "Normal")   
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonShare", 0), AllowShare)
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonShareAdv", 0), AllowShareAdv)
             else
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyIconButtonSendGold", 0), AllowSendGoldEnemy)
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyIconButtonSendLumber", 0), AllowSendLumberEnemy)
-                call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonSwap", 0), AllowDuelEnemies)
+                call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonSwap", 0), AllowDuelEnemies and udg_GameMode == "Normal")
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonShare", 0), false)
                 call BlzFrameSetEnable(BlzGetFrameByName("HeroScoreFrameAllyButtonShareAdv", 0), false)
             endif
