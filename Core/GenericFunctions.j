@@ -119,6 +119,9 @@ library GenericFunctions
         return i
     endfunction
     
+    //DIFF Discrep
+
+
     //AI ADDED FUNCTION
     function GetBagSize takes nothing returns integer
         return udg_BAG_SIZE
@@ -138,6 +141,10 @@ library GenericFunctions
         return PITEMS_EXTRA_SLOTS
     endfunction
 
+    function GetPItemsTotalSlots takes nothing returns integer
+        return udg_BAG_SIZE - 1
+    endfunction
+
     // Base index for this player's P_Items block.
     function GetPlayerBagNumber takes player p returns integer
         return GetPlayerHeroNumber(p) * udg_BAG_SIZE
@@ -153,6 +160,7 @@ library GenericFunctions
         return GetPlayerBagNumber(p) +((page - 1) * 6) + slot
     endfunction
 
+    //AI ADDED FUNCTION
     // Helper function to get the P_Items index for an extra-bag slot (1..GetPItemsExtraSlotsMax()).
     function GetPItemsExtraBagIndex takes player p, integer extraSlot returns integer
         return GetPlayerBagNumber(p) + GetEquipSlotsMax() + extraSlot
@@ -1516,14 +1524,14 @@ library GenericFunctions
         if newOwner == Player(1) or newOwner == Player(11) then
             call QuestMessageBJ(GetPlayersAll(), bj_QUESTMESSAGE_ALWAYSHINT,("|cffffcc00" + s + "|r" + " now belongs " + adjective + "to the " + udg_ALLIANCE_STRING + "!") )
             if modifyBasesCapture then
-                call QuestMessageBJ(GetPlayersAll(), bj_QUESTMESSAGE_REQUIREMENT,(" - " + udg_HORDE_STRING + " Faction leaders take an additional |cffffcc002%%|r increased damage.") )
+                call QuestMessageBJ(GetPlayersAll(), bj_QUESTMESSAGE_REQUIREMENT,(" - " + udg_HORDE_STRING + " NPC units take an additional |cffffcc002%|r increased damage from the " + udg_ALLIANCE_STRING) )
                 set udg_Num_Captured_Bases_Alliance = udg_Num_Captured_Bases_Alliance + 1.00
             endif
             //Now Horde
         elseif newOwner == Player(0) or newOwner == Player(3) then
             call QuestMessageBJ(GetPlayersAll(), bj_QUESTMESSAGE_ALWAYSHINT,("|cffffcc00" + s + "|r" + " now belongs " + adjective + "to the " + udg_HORDE_STRING + "!") )
             if modifyBasesCapture then
-                call QuestMessageBJ(GetPlayersAll(), bj_QUESTMESSAGE_REQUIREMENT,(" - " + udg_ALLIANCE_STRING + " Faction leaders take an additional |cffffcc002%%|r increased damage.") )
+                call QuestMessageBJ(GetPlayersAll(), bj_QUESTMESSAGE_REQUIREMENT,(" - " + udg_ALLIANCE_STRING + " NPC units take an additional |cffffcc002%|r increased damage from the " + udg_HORDE_STRING) )
                 set udg_Num_Captured_Bases_Horde = udg_Num_Captured_Bases_Horde + 1.00
             endif
         else

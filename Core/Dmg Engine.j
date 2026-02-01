@@ -425,17 +425,26 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         //--------------------------------------------------------------------------------------------------------
         // Reduction Logic
         //--------------------------------------------------------------------------------------------------------
+        //Faction units
+        if IsAlliancePlayer(sourcePlayer) and (GetOwningPlayer(target) == Player(0) or GetOwningPlayer(target) == Player(3)) then //Horde Units
+            set damage = damage *(0.8 + (udg_Num_Captured_Bases_Alliance * 0.02))
+            set increased = true
+        elseif IsHordePlayer(sourcePlayer) and ( GetOwningPlayer(target) == Player(1) or GetOwningPlayer(target) == Player(11) ) then //Alliance Units
+            set damage = damage *(0.8 + (udg_Num_Captured_Bases_Horde * 0.02))
+            set increased = true
+        endif
+
         //Faction Leaders
         if target == gg_unit_Usyl_0179 or target == gg_unit_O012_0383 then  //Sylvanas, Lor'themar
-            set damage = damage *(0.8 +(udg_Num_Captured_Bases_Alliance * 0.02))
+            set damage = damage *(0.8)
             set reduced = true
         elseif target == gg_unit_H02D_0004 or target == gg_unit_Hapm_0294 then //Anduin, Magni
-            set damage = damage *(0.8 +(udg_Num_Captured_Bases_Horde * 0.02))
+            set damage = damage *(0.8)
             set reduced = true
         endif
 
         //Bosses
-            // Ymiron
+        // Ymiron
         if target == gg_unit_Opgh_1163 then
             set damage = damage * 0.85
             set reduced = true
@@ -461,11 +470,15 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Sargeras
         elseif target == gg_unit_N03U_1885 then
-            set damage = damage * 0.85
+            set damage = damage * 0.83
             set reduced = true
             //Kael, Whitemane
         elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then
-            set damage = damage * 0.68
+            set damage = damage * 0.67
+            set reduced = true
+            //Balnazzar
+        elseif target == gg_unit_Ubal_0449 then
+            set damage = damage * 0.85
             set reduced = true
         endif
         
@@ -493,6 +506,21 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
                 call AddSpecialEffectTargetUnitBJ("overhead", target, "war3mapImported\\Effect_ShieldBuff_Purple.mdx" ) 
                 call DestroyEffectBJ(GetLastCreatedEffectBJ() )
                 set damage = 12
+                set reduced = true
+            endif
+        endif
+        //Ambermill
+        if GetOwningPlayer(target) == Player(PLAYER_NEUTRAL_AGGRESSIVE) then
+            if not IsHordePlayer(sourcePlayer) or not IsTriggerEnabled(gg_trg_U_AGS) then
+                // Magic Shield Generator
+                if GetUnitTypeId(target) == 'n062' then
+                    set damage = 0.0
+                    set reduced = true
+                endif
+            endif
+            //Reduce damage to Ambermill Units
+            if (RectContainsUnit(gg_rct_Ambermill_Shield, target)) and udg_QuestAmbermillShieldGen < 3 then
+                set damage = damage * 0.20
                 set reduced = true
             endif
         endif
