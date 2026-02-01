@@ -367,7 +367,11 @@ library GenericFunctions
     endfunction
 
     function SanctuaryForces takes player p returns nothing
-        local force f = GetForceOfPlayer(p)
+        local force f 
+        if udg_GameMode == "PVP" then
+            return
+        endif
+        set f = GetForceOfPlayer(p)
         if IsPlayerInForce(p, udg_AlliancePlayers) then
             call SetForceAllianceStateBJ(udg_HordePlayers, f, bj_ALLIANCE_ALLIED )
             call SetForceAllianceStateBJ(f, udg_HordePlayers, bj_ALLIANCE_ALLIED )
