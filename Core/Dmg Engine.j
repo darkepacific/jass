@@ -16,6 +16,9 @@ globals
     timer Entropius_Damage_Timer = null
     timer Kael_Damage_Timer = null
     timer DW_Damage_Timer = null
+    timer Vashj_Damage_Timer = null
+    timer Ragnaros_Damage_Timer = null
+    timer Balnazzar_Damage_Timer = null
 
     real global_damage = 0.0
 endglobals
@@ -107,6 +110,50 @@ function Trig_DW_Dmg_Timer_Actions takes nothing returns nothing
     endif
     set spawn_pt = null
 endfunction
+
+function Trig_Vashj_Dmg_Timer_Actions takes nothing returns nothing
+    local location spawn_pt
+
+    if(IsUnitAliveBJ(gg_unit_Hvsh_1247) and not BlzIsUnitInvulnerable(gg_unit_Hvsh_1247)) then
+        set spawn_pt = GetRectCenter(gg_rct_Lady_Vashj)
+        call ShowHero(gg_unit_Hvsh_1247, spawn_pt, false)
+        call RemoveLocation(spawn_pt)
+    endif
+    set spawn_pt = null
+endfunction
+
+function Trig_Ragnaros_Dmg_Timer_Actions takes nothing returns nothing
+    local location spawn_pt
+
+    if(IsUnitAliveBJ(gg_unit_Nfir_1988) and not BlzIsUnitInvulnerable(gg_unit_Nfir_1988)) then
+        set spawn_pt = GetRectCenter(gg_rct_Ragnaros)
+        call ShowHero(gg_unit_Nfir_1988, spawn_pt, false)
+        call RemoveLocation(spawn_pt)
+    endif
+    set spawn_pt = null
+endfunction
+
+function Trig_Balnazzar_Dmg_Timer_Actions takes nothing returns nothing
+    local location spawn_pt
+
+    if(IsUnitAliveBJ(gg_unit_Ubal_0449) and not BlzIsUnitInvulnerable(gg_unit_Ubal_0449)) then
+        set spawn_pt = GetRectCenter(gg_rct_Balnazzar)
+        call ShowHero(gg_unit_Ubal_0449, spawn_pt, false)
+        call RemoveLocation(spawn_pt)
+    endif
+    set spawn_pt = null
+endfunction
+
+// function Trig_KelThuzad_Dmg_Timer_Actions takes nothing returns nothing
+//     local location spawn_pt
+
+//     if(IsUnitAliveBJ(gg_unit_Nfir_1988) and not BlzIsUnitInvulnerable(gg_unit_Nfir_1988)) then
+//         set spawn_pt = GetRectCenter(gg_rct_KelThuzad)
+//         call ShowHero(gg_unit_Nfir_1988, spawn_pt, false)
+//         call RemoveLocation(spawn_pt)
+//     endif
+//     set spawn_pt = null
+// endfunction
 
 //Out of Combat Check
 function isOutOfCombat takes unit u returns boolean
@@ -400,26 +447,30 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         //Sargeras
         if source == gg_unit_N03U_1885 or target == gg_unit_N03U_1885 then
             call TimerStart(Sarg_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Sarg_Dmg_Timer_Actions)
-        endif
         //Lich King
-        if source == gg_unit_Uear_1259 or target == gg_unit_Uear_1259 then
+        elseif source == gg_unit_Uear_1259 or target == gg_unit_Uear_1259 then
             call TimerStart(LK_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_LK_Dmg_Timer_Actions)
-        endif
         //Kil'Jaeden
-        if source == gg_unit_Nkjx_2318 or target == gg_unit_Nkjx_2318 then
+        elseif source == gg_unit_Nkjx_2318 or target == gg_unit_Nkjx_2318 then
             call TimerStart(KJ_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_KJ_Dmg_Timer_Actions)
-        endif
         //Entropius
-        if source == gg_unit_H03X_2614 or target == gg_unit_H03X_2614 then
+        elseif source == gg_unit_H03X_2614 or target == gg_unit_H03X_2614 then
             call TimerStart(Entropius_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Entropius_Dmg_Timer_Actions)
-        endif
         //Kael
-        if source == gg_unit_Hkal_1415 or target == gg_unit_Hkal_1415 then
+        elseif source == gg_unit_Hkal_1415 or target == gg_unit_Hkal_1415 then
             call TimerStart(Kael_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Kael_Dmg_Timer_Actions)
-        endif
         //Deathwing
-        if source == gg_unit_E033_1368 or target == gg_unit_E033_1368 then
+        elseif source == gg_unit_E033_1368 or target == gg_unit_E033_1368 then
             call TimerStart(DW_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_DW_Dmg_Timer_Actions)
+        //Vashj
+        elseif source == gg_unit_Hvsh_1247 or target == gg_unit_Hvsh_1247 then
+            call TimerStart(Vashj_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Vashj_Dmg_Timer_Actions)
+        //Ragnaros
+        elseif source == gg_unit_Nfir_1988 or target == gg_unit_Nfir_1988 then
+            call TimerStart(Ragnaros_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Ragnaros_Dmg_Timer_Actions)
+        //Balnazzar
+        elseif source == gg_unit_Ubal_0449 or target == gg_unit_Ubal_0449 then
+            call TimerStart(Balnazzar_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Balnazzar_Dmg_Timer_Actions)
         endif
 
         //--------------------------------------------------------------------------------------------------------
@@ -470,7 +521,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Sargeras
         elseif target == gg_unit_N03U_1885 then
-            set damage = damage * 0.83
+            set damage = damage * 0.80
             set reduced = true
             //Kael, Whitemane
         elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then
@@ -478,7 +529,15 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Balnazzar
         elseif target == gg_unit_Ubal_0449 then
-            set damage = damage * 0.85
+            set damage = damage * 0.66
+            set reduced = true
+            //Vashj
+        elseif target == gg_unit_Hvsh_1247 then
+            set damage = damage * 0.80
+            set reduced = true
+            //Ragnaros
+        elseif target == gg_unit_Nfir_1988 then
+            set damage = damage * 0.90
             set reduced = true
         endif
         
@@ -849,6 +908,25 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             endif
         endif
 
+        //PVP Bonus
+        if udg_GameMode == "PVP" then
+            if GetOwningPlayer(target) == Player(PLAYER_NEUTRAL_AGGRESSIVE) then
+                if IsAlliancePlayer(sourcePlayer) then
+                    set damage = damage * 1.12
+                    set increased = true
+                elseif IsHordePlayer(sourcePlayer) then
+                    set damage = damage * 1.12
+                    set increased = true
+                endif
+            endif
+            // if GetOwningPlayer(target) == Player(PLAYER_NEUTRAL_AGGRESSIVE) then
+            //     if IsAlliancePlayer(sourcePlayer) then
+            //         set damage = damage * (1.0 + (udg_Num_Captured_Bases_Alliance * 0.02))
+            //     elseif IsHordePlayer(sourcePlayer) then
+            //         set damage = damage * (1.0 + (udg_Num_Captured_Bases_Horde * 0.02))
+            //     endif
+            // endif
+        endif
 
         //--------------------------------------------------------------------------------------------------------
         // Finally Set the Damage
@@ -1114,6 +1192,9 @@ function InitTrig_Dmg_Engine takes nothing returns nothing
     set Entropius_Damage_Timer = CreateTimer()
     set Kael_Damage_Timer = CreateTimer()
     set DW_Damage_Timer = CreateTimer()
+    set Vashj_Damage_Timer = CreateTimer()
+    set Ragnaros_Damage_Timer = CreateTimer()
+    set Balnazzar_Damage_Timer = CreateTimer()
 endfunction
 
 

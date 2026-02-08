@@ -72,7 +72,8 @@ scope GameModeSelection initializer Init
 		|cffaaaaaaPVP:
 		Fast-paced PvP combat. Only one side can win.
 		
-		All heroes start at level 25 with bonus gold. No saving and loading.|r"
+		All heroes start at level 25 with bonus gold. No saving and loading.
+		Bosses take increased damage and quests give more XP and Gold.|r"
 
 		set gameModeTooltips[2] = "Select the game mode. 
 				
@@ -84,7 +85,8 @@ scope GameModeSelection initializer Init
 		|cffffcc00PVP:
 		Fast-paced PvP combat. Only one side can win.
 		
-		All heroes start at level 25 with bonus gold. No saving and loading.|r"
+		All heroes start at level 25 with bonus gold. No saving and loading.
+		Bosses take increased damage and quests give more XP and Gold.|r"
 
 		set normalModeButton = CreateButton("Normal", gameModeTooltips[1], Confirm)
 		set pvpModeButton = CreateButton("PVP", gameModeTooltips[2], Confirm)

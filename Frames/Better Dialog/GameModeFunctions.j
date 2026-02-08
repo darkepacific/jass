@@ -74,6 +74,8 @@ function CheckGameModeSelection takes nothing returns nothing
 		if countPVP > countNormal then
 			set udg_GameMode = "PVP"
 			call AddGoldToAllPlayers(12000)
+			set udg_QUEST_XP_MULTIPLIER = udg_QUEST_XP_MULTIPLIER * 1.25
+			set udg_QUEST_GOLD_MULTIPLIER = udg_QUEST_GOLD_MULTIPLIER * 1.25
 		else
 			set udg_GameMode = "Normal"
 		endif
