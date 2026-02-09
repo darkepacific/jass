@@ -523,9 +523,13 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         elseif target == gg_unit_N03U_1885 then
             set damage = damage * 0.80
             set reduced = true
-            //Kael, Whitemane
-        elseif target == gg_unit_Hkal_1415 or target == gg_unit_H01P_0467 then
+            //Kael
+        elseif target == gg_unit_Hkal_1415 then
             set damage = damage * 0.67
+            set reduced = true
+            //Whitemane
+        elseif target == gg_unit_H01P_0467 then
+            set damage = damage * 0.68
             set reduced = true
             //Balnazzar
         elseif target == gg_unit_Ubal_0449 then
@@ -911,11 +915,8 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         //PVP Bonus
         if udg_GameMode == "PVP" then
             if GetOwningPlayer(target) == Player(PLAYER_NEUTRAL_AGGRESSIVE) then
-                if IsAlliancePlayer(sourcePlayer) then
-                    set damage = damage * 1.12
-                    set increased = true
-                elseif IsHordePlayer(sourcePlayer) then
-                    set damage = damage * 1.12
+                if IsOwnedByUser(sourcePlayer) then
+                    set damage = damage * 1.2
                     set increased = true
                 endif
             endif
