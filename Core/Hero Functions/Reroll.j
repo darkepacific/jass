@@ -73,6 +73,9 @@ function Trig_REROLL_Actions takes nothing returns nothing
             //Reset Inventory
             call ResetInventory(p)
 
+            //Make sure Enemies are enemies again if they rerolled in sanctuary or duel
+            call ResetEnemyForces(p)
+            
             call KillAllSummonedUnitsForPlayer(p)
 
             // Turn off conditionals

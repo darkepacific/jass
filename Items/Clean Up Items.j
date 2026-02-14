@@ -4,6 +4,11 @@ function CleanUpItems_RemoveAllItemsOfType takes nothing returns nothing
     endif
 endfunction
 
+function CleanUpItemsGround takes integer it returns nothing
+    set udg_ItemTypeCheck = it
+    call EnumItemsInRectBJ(GetPlayableMapRect(), function CleanUpItems_RemoveAllItemsOfType )
+endfunction
+
 function CleanUpItems_Enum takes nothing returns nothing
     local player p = GetEnumPlayer()
     local integer i = GetPlayerBagNumber(p) + 1
@@ -35,5 +40,5 @@ function CleanUpItems takes integer it returns nothing
     set udg_ItemTypeCheck = it
     call CleanUpItems_Alliance(it)
     call CleanUpItems_Horde(it)
-    call EnumItemsInRectBJ(GetPlayableMapRect(), function CleanUpItems_RemoveAllItemsOfType )
+    call CleanUpItemsGround(it)
 endfunction

@@ -19,6 +19,7 @@ globals
     timer Vashj_Damage_Timer = null
     timer Ragnaros_Damage_Timer = null
     timer Balnazzar_Damage_Timer = null
+    timer Whitemane_Damage_Timer = null
 
     real global_damage = 0.0
 endglobals
@@ -140,6 +141,25 @@ function Trig_Balnazzar_Dmg_Timer_Actions takes nothing returns nothing
         set spawn_pt = GetRectCenter(gg_rct_Balnazzar)
         call ShowHero(gg_unit_Ubal_0449, spawn_pt, false)
         call RemoveLocation(spawn_pt)
+    endif
+    set spawn_pt = null
+endfunction
+
+function Trig_Whitemane_Dmg_Timer_Actions takes nothing returns nothing
+    local location spawn_pt
+
+    if(IsUnitAliveBJ(gg_unit_H01P_0467) and not BlzIsUnitInvulnerable(gg_unit_H01P_0467)) then
+        set spawn_pt = GetRectCenter(gg_rct_Whitemane)
+        call ShowHero(gg_unit_H01P_0467, spawn_pt, false)
+        call RemoveLocation(spawn_pt)
+        //Pause Whitemane
+        call PauseAddInvuln(gg_unit_H01P_0467, null)
+        // Revive Mograine
+        set spawn_pt = GetRectCenter(gg_rct_Mograine)
+        call HideHero(gg_unit_Hdgo_1208)
+        call ShowHero( gg_unit_Hdgo_1208, spawn_pt, false)
+        call RemoveLocation(spawn_pt)
+        call EnableTrigger(gg_trg_Mograine_Dies)
     endif
     set spawn_pt = null
 endfunction
@@ -471,7 +491,11 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         //Balnazzar
         elseif source == gg_unit_Ubal_0449 or target == gg_unit_Ubal_0449 then
             call TimerStart(Balnazzar_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Balnazzar_Dmg_Timer_Actions)
+        //Whitemane + 3 sec
+        elseif source == gg_unit_H01P_0467 or target == gg_unit_H01P_0467 or source == gg_unit_Hdgo_1208 or target == gg_unit_Hdgo_1208 then
+            call TimerStart(Whitemane_Damage_Timer, udg_BOSS_COMBAT_TIMER + 3.0, false, function Trig_Whitemane_Dmg_Timer_Actions)
         endif
+
 
         //--------------------------------------------------------------------------------------------------------
         // Reduction Logic
@@ -497,15 +521,15 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         //Bosses
         // Ymiron
         if target == gg_unit_Opgh_1163 then
-            set damage = damage * 0.85
+            set damage = damage * 0.82
             set reduced = true
             //Skovald
         elseif target == gg_unit_H03R_2211 then
-            set damage = damage * 0.85
+            set damage = damage * 0.82
             set reduced = true
             //Lich King
         elseif target == gg_unit_Uear_1259 then
-            set damage = damage * 0.85
+            set damage = damage * 0.70
             set reduced = true
             //Patchwerk
         elseif target == gg_unit_U043_1599 then
@@ -513,7 +537,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //DeathWing
         elseif target == gg_unit_E033_1368 then
-            set damage = damage * 0.93
+            set damage = damage * 0.90
             set reduced = true
             //Kil'Jaeden
         elseif target == gg_unit_Nkjx_2318 then
@@ -521,7 +545,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Sargeras
         elseif target == gg_unit_N03U_1885 then
-            set damage = damage * 0.80
+            set damage = damage * 0.77
             set reduced = true
             //Kael
         elseif target == gg_unit_Hkal_1415 then
@@ -529,7 +553,11 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Whitemane
         elseif target == gg_unit_H01P_0467 then
-            set damage = damage * 0.68
+            set damage = damage * 0.67
+            set reduced = true
+            //Mograine
+        elseif target == gg_unit_Hdgo_1208 then
+            set damage = damage * 0.76
             set reduced = true
             //Balnazzar
         elseif target == gg_unit_Ubal_0449 then
@@ -537,15 +565,38 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Vashj
         elseif target == gg_unit_Hvsh_1247 then
-            set damage = damage * 0.80
+            set damage = damage * 0.70
             set reduced = true
             //Ragnaros
         elseif target == gg_unit_Nfir_1988 then
-            set damage = damage * 0.90
+            set damage = damage * 0.80
+            set reduced = true
+            //Entropius
+        elseif target == gg_unit_H03X_2614 then 
+            set damage = damage * 0.95
+            set reduced = true
+            //Cho'Gall
+        elseif target == gg_unit_H00S_2121 then
+            set damage = damage * 0.95
+            set reduced = true
+            //Moroes, Curator, Netherspite
+        elseif GetUnitTypeId(target) == 'E04J' or GetUnitTypeId(target) == 'n05A' or GetUnitTypeId(target) == 'n05T' then
+            set damage = damage * 0.70
             set reduced = true
         endif
         
         //Quest 
+        //Weldon Barov
+        if target == gg_unit_H02E_1848 and IsHordePlayer(sourcePlayer) then
+            set damage = damage * 0.67
+            set reduced = true
+        endif
+        //Alexi Barov
+        if target == gg_unit_E027_1847 and IsAlliancePlayer(sourcePlayer) then
+            set damage = damage * 0.67
+            set reduced = true
+        endif
+
         //Cannons
         if GetUnitTypeId(source) == 'o00Z' then
             if GetUnitTypeId(target) != 'h03T' then
@@ -1196,6 +1247,7 @@ function InitTrig_Dmg_Engine takes nothing returns nothing
     set Vashj_Damage_Timer = CreateTimer()
     set Ragnaros_Damage_Timer = CreateTimer()
     set Balnazzar_Damage_Timer = CreateTimer()
+    set Whitemane_Damage_Timer = CreateTimer()
 endfunction
 
 

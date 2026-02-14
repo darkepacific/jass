@@ -323,7 +323,7 @@ function Load_GUI takes nothing returns nothing
     set i = 0 
     set loopEnd = udg_SaveValue[udg_SaveCount] 
     loop 
-        exitwhen i > loopEnd 
+        exitwhen i >= loopEnd 
         set udg_SaveCount = (udg_SaveCount + 1) 
         set udg_SaveMaxValue[udg_SaveCount] = udg_SaveAbilityTypeMax 
         call SaveHelper.GUILoadNext(saveCode) 

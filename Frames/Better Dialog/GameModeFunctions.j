@@ -76,6 +76,10 @@ function CheckGameModeSelection takes nothing returns nothing
 			call AddGoldToAllPlayers(12000)
 			set udg_QUEST_XP_MULTIPLIER = udg_QUEST_XP_MULTIPLIER * 1.25
 			set udg_QUEST_GOLD_MULTIPLIER = udg_QUEST_GOLD_MULTIPLIER * 1.25
+			call TriggerExecute(gg_trg_S_Kill_Sylvanas)
+			// call TriggerExecute(gg_trg_S_Kill_Lorthemar)
+			call TriggerExecute(gg_trg_S_Kill_Anduin)
+			// call TriggerExecute(gg_trg_S_Kill_Magni)
 		else
 			set udg_GameMode = "Normal"
 		endif

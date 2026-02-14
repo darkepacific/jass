@@ -31,7 +31,41 @@ library GenericFunctions
         endif
     endfunction
 
-    //Uses TiggerPlayer
+    function GetPlayerHeroNumber takes player p returns integer
+        if p == Player(5) then
+            // Player 5 - Orange
+            return 0
+        elseif p == Player(4) then
+            // Player 4 - Yellow
+            return 1
+        elseif p == Player(6) then
+            // Player 6 - Green
+            return 2
+        elseif p == Player(10) then
+            // Player 10 - Dark Green
+            return 3    
+        elseif p == Player(2) then
+            // Player 2 - Teal
+            return 4
+        elseif p == Player(7) then
+            // Player 7 - Pink
+            return 5
+        elseif p == Player(8) then
+            // Player 8 - Gray
+            return 6
+        elseif p == Player(9) then
+            // Player 9 - Light Blue
+            return 7
+        endif
+
+        return 11
+    endfunction
+
+    function GetPlayerNumber takes player p returns integer
+        return GetPlayerHeroNumber(p)
+    endfunction
+
+    //Uses TiggerPlayer  - can likely be internally refactored
     function PlayerNumbtoHeroesNumb takes nothing returns integer
         local integer i = 0
         loop 
@@ -72,39 +106,6 @@ library GenericFunctions
         return 11
     endfunction
    
-    function GetPlayerHeroNumber takes player p returns integer
-        if p == Player(5) then
-            // Player 5 - Orange
-            return 0
-        elseif p == Player(4) then
-            // Player 4 - Yellow
-            return 1
-        elseif p == Player(6) then
-            // Player 6 - Green
-            return 2
-        elseif p == Player(10) then
-            // Player 10 - Dark Green
-            return 3    
-        elseif p == Player(2) then
-            // Player 2 - Teal
-            return 4
-        elseif p == Player(7) then
-            // Player 7 - Pink
-            return 5
-        elseif p == Player(8) then
-            // Player 8 - Gray
-            return 6
-        elseif p == Player(9) then
-            // Player 9 - Light Blue
-            return 7
-        endif
-
-        return 11
-    endfunction
-
-    function GetPlayerNumber takes player p returns integer
-        return GetPlayerHeroNumber(p)
-    endfunction
 
     function SetTempUnitToOwningHero takes nothing returns integer
         local integer i = 0
@@ -118,9 +119,38 @@ library GenericFunctions
         endloop
         return i
     endfunction
+
+    function SetPlayerNumber takes player p returns nothing
+        //Horde
+        if(p == Player(5)  ) then
+            set udg_Player_Number = 0
+        endif
+        if(p == Player(4)  ) then
+            set udg_Player_Number = 1
+        endif
+        if(p == Player(6)  ) then
+            set udg_Player_Number = 2
+        endif
+        if(p == Player(10)  ) then
+            set udg_Player_Number = 3
+        endif
+        //Alliance
+        if(p == Player(2)  ) then
+            set udg_Player_Number = 4
+        endif
+        if(p == Player(7)  ) then
+            set udg_Player_Number = 5
+        endif
+        if(p == Player(8)  ) then
+            set udg_Player_Number = 6
+        endif
+        if(p == Player(9)  ) then
+            set udg_Player_Number = 7
+        endif
+        call Debug("udg_Player_Number = " + I2S(udg_Player_Number) ) 
+    endfunction
     
     //DIFF Discrep
-
 
     //AI ADDED FUNCTION
     function GetBagSize takes nothing returns integer
@@ -446,7 +476,7 @@ library GenericFunctions
         elseif(affiliation == 1) then
             set zone = "\n\n\n" + zone + " |cff0000ff- Alliance|r"
             call ResetEnemyForces(whichPlayer)
-        elseif(affiliation == 2) then
+        elseif(affiliation == 2) and udg_GameMode != "PVP" then
             set zone = "\n\n\n" + zone + " |cffffcc00 - Sanctuary|r"
             call SanctuaryForces(whichPlayer)
         else
@@ -700,36 +730,6 @@ library GenericFunctions
     function MaxHPSelfHeal takes real scale returns nothing
         call MaxHealthRestore(scale, udg_Temp_Unit)
     endfunction 
-
-    function SetPlayerNumber takes player p returns nothing
-        //Horde
-        if(p == Player(5)  ) then
-            set udg_Player_Number = 0
-        endif
-        if(p == Player(4)  ) then
-            set udg_Player_Number = 1
-        endif
-        if(p == Player(6)  ) then
-            set udg_Player_Number = 2
-        endif
-        if(p == Player(10)  ) then
-            set udg_Player_Number = 3
-        endif
-        //Alliance
-        if(p == Player(2)  ) then
-            set udg_Player_Number = 4
-        endif
-        if(p == Player(7)  ) then
-            set udg_Player_Number = 5
-        endif
-        if(p == Player(8)  ) then
-            set udg_Player_Number = 6
-        endif
-        if(p == Player(9)  ) then
-            set udg_Player_Number = 7
-        endif
-        call Debug("udg_Player_Number = " + I2S(udg_Player_Number) ) 
-    endfunction
 
     function ChaliceCheckUnit takes unit u returns boolean
         if(UnitHasItemOfTypeBJ(u, 'I06M') ) then

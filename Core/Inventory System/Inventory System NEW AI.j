@@ -72,7 +72,10 @@ library MultiPageInventorySystem
 
     function IsAbleToChangePage takes unit u returns boolean
         if u == null then
-            call Debug("No hero found for player: " + GetPlayerName(GetOwningPlayer(u)))
+            call Debug("No hero found for player (null hero).")
+            return false
+        elseif IsUnitType(u, UNIT_TYPE_DEAD) or GetWidgetLife(u) <= 0.405 then
+            // Hero is dead: ignore inventory hotkeys/page swaps
             return false
         elseif IsStunned(u) or IsRooted(u) or IsUnitPaused(u) then
             call ErrorMessage(errorCantChangePage, GetOwningPlayer(u))

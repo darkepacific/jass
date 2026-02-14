@@ -586,6 +586,7 @@ library TalentGridJUI uses TalentJUI, GenericFunctions
         // set f = null
     endfunction
     
+    //This is likely whats causing the bug when Heroes[] == null
     private function SelectActionFunc takes nothing returns nothing
         //GetPlayerId(GetTriggerPlayer())
         call PlayerNumbtoHeroesNumb()
