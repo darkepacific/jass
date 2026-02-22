@@ -21,7 +21,7 @@ function TalentAssassinRogue takes nothing returns nothing
 
 	set choice = TalentChoiceCreateImproveWeapon(0, 0, -0.41)	//Base is 2.05/1.64 = 25%
 	set udg_TalentChoiceHead[choice] = "Increased Attack Speed"
-	set udg_TalentChoiceText[choice] = "+25% Attack Speed"
+	set udg_TalentChoiceText[choice] = "Attack Speed: +25%"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNINV_Sword_12.blp"
 	
 	//LEVEL 10

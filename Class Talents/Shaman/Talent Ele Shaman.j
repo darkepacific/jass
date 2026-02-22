@@ -10,7 +10,7 @@ function TalentEle_Shaman takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(0) 
 	set udg_TalentChoiceHead[choice] = "Lava Burst"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNLavaBurst.blp"
-	set udg_TalentChoiceText[choice] = "Aftershock now crits for an additional 1x Agility"
+	set udg_TalentChoiceText[choice] = "Aftershock now crits for an additional 1 x Agility"
 
 	set choice = TalentChoiceCreateImproveSpell('AOcl', -25, 0)
 	set udg_TalentChoiceHead[choice] = "Reduced Mana Cost on Chain Lightning"
@@ -19,7 +19,7 @@ function TalentEle_Shaman takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(1) 
 	set udg_TalentChoiceHead[choice] = "Strikes Twice"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNMonsoon.blp"
-	set udg_TalentChoiceText[choice] = "Chain Lightning has a 8% increase chanced to Strike Twice"
+	set udg_TalentChoiceText[choice] = "Increase Chain Lightning's chance to Strike Twice by 8%"
 
 	//LEVEL 10
 	call TalentHeroTierCreate(heroTypeId, 10)

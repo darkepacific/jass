@@ -18,7 +18,6 @@ function TalentFrostDeathKnight takes nothing returns nothing
 
 	set choice = TalentChoiceCreateImproveWeapon(0, 18, 0)
 	set udg_TalentChoiceHead[choice] = "Increased Attack Damage"
-	set udg_TalentChoiceText[choice] = "Increase Base Attack Damage by 18"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNINV_Sword_12.blp"
 
 	//LEVEL 10
@@ -71,7 +70,7 @@ function TalentFrostDeathKnight takes nothing returns nothing
 	set choice = TalentChoiceCreateReplaceAndImproveSpellWithBoolean('A037', 'A01G', - 25, 0, 1, 12)
 	set udg_TalentChoiceHead[choice] = "Glacial Advance and Stun"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNGlacier.blp"
-	set udg_TalentChoiceText[choice] = "Replaces Obliterate for Glacial Advance, an impale spell that knocks up enemies in a target direction. Additionally Howling blast now stuns targets for 1.3 sec instead of rooting them. |n|nBenefits from all previous talent buffs to Obliterate."
+	set udg_TalentChoiceText[choice] = "Replaces Obliterate for Glacial Advance, an impale spell that knocks up enemies in a target direction. Additionally Howling blast now stuns targets for 1.2 sec instead of rooting them. |n|nBenefits from all previous talent buffs to Obliterate."
 
 	set choice = TalentChoiceCreateBoolean(13) 
 	set udg_TalentChoiceHead[choice] = "Killing Machine"

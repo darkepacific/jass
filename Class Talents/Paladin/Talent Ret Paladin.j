@@ -18,7 +18,7 @@ function TalentRetPaladin takes nothing returns nothing
 
 	set choice = TalentChoiceCreateImproveWeapon(0, 10, -0.2)
 	set udg_TalentChoiceHead[choice] = "Increased Attack Damage and Speed"
-	set udg_TalentChoiceText[choice] = "Attack Damage: +10  Attack Speed: +10%"
+	set udg_TalentChoiceText[choice] = "Attack Damage: +10  |nAttack Speed: +10%"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNINV_Hammer_10.blp"
 
 
@@ -65,7 +65,7 @@ function TalentRetPaladin takes nothing returns nothing
 	set choice = TalentChoiceCreateImproveSpellWithBoolean('A00U', -90, 0, 12)
 	set udg_TalentChoiceHead[choice] = "Blessing of Wisdom"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNSpell_Holy_SealOfWisdom.blp"
-	set udg_TalentChoiceText[choice] = "Retribtuion now restores 35% of the target's max mana, and its mana cost is reduced. |n|nMana cost: -90"
+	set udg_TalentChoiceText[choice] = "Retribution now restores 35% of the target's max mana, and its mana cost is reduced. |n|nMana cost: -90"
 
 	set choice = TalentChoiceCreateReplaceAndImproveSpell('A0AR', 'A0DN', -25, 0, 0)
 	set udg_TalentChoiceHead[choice] = "Hammer of Wrath"
@@ -75,7 +75,8 @@ function TalentRetPaladin takes nothing returns nothing
 	set choice = TalentChoiceCreateAddAndHideSpell('A09D','A09D', false)
 	set udg_TalentChoiceHead[choice] = "Seraphim"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNSeraphim.blp"
-	set udg_TalentChoiceText[choice] = "Gain 30% Crit Chance. |nStacks multaplicatively with items."
+	set udg_TalentChoiceText[choice] = "Gain 30% Critical Strike chance. |n|n|cffc0c0c0Stacks multaplicatively with items.|r"
+
 	
 
 	//Scepeter of Avarice is a good icon for Paladin

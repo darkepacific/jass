@@ -50,13 +50,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Bag capacity is driven by Cols*Rows and the udg_P_Items extra-bag layout.
 
         // can Equip only EquipClassLimit of one Item Class at one time
-        public integer EquipClassLimit = 999
+        // public integer EquipClassLimit = 999
 
         // Display the requirements in the Item Tooltip
         public boolean AddNeedText = true
 
         // ItemLevelRestriction = true; only a hero which level is equal or higher to the item's level can equip it
-        private boolean ItemLevelRestriction = true
+        private boolean ItemLevelRestriction = false
 
         //itemCode Require the unit to have ability X to equip
         //itemCode = AbilityCode
@@ -153,6 +153,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetUnitTypeId(u) == 'n002'
     endfunction
 
+    // Maps a 1-based bag slot to the owning player's udg_P_Items index.
+    private function BagSlotArrayIndex takes integer playerKey, integer bagSlot returns integer
+        return GetPItemsExtraBagIndex(Player(playerKey), bagSlot)
+    endfunction
+
     // Finds the next empty (null) slot for this player's bag.
     // Returns 0 when the bag is full.
     private function BagNextEmptySlot takes integer playerKey returns integer
@@ -161,7 +166,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer arrIndex
         loop
             exitwhen slot > maxSlots
-            set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
             if udg_P_Items[arrIndex] == null then
                 return slot
             endif
@@ -176,7 +181,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer arrIndex
         loop
             exitwhen slot > maxSlots
-            set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
             if udg_P_Items[arrIndex] == i then
                 return slot
             endif
@@ -202,7 +207,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set itemCode = GetItemTypeId(incoming)
         loop
             exitwhen slot > maxSlots
-            set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
             set existing = udg_P_Items[arrIndex]
             if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode then
                 if GetItemCharges(existing) < DEFAULT_MAX_CHARGES then
@@ -254,7 +259,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set maxSlots = GetPItemsExtraSlotsMax()
                 loop
                     exitwhen slot > maxSlots or incomingCharges <= 0
-                    set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), slot)
+                    set arrIndex = BagSlotArrayIndex(playerKey, slot)
                     set existing = udg_P_Items[arrIndex]
                     if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
                         set existingCharges = GetItemCharges(existing)
@@ -315,7 +320,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemUserData(i, 1)
         call RemoveLocation(itemIsland)
 
-        set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), emptySlot)
+        set arrIndex = BagSlotArrayIndex(playerKey, emptySlot)
         set udg_P_Items[arrIndex] = i
     endfunction
 
@@ -325,7 +330,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if index <= 0 or index > maxSlots then
             return null
         endif
-        return udg_P_Items[GetPItemsExtraBagIndex(Player(playerKey), index)]
+        return udg_P_Items[BagSlotArrayIndex(playerKey, index)]
     endfunction
     
     function TasItemBagSwap takes unit u, integer indexA, integer indexB returns boolean
@@ -338,8 +343,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if indexA <= 0 or indexB <= 0 or indexA > maxSlots or indexB > maxSlots or indexA == indexB then
             return false
         endif
-        set a = GetPItemsExtraBagIndex(Player(playerKey), indexA)
-        set b = GetPItemsExtraBagIndex(Player(playerKey), indexB)
+        set a = BagSlotArrayIndex(playerKey, indexA)
+        set b = BagSlotArrayIndex(playerKey, indexB)
         set i = udg_P_Items[a]
         set i2 = udg_P_Items[b]
         set udg_P_Items[a] = i2
@@ -358,7 +363,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if index <= 0 or index > maxSlots then
             return false
         endif
-        set arrIndex = GetPItemsExtraBagIndex(Player(playerKey), index)
+        set arrIndex = BagSlotArrayIndex(playerKey, index)
         set i = udg_P_Items[arrIndex]
         if i == null then
             return false
@@ -418,30 +423,30 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return false
     endfunction
     
-    private function DropsOnDeath takes unit u returns boolean
-        local integer i = 0
-        if not IsUnitType(u, UNIT_TYPE_HERO) then
-            return true
-        endif
-        if TasItemBagUnitIsDropItems(u) then
-            return true
-        endif
+    // private function DropsOnDeath takes unit u returns boolean
+    //     local integer i = 0
+    //     if not IsUnitType(u, UNIT_TYPE_HERO) then
+    //         return true
+    //     endif
+    //     if TasItemBagUnitIsDropItems(u) then
+    //         return true
+    //     endif
     
-        return false
-    endfunction
+    //     return false
+    // endfunction
 
-    private function CountItemsOfClass takes unit u, itemtype itemClass returns integer
-        local integer count = 0
-        local integer i = 0
-        loop
-            exitwhen i >= bj_MAX_INVENTORY
-            if GetItemType(UnitItemInSlot(u, i)) == itemClass then
-                set count = count + 1
-            endif
-            set i = i + 1
-        endloop
-        return count
-    endfunction
+    // private function CountItemsOfClass takes unit u, itemtype itemClass returns integer
+    //     local integer count = 0
+    //     local integer i = 0
+    //     loop
+    //         exitwhen i >= bj_MAX_INVENTORY
+    //         if GetItemType(UnitItemInSlot(u, i)) == itemClass then
+    //             set count = count + 1
+    //         endif
+    //         set i = i + 1
+    //     endloop
+    //     return count
+    // endfunction
 
     private function UnitCanDropItems takes unit u returns boolean
         // check for the CAN DROP flag
@@ -477,10 +482,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         //     call DisplayTimedTextToPlayer(GetOwningPlayer(u), 0, 0, 20, GetItemName(i) + " needs Ability " + GetObjectName(ItemAbilityNeed[itemCode]))
         //     set returnValue = false
         // endif
-        if EquipClassLimit <= CountItemsOfClass(u, GetItemType(i)) then
-            call DisplayTimedTextToPlayer(GetOwningPlayer(u), 0, 0, 20, "To many Items of this Item-Class")
-            return false
-        endif
+        // if EquipClassLimit <= CountItemsOfClass(u, GetItemType(i)) then
+        //     call DisplayTimedTextToPlayer(GetOwningPlayer(u), 0, 0, 20, "To many Items of this Item-Class")
+        //     return false
+        // endif
         return returnValue
     endfunction
 
@@ -739,10 +744,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set take = total - 1
         endif
 
-        // Ensure bank has room for a new item (or stacking will absorb it).
+        // Ensure bag has room for a new item.
         set playerKey = GetPlayerId(p)
-        if BagItem[playerKey].integer[0] >= ItemBagSize then
-            call ErrorMessage("Bank is full.", p)
+        if BagNextEmptySlot(playerKey) <= 0 then
+            call ErrorMessage("Bag is full.", p)
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
@@ -1167,14 +1172,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
-        local integer itemCount = BagItem[pId].integer[0]
-        local integer offset = Offset[pId]
-        local integer max
+        local integer itemCount = 0
         local integer itemCode
         local item it
         local string text = ""
-        local integer dataIndex
         local integer i
+        local integer maxSlots
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
             set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
@@ -1185,29 +1188,32 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowButtonAlwaysVisible or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
+
+        // Count items for the little overlay on the show-button.
+        set maxSlots = GetPItemsExtraSlotsMax()
+        set i = 1
+        loop
+            exitwhen i > maxSlots
+            if udg_P_Items[BagSlotArrayIndex(pId, i)] != null then
+                set itemCount = itemCount + 1
+            endif
+            set i = i + 1
+        endloop
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
 
         if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
 
-            if itemCount > 0 then
-
-                // scroll by rows
-                set max = IMaxBJ(0, (itemCount + Cols - Cols * Rows) / Cols)
-            
-                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, max)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), I2S(R2I(offset / Cols)) + "/" + I2S(max))
-            else
-                call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
-            endif
+            // Holes model: fixed grid, no scrolling.
+            call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
+            set Offset[pId] = 0
 
             set i = 1
             loop
                 exitwhen i > Cols * Rows
-                set dataIndex = i + offset
-                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), dataIndex <= itemCount)
-                if dataIndex <= itemCount then
-                    set it = BagItem[pId].item[dataIndex]
+                set it = udg_P_Items[BagSlotArrayIndex(pId, i)]
+                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), it != null)
+                if it != null then
                     set itemCode = GetItemTypeId(it)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetAbilityIcon(itemCode), 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetAbilityIcon(itemCode), 0, true)
@@ -1276,7 +1282,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function SliderAction takes nothing returns nothing
-        set Offset[GetPlayerId(GetTriggerPlayer())] = R2I(BlzGetTriggerFrameValue() * Cols)
+        set Offset[GetPlayerId(GetTriggerPlayer())] = 0
     endfunction
 
     private function SelectAction takes nothing returns nothing
@@ -1563,9 +1569,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set AbilityFieldCanDrop = ConvertAbilityIntegerLevelField('inv5')
         
         // set ItemAbilityNeed = Table.create()
-        set ItemIsInBag = Table.create()
-        
-        set BagItem = HashTable.create()
         set TimerUpdate = CreateTimer()
         call TimerStart(TimerUpdate, 0.1, true, function UpdateUI)
         

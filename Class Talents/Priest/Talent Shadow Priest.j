@@ -80,12 +80,12 @@ function TalentShadowPriest takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(13)
 	set udg_TalentChoiceHead[choice] = "Shadow Word: Death"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNShadowWordDeath.blp"
-	set udg_TalentChoiceText[choice] = "Shadow Word Pain now instantly deals an additional 800 magic damage when cast on targets with less than 30% hp."
+	set udg_TalentChoiceText[choice] = "Shadow Word: Pain now instantly deals an additional 4 x Total Intelligence (Base + Bonus) magic damage when cast on targets with less than 33% hp."
 
 	set choice = TalentChoiceCreateBoolean(14)
 	set udg_TalentChoiceHead[choice] = "Void Explosion"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNShadowWill.blp"
-	set udg_TalentChoiceText[choice] = "If a target dies while mind flay is channeled on them, they explode in a burst of void dealing 500 + 5 x Bonus Intelligence damage to all enemies around them."
+	set udg_TalentChoiceText[choice] = "If a target dies while mind flay is channeled on them, the dying units explodes in a burst of void dealing 5 x Total Intelligence (Base + Bonus) damage to nearby enemies."
 
 	set choice = TalentChoiceCreateRegen(15.0, 15.0, 0, 0)
 	set udg_TalentChoiceHead[choice] = "Divine Spirit"

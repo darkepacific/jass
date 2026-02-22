@@ -36,7 +36,7 @@ function TalentDemonHunter takes nothing returns nothing
 	set choice = TalentChoiceCreateAddAndHideSpell('A0FY','A0FY', false)
 	set udg_TalentChoiceHead[choice] = "Critical Chaos"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNChaosStrike.blp" 
-	set udg_TalentChoiceText[choice] = "Gain 8% Base Crit Chance on attack. Stacks multiplicatively with items."
+	set udg_TalentChoiceText[choice] = "Gain 8% Critical Strike chance. |n|n|cffc0c0c0Stacks multaplicatively with items.|r"
 
 	//Level 20
 	call TalentHeroTierCreate(heroTypeId, 20)
@@ -72,7 +72,7 @@ function TalentDemonHunter takes nothing returns nothing
 	set choice = TalentChoiceCreateBooleanWithImproveWeapon(12, 200)
 	set udg_TalentChoiceHead[choice] = "Bonus Damage in Demon Form"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNWarglaive_of_Azzinoth.blp"
-	set udg_TalentChoiceText[choice] = "Increase base Attack Damage by 200 while in Demon form."
+	set udg_TalentChoiceText[choice] = "+200 Attack Damage while in Demon form."
 
 	set choice = TalentChoiceCreateRegen(10, 0, 600, 0) 
 	set udg_TalentChoiceHead[choice] = "I Am My Scars"

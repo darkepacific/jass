@@ -98,7 +98,7 @@ function TalentSurvivalHunter takes nothing returns nothing
 	call TalentHeroTierCreate(heroTypeId, 40)
 	set choice = TalentChoiceCreateImproveWeapon(0, 0, -1.06)	//BM Base is 2.46/1.4 - 1 = 75%
 	set udg_TalentChoiceHead[choice] = "Increased Attack Speed"
-	set udg_TalentChoiceText[choice] = "Increase Attack Speed by 75%"
+	set udg_TalentChoiceText[choice] = "Attack Speed: +75%"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNBloodlust.blp"
 
 	set choice = TalentChoiceCreateAddAndHideSpell('A0DH','A0EO', false)

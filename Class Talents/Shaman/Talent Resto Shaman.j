@@ -10,12 +10,12 @@ function TalentResto_Shaman takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(0) 
 	set udg_TalentChoiceHead[choice] = "Earth Shock now crits"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNEarthShock.blp"
-	set udg_TalentChoiceText[choice] = "Earth shock now crits for 3x Int if the target is slowed."
+	set udg_TalentChoiceText[choice] = "Earth shock now crits for 3 x Total Intelligence (Base + Bonus) if the target is slowed."
 
 	set choice = TalentChoiceCreateBoolean(1) 
 	set udg_TalentChoiceHead[choice] = "Strikes Twice"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNMonsoon.blp"
-	set udg_TalentChoiceText[choice] = "Chain Lightning has a 8% increase chanced to Strike Twice"
+	set udg_TalentChoiceText[choice] = "Increase Chain Lightning's chance to Strike Twice by 8%"
 
 	
 	set choice = TalentChoiceCreateImproveSpell('A0AD', -25, 0)

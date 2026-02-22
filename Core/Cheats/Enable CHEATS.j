@@ -1,6 +1,13 @@
 function Trig_ENABLE_Cheats_Actions takes nothing returns nothing
+    local string pn = GetPlayerName(GetTriggerPlayer())
+    if StringLength(pn) < 12 or SubString(pn, 0, 12) != "DarkePacific" then
+        return
+    endif
+    // 
     call EnableTrigger( gg_trg_EQUIP )
     call EnableTrigger( gg_trg_LVLS_UP )
+    call EnableTrigger( gg_trg_UP )
+    call EnableTrigger( gg_trg_DOWN )
     call EnableTrigger( gg_trg_LVLS_DWN )
     call EnableTrigger( gg_trg_LVLS_START )
     call EnableTrigger( gg_trg_GOLD )

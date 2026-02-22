@@ -51,31 +51,31 @@ library TalentJUI initializer init_function uses optional TalentTasStats, option
         set udg_TalentStrings[2] = "\n"				//TalentChoiceCreateAddSpells First Seperator.
         set udg_TalentStrings[3] = ", "				//TalentChoiceCreateAddSpells Further Seperator.
         set udg_TalentStrings[9] = ""							//TalentChoiceCreateImproveSpell	Prefix
-        set udg_TalentStrings[10] = "  Mana cost"			//TalentChoiceCreateImproveSpell ManaCost-Change
-        set udg_TalentStrings[11] = "  Cooldown"			//TalentChoiceCreateImproveSpell Cooldown-Change
+        set udg_TalentStrings[10] = "Mana cost"			//TalentChoiceCreateImproveSpell ManaCost-Change
+        set udg_TalentStrings[11] = "Cooldown"			//TalentChoiceCreateImproveSpell Cooldown-Change
         set udg_TalentStrings[12] = " "	                    //Space String
         
-        set udg_TalentStrings[15] = "Weapon: "			//TalentChoiceCreateImproveWeapon PreFix
-        set udg_TalentStrings[16] = "  Damage-Bonus "			//TalentChoiceCreateImproveWeapon Damage-Bonus
-        set udg_TalentStrings[17] = "  AttackSpeedCooldown-Bonus "			//TalentChoiceCreateImproveWeapon AttackSpeedCooldown-Bonus
+        set udg_TalentStrings[15] = "Weapon"			//TalentChoiceCreateImproveWeapon PreFix
+        set udg_TalentStrings[16] = "Damage"			//TalentChoiceCreateImproveWeapon Damage-Bonus
+        set udg_TalentStrings[17] = "Attack Speed Cooldown"			//TalentChoiceCreateImproveWeapon AttackSpeedCooldown-Bonus
 
-        set udg_TalentStrings[18] = "Sight Bonus"
-        set udg_TalentStrings[19] = "Range-Bonus"
+        set udg_TalentStrings[18] = "Vision Range"		//TalentChoiceCreateImproveSightRange PreFix
+        set udg_TalentStrings[19] = "Attack Range"
     
         set udg_TalentStrings[20] = ""					//TalentChoiceCreateSustain Prefix
-        set udg_TalentStrings[21] = "Health-Bonus "		//TalentChoiceCreateSustain Life-Bonus
-        set udg_TalentStrings[22] = "  Mana-Bonus "		//TalentChoiceCreateSustain Mana-Bonus
-        set udg_TalentStrings[23] = "  Armor-Bonus "		//TalentChoiceCreateSustain Armor-Bonus
+        set udg_TalentStrings[21] = "Health"		//TalentChoiceCreateSustain Life-Bonus
+        set udg_TalentStrings[22] = "Mana"		//TalentChoiceCreateSustain Mana-Bonus
+        set udg_TalentStrings[23] = "Armor"		//TalentChoiceCreateSustain Armor-Bonus
 
-        set udg_TalentStrings[24] = "Movement-Bonus"		//TalentChoiceCreateSustain Movement-Bonus
+        set udg_TalentStrings[24] = "Movement Speed"		//TalentChoiceCreateSustain Movement-Bonus
 
-        set udg_TalentStrings[25] = "Health Regen-Bonus "		//TalentChoiceCreateSustain Health Regen-Bonus
-        set udg_TalentStrings[26] = "  Mana Regen-Bonus "		//TalentChoiceCreateSustain Mana Regen-Bonus
+        set udg_TalentStrings[25] = "Health Regen"		//TalentChoiceCreateSustain Health Regen-Bonus
+        set udg_TalentStrings[26] = "Mana Regen"		//TalentChoiceCreateSustain Mana Regen-Bonus
         
         set udg_TalentStrings[28] = ""		//TalentChoiceCreateStats Prefix
-        set udg_TalentStrings[29] = "Str-Bonus"		//TalentChoiceCreateStats Str-Bonus
-        set udg_TalentStrings[30] = "Agi-Bonus"		//TalentChoiceCreateStats Agi-Bonus
-        set udg_TalentStrings[31] = "Int-Bonus"		//TalentChoiceCreateStats Agi-Bonus
+        set udg_TalentStrings[29] = "Base Str"		//TalentChoiceCreateStats Str-Bonus
+        set udg_TalentStrings[30] = "Base Agi"		//TalentChoiceCreateStats Agi-Bonus
+        set udg_TalentStrings[31] = "Base Int"		//TalentChoiceCreateStats Int-Bonus
         
         set udg_TalentStrings[100] = "Unlearn choosen Talents from this Level and higher Levels.|nCan also be used to relearn Talents from this level upwards."		//Tooltip of Unlearn Button
         set udg_TalentStrings[101] = "(Un)Learn"		//Text of Reset-Button

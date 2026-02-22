@@ -23,7 +23,7 @@ function TalentFireMage takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(2)
 	set udg_TalentChoiceHead[choice] = "Dragon's Wrath"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNFire_Dragon.blp"
-	set udg_TalentChoiceText[choice] = "+10 Burn Damage per sec on Dragon's Breath"
+	set udg_TalentChoiceText[choice] = "Increase the Burn damage on Dragon's Breath by 30% of BASE Intelligence|n|n+9.9 dmg/per second at lvl 5|n+66 dmg/per second at lvl 60"
 
 	//LEVEL 10
 	call TalentHeroTierCreate(heroTypeId, 10)
@@ -39,7 +39,7 @@ function TalentFireMage takes nothing returns nothing
 	set udg_TalentChoiceText[choice] = "Casting Blink now grants a shield, absorbing 8% of Total Health + 1 x Int damage for 3 sec"
 
 	set choice = TalentChoiceCreateSustain(150, 150, 0)
-	set udg_TalentChoiceHead[choice] = "Increased Health and Mana by 150"
+	set udg_TalentChoiceHead[choice] = "Increased Health and Mana"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNINV_Misc_Gem_Sapphire_02.blp"
 	
 	// set choice = TalentChoiceCreateStats(0, 0, 10)
@@ -52,7 +52,7 @@ function TalentFireMage takes nothing returns nothing
 	
 	//Level 20
 	call TalentHeroTierCreate(heroTypeId, 20)
-	call TalentChoiceCreateAddSpell('A05E',true)
+	call TalentChoiceCreateAddSpell('A0H2',true) //Pyroblast //A05E old
 	call TalentChoiceCreateAddSpell('A0DJ',true) //Living bomb
 	call TalentChoiceCreateAddSpell('A08G',true) //Ice Block
 

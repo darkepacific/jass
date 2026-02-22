@@ -1,6 +1,8 @@
 function Trig_DISABLE_Cheats_Actions takes nothing returns nothing
     call DisableTrigger( gg_trg_EQUIP )
     call DisableTrigger( gg_trg_LVLS_UP )
+    call DisableTrigger( gg_trg_UP )
+    call DisableTrigger( gg_trg_DOWN )
     call DisableTrigger( gg_trg_LVLS_DWN )
     call DisableTrigger( gg_trg_LVLS_START )
     call DisableTrigger( gg_trg_GOLD )

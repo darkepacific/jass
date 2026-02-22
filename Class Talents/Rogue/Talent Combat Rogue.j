@@ -16,7 +16,7 @@ function TalentCombatRogue takes nothing returns nothing
 	set choice = TalentChoiceCreateImproveTwoSpells('A09V', 'A0SD', -20, 0, 1)
 	set udg_TalentChoiceHead[choice] = "Reduced Mana on Slice & Dice"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAbility_Rogue_SliceDice.blp"
-	set udg_TalentChoiceText[choice] = "Reduced Slice and Dice Mana Cost: -20"
+	set udg_TalentChoiceText[choice] = "Slice and Dice |nMana Cost: -20"
 
 	set choice = TalentChoiceCreateBoolean(2)
 	set udg_TalentChoiceHead[choice] = "Hemorrhage"

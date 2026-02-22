@@ -30,24 +30,52 @@
 
 //=======================
 
-function TalentChoiceAddTextInt takes string name, integer value returns nothing
+
+function TalentChoiceAddTextIntSpecifyBonus takes string name, integer value, boolean isPositive returns nothing
 	if value != 0 then
-		set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+"|r: "+ I2S(value) + " "
+		if StringLength(udg_TalentChoiceText[udg_TalentChoiceLast]) > 0 then
+			set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] + "|n"
+		endif
+		if isPositive then
+			set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+"|r: +"+ I2S(value) + " "
+		else
+			//I2S automatically will include the '-' part of the value (e.g. -20 mana cost) so we dont have to care about it here
+			set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+"|r: "+ I2S(value) + " "
+		endif
 	endif
 endfunction
-function TalentChoiceAddTextIntAsObject takes string name, integer value returns nothing
+
+function TalentChoiceAddTextInt  takes string name, integer value returns nothing
+	call TalentChoiceAddTextIntSpecifyBonus(name, value, true)
+endfunction
+
+function TalentChoiceAddTextRealSpecifyBonus takes string name, real value, boolean isPositive returns nothing
 	if value != 0 then
-		set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+ GetObjectName(value)+"|r"
+		if StringLength(udg_TalentChoiceText[udg_TalentChoiceLast]) > 0 then
+			set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] + "|n"
+		endif
+		if isPositive then
+			set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+"|r: +"+ R2SW(value,1,1) + " "
+		else
+			//R2SW automatically will include the '-' part of the value (e.g. -20% cooldown) so we dont have to care about it here
+			set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+"|r: "+ R2SW(value,1,1) + " "	
+		endif
 	endif
 endfunction
-function TalentChoiceAddTextReal takes string name, real value returns nothing
-	if value != 0 then
-		set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+"|r: "+ R2SW(value,1,1) + " "
-	endif
+
+function TalentChoiceAddTextReal  takes string name, real value returns nothing
+	call TalentChoiceAddTextRealSpecifyBonus(name, value, true)
 endfunction
+
 function TalentChoiceAddText takes string text returns nothing
 	set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] + text
 endfunction
+
+// function TalentChoiceAddTextIntAsObject takes string name, integer value returns nothing
+// 	if value != 0 then
+// 		set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentChoiceText[udg_TalentChoiceLast] +name+ GetObjectName(value)+"|r"
+// 	endif
+// endfunction
 
 //RegenStats
 function TalentChoiceRegenLearn takes nothing returns nothing
@@ -201,8 +229,8 @@ function TalentChoiceImproveSpellLearn takes nothing returns nothing
 		set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt1[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 		loop	
 			exitwhen i == -1
-				call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
-				call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
+			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
+			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
 			set i = i - 1
 		endloop
 		//Can also improve a 2nd spell, but this spell must already have been learned as well
@@ -210,8 +238,8 @@ function TalentChoiceImproveSpellLearn takes nothing returns nothing
 			set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt3[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 			loop	
 				exitwhen i == -1
-					call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
-					call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
+				call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
+				call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
 				set i = i - 1
 			endloop
 		endif
@@ -222,16 +250,16 @@ function TalentChoiceImproveSpellReset takes nothing returns nothing
 	set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt1[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 	loop	
 		exitwhen i == -1
-			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
-			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
+		call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
+		call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
 		set i = i - 1
 	endloop
 	if udg_TalentChoiceInt3[udg_Talent__Choice] != 0 then
 		set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt3[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 		loop	
 			exitwhen i == -1
-				call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
-				call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
+			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
+			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt3[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
 			set i = i - 1
 		endloop
 	endif
@@ -247,8 +275,8 @@ function TalentChoiceImproveSpellWithBooleanLearn takes nothing returns nothing
 		set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt1[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 		loop	
 			exitwhen i == -1
-				call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
-				call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
+			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
+			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
 			set i = i - 1
 		endloop
 	endif
@@ -259,8 +287,8 @@ function TalentChoiceImproveSpellWithBooleanReset takes nothing returns nothing
 	set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt1[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 	loop	
 		exitwhen i == -1
-			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
-			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
+		call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
+		call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
 		set i = i - 1
 	endloop
 	set  udg_TalentChoices[GetPlayerId(GetOwningPlayer(udg_Talent__Unit)) * udg_NUM_OF_TC + udg_TalentChoiceInt3[udg_Talent__Choice]] = false
@@ -273,8 +301,8 @@ function TalentChoiceImproveSpellCheckBooleanLearn takes nothing returns nothing
 		set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt1[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 		loop	
 			exitwhen i == -1
-				call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
-				call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
+			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceInt2[udg_Talent__Choice])
+			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) + udg_TalentChoiceReal1[udg_Talent__Choice])
 			set i = i - 1
 		endloop
 	endif
@@ -290,8 +318,8 @@ function TalentChoiceImproveSpellCheckBooleanReset takes nothing returns nothing
 		set i = BlzGetAbilityIntegerField(BlzGetUnitAbility(udg_Talent__Unit, udg_TalentChoiceInt1[udg_Talent__Choice]), ABILITY_IF_LEVELS)
 		loop	
 			exitwhen i == -1
-				call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
-				call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
+			call BlzSetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityManaCost(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceInt2[udg_Talent__Choice])
+			call BlzSetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i, BlzGetUnitAbilityCooldown(udg_Talent__Unit,udg_TalentChoiceInt1[udg_Talent__Choice], i) - udg_TalentChoiceReal1[udg_Talent__Choice])
 			set i = i - 1
 		endloop
 	endif
@@ -406,7 +434,7 @@ function TalentChoiceDisableTriggerReset takes nothing returns nothing
 endfunction
 
 /*
-	Creates
+Creates
 */
 
 function TalentChoiceCreateStats takes integer strAdd, integer agiAdd, integer intAdd returns integer
@@ -416,8 +444,8 @@ function TalentChoiceCreateStats takes integer strAdd, integer agiAdd, integer i
 	set udg_TalentChoiceInt2[udg_TalentChoiceLast] = agiAdd
 	set udg_TalentChoiceInt3[udg_TalentChoiceLast] = intAdd
 	set udg_TalentChoiceReal1[udg_TalentChoiceLast] = -1
-	call TalentChoiceAddTextInt(udg_TalentStrings[29] + " ",udg_TalentChoiceInt1[udg_TalentChoiceLast])
-	call TalentChoiceAddTextInt(udg_TalentStrings[30]+ " ",udg_TalentChoiceInt2[udg_TalentChoiceLast])
+	call TalentChoiceAddTextInt(udg_TalentStrings[29],udg_TalentChoiceInt1[udg_TalentChoiceLast])
+	call TalentChoiceAddTextInt(udg_TalentStrings[30],udg_TalentChoiceInt2[udg_TalentChoiceLast])
 	call TalentChoiceAddTextInt(udg_TalentStrings[31],udg_TalentChoiceInt3[udg_TalentChoiceLast])
 	return udg_TalentChoiceLast
 endfunction
@@ -461,13 +489,10 @@ function TalentChoiceCreateRegen takes real hpGen, real manaGen, integer lifeAdd
 	set udg_TalentChoiceReal2[udg_TalentChoiceLast] = manaGen
 	
 	set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentStrings[20]
-	call TalentChoiceAddTextReal(udg_TalentStrings[25],udg_TalentChoiceReal1[udg_TalentChoiceLast])
-	if hpGen > 0 then
-		call TalentChoiceAddText("|n")
-	endif
-	call TalentChoiceAddTextReal(udg_TalentStrings[26],udg_TalentChoiceReal2[udg_TalentChoiceLast])
 	call TalentChoiceAddTextInt(udg_TalentStrings[21],udg_TalentChoiceInt1[udg_TalentChoiceLast])
 	call TalentChoiceAddTextInt(udg_TalentStrings[22],udg_TalentChoiceInt2[udg_TalentChoiceLast])
+	call TalentChoiceAddTextReal(udg_TalentStrings[25],udg_TalentChoiceReal1[udg_TalentChoiceLast])
+	call TalentChoiceAddTextReal(udg_TalentStrings[26],udg_TalentChoiceReal2[udg_TalentChoiceLast])
 	return udg_TalentChoiceLast
 endfunction
 
@@ -540,9 +565,9 @@ function TalentChoiceCreateImproveSpell takes integer spell, integer manaCostAdd
 	set udg_TalentChoiceInt3[udg_TalentChoiceLast] = 0
 	set udg_TalentChoiceReal1[udg_TalentChoiceLast] = cooldownAdd
 	set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentStrings[9] + GetObjectName(spell)
-	call TalentChoiceAddTextInt(udg_TalentStrings[10],udg_TalentChoiceInt2[udg_TalentChoiceLast])
-	call TalentChoiceAddText(udg_TalentStrings[2])
-	call TalentChoiceAddTextReal(udg_TalentStrings[11],udg_TalentChoiceReal1[udg_TalentChoiceLast])
+	call TalentChoiceAddTextIntSpecifyBonus(udg_TalentStrings[10],udg_TalentChoiceInt2[udg_TalentChoiceLast], false)
+	// call TalentChoiceAddText(udg_TalentStrings[2])
+	call TalentChoiceAddTextRealSpecifyBonus(udg_TalentStrings[11],udg_TalentChoiceReal1[udg_TalentChoiceLast], false)
 	return udg_TalentChoiceLast
 endfunction
 
@@ -554,8 +579,8 @@ function TalentChoiceCreateImproveTwoSpells takes integer spell, integer spell2,
 	set udg_TalentChoiceReal1[udg_TalentChoiceLast] = cooldownAdd
 	set udg_TalentChoiceReal2[udg_TalentChoiceLast] = isOnlyOneSpellNeeded
 	set udg_TalentChoiceText[udg_TalentChoiceLast] = udg_TalentStrings[9] + GetObjectName(spell) + " and " + GetObjectName(spell2)
-	call TalentChoiceAddTextInt(udg_TalentStrings[10],udg_TalentChoiceInt2[udg_TalentChoiceLast])
-	call TalentChoiceAddTextReal(udg_TalentStrings[11],udg_TalentChoiceReal1[udg_TalentChoiceLast])
+	call TalentChoiceAddTextIntSpecifyBonus(udg_TalentStrings[10],udg_TalentChoiceInt2[udg_TalentChoiceLast], false)
+	call TalentChoiceAddTextRealSpecifyBonus(udg_TalentStrings[11],udg_TalentChoiceReal1[udg_TalentChoiceLast], false)
 	return udg_TalentChoiceLast
 endfunction
 
@@ -565,8 +590,8 @@ function TalentChoiceCreateImproveSpellWithBoolean takes integer spell, integer 
 	set udg_TalentChoiceInt2[udg_TalentChoiceLast] = manaCostAdd
 	set udg_TalentChoiceInt3[udg_TalentChoiceLast] = choiceIndex
 	set udg_TalentChoiceReal1[udg_TalentChoiceLast] = cooldownAdd
-	call TalentChoiceAddTextInt(udg_TalentStrings[10],udg_TalentChoiceInt2[udg_TalentChoiceLast])
-	call TalentChoiceAddTextReal(udg_TalentStrings[11],udg_TalentChoiceReal1[udg_TalentChoiceLast])
+	call TalentChoiceAddTextIntSpecifyBonus(udg_TalentStrings[10],udg_TalentChoiceInt2[udg_TalentChoiceLast], false)
+	call TalentChoiceAddTextRealSpecifyBonus(udg_TalentStrings[11],udg_TalentChoiceReal1[udg_TalentChoiceLast], false)
 	return udg_TalentChoiceLast
 endfunction
 

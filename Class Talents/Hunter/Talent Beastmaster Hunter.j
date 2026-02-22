@@ -57,8 +57,8 @@ function TalentBMHunter takes nothing returns nothing
 	//Inc to 85
 	set choice = TalentChoiceCreateImproveWeapon(0, 85, 0)
 	set udg_TalentChoiceHead[choice] = "Increased Damage"
-	set udg_TalentChoiceText[choice] = "Increase base Attack Damage by 85"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNHumanMissileUpOne.blp"
+	// set udg_TalentChoiceText[choice] = "Increase base Attack Damage by 85"
 
 	set choice = TalentChoiceCreateImproveRange(0, 300.0, 150.0 )
 	set udg_TalentChoiceHead[choice] = "Increased Range" //Aspect of the Eagle //Eyes of the Beast
@@ -74,7 +74,7 @@ function TalentBMHunter takes nothing returns nothing
 	call TalentHeroTierCreate(heroTypeId, 40)
 	set choice = TalentChoiceCreateImproveWeapon(0, 0, -1.06)	//BM Base is 2.46/1.4 - 1 = 75%
 	set udg_TalentChoiceHead[choice] = "Increased Attack Speed"
-	set udg_TalentChoiceText[choice] = "Increase Attack Speed by 75%"
+	set udg_TalentChoiceText[choice] = "Attack Speed: +75%"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNBloodlust.blp"
 
 	set choice = TalentChoiceCreateAddAndHideSpell('A0DH','A0EO', false)
@@ -85,7 +85,7 @@ function TalentBMHunter takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(14) 
 	set udg_TalentChoiceHead[choice] = "Pack Mentality"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAspectofthePack.blp"
-	set udg_TalentChoiceText[choice] = "Increases the health, armor, damage and movement speed of your pets. |n|n+500 hp, +4 Armor, +200 damage, +50 speed"
+	set udg_TalentChoiceText[choice] = "Increases the health, armor, attack damage, and movement speed of your pets. |n|nEach pet gains:|n+500 hp, +4 Armor,|n+200 damage, +50 speed"
 
 
 	//[Camouflage] - you and your pet blend in your surroundings, hides aspect of the hawk

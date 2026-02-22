@@ -68,12 +68,12 @@ function TalentProtPaladin takes nothing returns nothing
 	set choice = TalentChoiceCreateImproveSpellWithBoolean('A00U', -90, 0, 12)
 	set udg_TalentChoiceHead[choice] = "Blessing of Wisdom"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNSpell_Holy_SealOfWisdom.blp"
-	set udg_TalentChoiceText[choice] = "Retribtuion now restores 35% of the target's max mana, and its mana cost is reduced. |n|nMana cost: -90"
+	set udg_TalentChoiceText[choice] = "Retribution now restores 35% of the target's max mana, and its mana cost is reduced. |n|nMana cost: -90"
 
 	set choice = TalentChoiceCreateBoolean(13) 
 	set udg_TalentChoiceHead[choice] = "Sacred Shield"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNSacredShield.blp"
-	set udg_TalentChoiceText[choice] = "Retribtuion and Holy light now grant the target a shield for 4 sec that absorbs 100 + 1x Str + 1x Int damage"
+	set udg_TalentChoiceText[choice] = "Retribution and Holy Light now grant the target a shield for 4 sec that absorbs 100 + 1x Str + 1x Int damage"
 
 	set choice = TalentChoiceCreateBoolean(14) 
 	set udg_TalentChoiceHead[choice] = "Ardent Defender"

@@ -87,7 +87,7 @@ function TalentDiscPriest takes nothing returns nothing
 	set choice = TalentChoiceCreateBoolean(13)
 	set udg_TalentChoiceHead[choice] = "Shadow Word: Death"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNShadowWordDeath.blp"
-	set udg_TalentChoiceText[choice] = "Shadow Mend now instantly deals an additional 800 magic damage when cast on enemy targets with less than 30% hp."
+	set udg_TalentChoiceText[choice] = "Shadow Mend now instantly deals an additional 4 x Total Intelligence (Base + Bonus) magic damage when cast on targets with less than 33% hp."
 
 	set choice = TalentChoiceCreateReplaceAndImproveSpell('A08V', 'A0FO', 0, -1.25, 1)
 	set udg_TalentChoiceHead[choice] = "Renounce Darkness"

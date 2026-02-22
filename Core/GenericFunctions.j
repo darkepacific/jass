@@ -451,7 +451,6 @@ library GenericFunctions
     endfunction
 
 
-
     function ErrorMessage takes string error, player whichPlayer returns nothing
         set error = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n|cffffcc00" + error + "|r"
         if GetLocalPlayer() == whichPlayer then
@@ -917,11 +916,27 @@ library GenericFunctions
         if(UnitHasBuffBJ(u, 'B00L') ) then
             return true
         endif
+        if(UnitHasBuffBJ(u, 'B03O') ) then
+            return true
+        endif
+        if(UnitHasBuffBJ(u, 'B03P') ) then
+            return true
+        endif
+        if(UnitHasBuffBJ(u, 'B03Q') ) then
+            return true
+        endif
+        if(UnitHasBuffBJ(u, 'B03R') ) then
+            return true
+        endif
         //FlameStrike
         if(UnitHasBuffBJ(u, 'BHfs') ) then
             return true
         endif
-        //BreathOfFire (Includes Dragon's Breath)
+        //Dragon's Breath
+        if(UnitHasBuffBJ(u, 'B03T') ) then
+            return true
+        endif
+        //BreathOfFire
         if(UnitHasBuffBJ(u, 'BNbf') ) then
             return true
         endif
@@ -1547,4 +1562,43 @@ library GenericFunctions
         call FactionCapture(capturedUnit, newOwner, s, "", true)
     endfunction
 
+    /*
+    Quick Stats
+    */
+    function GetBaseInt takes unit u returns integer
+        return GetHeroStatBJ(bj_HEROSTAT_INT, u, false)
+    endfunction
+
+    function GetTotalInt takes unit u returns integer
+        return GetHeroStatBJ(bj_HEROSTAT_INT, u, true)
+    endfunction
+
+    function GetBonusInt takes unit u returns integer
+        return GetTotalInt(u) - GetBaseInt(u)
+    endfunction
+
+    function GetBaseStr takes unit u returns integer
+        return GetHeroStatBJ(bj_HEROSTAT_STR, u, false)
+    endfunction
+
+    function GetTotalStr takes unit u returns integer
+        return GetHeroStatBJ(bj_HEROSTAT_STR, u, true)
+    endfunction
+
+    function GetBonusStr takes unit u returns integer
+        return GetTotalStr(u) - GetBaseStr(u)
+    endfunction
+
+    function GetBaseAgi takes unit u returns integer
+        return GetHeroStatBJ(bj_HEROSTAT_AGI, u, false)
+    endfunction
+
+    function GetTotalAgi takes unit u returns integer
+        return GetHeroStatBJ(bj_HEROSTAT_AGI, u, true)
+    endfunction
+
+    function GetBonusAgi takes unit u returns integer
+        return GetTotalAgi(u) - GetBaseAgi(u)
+    endfunction
+    
 endlibrary
