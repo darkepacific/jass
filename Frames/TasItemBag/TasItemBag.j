@@ -1346,6 +1346,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            call UpdateUI()
         endif
         call FrameLoseFocus()
     endfunction
