@@ -288,7 +288,7 @@ function Load_GUI takes nothing returns nothing
         set udg_SaveMaxValue[udg_SaveCount] = 99 
         call SaveHelper.GUILoadNext(saveCode) 
 
-        if i <= 18 then
+        if i < udg_BAG_SIZE then
 
             //Create Item
             set bj_lastCreatedItem = CreateItem(udg_SaveItemType[udg_SaveValue[udg_SaveCount - 2]], -16358.0, -8802.9)
@@ -297,6 +297,7 @@ function Load_GUI takes nothing returns nothing
 
             if i <= 6 then
                 call Debug("Loading Inventory Item: " + I2S(i) + " - " + GetItemName(bj_lastCreatedItem) + " with " + I2S(udg_SaveValue[udg_SaveCount - 1]) + " charges and special condition: " + I2S(udg_SaveValue[udg_SaveCount]))
+                set udg_dontDepositIntoBag = true
                 call UnitAddItem(createdUnit, bj_lastCreatedItem)
             
             else

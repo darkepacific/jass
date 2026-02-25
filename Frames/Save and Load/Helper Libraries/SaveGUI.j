@@ -65,7 +65,7 @@ function Save_GUI takes nothing returns nothing
     loop 
         exitwhen i < 1
         set idx = GetPlayerBagNumber(p) + i
-        if i > 18 then
+        if i >= udg_BAG_SIZE then
             set it = null
         else        
             set it = udg_P_Items[idx]

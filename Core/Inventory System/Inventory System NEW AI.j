@@ -239,6 +239,7 @@ library MultiPageInventorySystem
             set udg_P_Items[pItemsIndex] = null
             
             if newItem != null then
+                set udg_dontDepositIntoBag = true
                 call UnitAddItem(u, newItem)
                 set udg_P_Items[GetPItemsIndex(p, currentPage, slotActuallyAddedTo)] = newItem
                 set slotActuallyAddedTo = slotActuallyAddedTo + 1 

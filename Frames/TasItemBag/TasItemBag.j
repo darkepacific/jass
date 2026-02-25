@@ -291,6 +291,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return 0
     endfunction
 
+    function IsStackableType takes item i returns boolean
+        if i == null then
+            return false
+        endif
+        return ( GetItemType(i) == ITEM_TYPE_CHARGED or GetItemType(i) == ITEM_TYPE_MISCELLANEOUS or GetItemType(i) == ITEM_TYPE_CAMPAIGN )
+    endfunction
+
     private function BagHasMergeSpace takes integer playerKey, item incoming returns boolean
         local integer incomingCharges
         local integer itemCode
@@ -302,7 +309,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
         set incomingCharges = GetItemCharges(incoming)
-        if incomingCharges <= 0 or GetItemType(incoming) != ITEM_TYPE_CHARGED then
+        if incomingCharges <= 0 or not IsStackableType(incoming) then
             return false
         endif
         set itemCode = GetItemTypeId(incoming)
@@ -310,7 +317,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             exitwhen slot > maxSlots
             set arrIndex = BagSlotArrayIndex(playerKey, slot)
             set existing = udg_P_Items[arrIndex]
-            if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode then
+            if existing != null and IsStackableType(existing) and GetItemTypeId(existing) == itemCode then
                 if GetItemCharges(existing) < DEFAULT_MAX_CHARGES then
                     set existing = null
                     return true
@@ -350,10 +357,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // endif
 
         // Stack consumable charges into an existing item of the same type (if possible)
-        // Only applies to charged consumables.
+        // Only applies to charged consumables, now also applies to ITEM_TYPE_MISCELLANEOUS or ITEM_TYPE_CAMPAIGN
         if allowMerge then
             set incomingCharges = GetItemCharges(i)
-            if incomingCharges > 0 and GetItemType(i) == ITEM_TYPE_CHARGED then
+            if incomingCharges > 0 and IsStackableType(i) then
                 set maxCharges = DEFAULT_MAX_CHARGES
                 if incomingCharges > maxCharges then
                     set incomingCharges = maxCharges
@@ -366,7 +373,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     exitwhen slot > maxSlots or incomingCharges <= 0
                     set arrIndex = BagSlotArrayIndex(playerKey, slot)
                     set existing = udg_P_Items[arrIndex]
-                    if existing != null and GetItemType(existing) == ITEM_TYPE_CHARGED and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                    if existing != null and IsStackableType(existing) and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
                         set existingCharges = GetItemCharges(existing)
                         if existingCharges > maxCharges then
                             set existingCharges = maxCharges
@@ -404,6 +411,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 if incomingCharges <= 0 then
                     call RemoveItem(i)
                     set existing = null
+                    call RequestUIUpdate()
                     return
                 endif
 
@@ -614,7 +622,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if UnitInventoryCount(u) >= UnitInventorySize(u) then
             // If inventory is full, still try to merge charged consumables into an existing stack.
             // This matches WC3's natural behavior when adding/picking up charged items.
-            if i != null and GetItemType(i) == ITEM_TYPE_CHARGED and GetItemCharges(i) > 0 then
+            if i != null and IsStackableType(i) and GetItemCharges(i) > 0 then
                 set maxCharges = 20
                 set incomingCharges = GetItemCharges(i)
                 if incomingCharges > maxCharges then
@@ -624,7 +632,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 loop
                     exitwhen slot >= bj_MAX_INVENTORY or incomingCharges <= 0
                     set invItem = UnitItemInSlot(u, slot)
-                    if invItem != null and GetItemType(invItem) == ITEM_TYPE_CHARGED and GetItemTypeId(invItem) == GetItemTypeId(i) then
+                    if invItem != null and IsStackableType(invItem) and GetItemTypeId(invItem) == GetItemTypeId(i) then
                         set existingCharges = GetItemCharges(invItem)
                         if existingCharges < 0 then
                             set existingCharges = 0
@@ -683,7 +691,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
         call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
 
-        set udg_udg_dontDepositIntoBag = true
+        set udg_dontDepositIntoBag = true
         if UnitAddItem(u, i) then
             // Clear the bag slot by index; WC3 may merge charges and delete handles.
             if bagIndex <= 0 or TasItemBagGetItem(u, bagIndex) != i then
@@ -1092,7 +1100,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             // Split button only for charged items with charges > 1
                             set itemCharges = GetItemCharges(TransferItem[pId])
                             set itemType = GetItemType(TransferItem[pId])
-                            if itemType == ITEM_TYPE_CHARGED and itemCharges > 1 then
+                            if IsStackableType(TransferItem[pId]) and itemCharges > 1 then
                                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), true)
                             else
                                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
