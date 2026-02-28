@@ -118,11 +118,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Swap highlight (per-player): shows an autocast-like border on the source slot while swap is armed
         private framehandle array SwapHighlight
+        // Hover-highlight target slot while swap is armed (empty bag holes only)
+        private integer array SwapHoverIndex
 
         private constant string SplitLabelPrefix = "|cffffcc00Split:|r "
         private constant integer POPUP_FRAME_LEVEL = 1000
         private constant integer SPLIT_FRAME_LEVEL = 1001
-        private constant real SELL_RANGE = 900.0
+        private constant real SELL_RANGE = 400.0
         private constant integer SELL_GOLD_PER_LEVEL = 25
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -245,7 +247,60 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
+    private function RestoreBagSlotOverlay takes integer pId, integer rawSlotIndex returns nothing
+        local item it
+        if rawSlotIndex <= 0 or rawSlotIndex > PITEMS_EXTRA_SLOTS then
+            return
+        endif
+        if GetLocalPlayer() == Player(pId) then
+            set it = udg_P_Items[BagSlotArrayIndex(pId, rawSlotIndex)]
+            if it != null and GetItemCharges(it) > 0 then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", rawSlotIndex), true)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", rawSlotIndex), I2S(GetItemCharges(it)))
+            else
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", rawSlotIndex), false)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", rawSlotIndex), "")
+            endif
+        endif
+        set it = null
+    endfunction
+
+    private function SwapHoverHide takes integer pId returns nothing
+        if SwapHoverIndex[pId] > 0 then
+            call RestoreBagSlotOverlay(pId, SwapHoverIndex[pId])
+            set SwapHoverIndex[pId] = 0
+        endif
+    endfunction
+
+    private function SwapHoverShowOnSlot takes integer pId, integer rawSlotIndex returns nothing
+        local integer arrIndex
+        if rawSlotIndex <= 0 or rawSlotIndex > PITEMS_EXTRA_SLOTS then
+            call SwapHoverHide(pId)
+            return
+        endif
+        if SwapIndex[pId] <= 0 or rawSlotIndex == SwapIndex[pId] then
+            call SwapHoverHide(pId)
+            return
+        endif
+
+        set arrIndex = BagSlotArrayIndex(pId, rawSlotIndex)
+        if udg_P_Items[arrIndex] != null then
+            call SwapHoverHide(pId)
+            return
+        endif
+
+        if SwapHoverIndex[pId] != rawSlotIndex then
+            call SwapHoverHide(pId)
+            set SwapHoverIndex[pId] = rawSlotIndex
+            if GetLocalPlayer() == Player(pId) then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", rawSlotIndex), true)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", rawSlotIndex), "●")
+            endif
+        endif
+    endfunction
+
     private function SwapHighlightHide takes integer pId returns nothing
+        call SwapHoverHide(pId)
         if GetLocalPlayer() == Player(pId) then
             if SwapHighlight[pId] != null then
                 call BlzFrameSetVisible(SwapHighlight[pId], false)
@@ -1059,7 +1114,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call RemoveItem(it)
             call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + goldGain)
             if GetLocalPlayer() == p then
-                call DisplayTimedTextToPlayer(p, 0.52, 0.96, 2.00, "|cffffcc00+" + I2S(goldGain) + "|r gold.")
+                call DisplayTimedTextToPlayer(p, 0.42, 0.76, 2.00, "|cffffcc00+" + I2S(goldGain) + "|r")
                 call StartSound(gg_snd_ReceiveGold)
             endif
         endif
@@ -1402,6 +1457,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // If we're in swap mode, finalize on click OR mouse-up so empty (disabled) bag slots can be targets.
         if SwapIndex[pId] > 0 and (evt == FRAMEEVENT_CONTROL_CLICK or evt == FRAMEEVENT_MOUSE_UP) then
+                if bagIndex <= 0 then
+                    set targetIndex = ResolveBagIndexFromMouse()
+                    if targetIndex > 0 then
+                        set bagIndex = targetIndex
+                    endif
+                endif
+                if bagIndex <= 0 or bagIndex > Cols * Rows then
+                    set it = null
+                    set hero = null
+                    call FrameLoseFocus()
+                    return
+                endif
                 // WoW-like: clicking the source slot again cancels swap
                 if SwapIndex[pId] == bagIndex then
                     set SwapIndex[pId] = 0
@@ -1412,12 +1479,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                 else
                     call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
-                    call TasItemBagSwap(hero, SwapIndex[pId], bagIndex)
-                    set SwapIndex[pId] = 0
-                    call SwapHighlightHide(pId)
-                    if GetLocalPlayer() == p then
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    if TasItemBagSwap(hero, SwapIndex[pId], bagIndex) then
+                        set SwapIndex[pId] = 0
+                        call SwapHighlightHide(pId)
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                        endif
                     endif
                 endif
         elseif evt == FRAMEEVENT_CONTROL_CLICK then
@@ -1464,17 +1532,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer btnIndex
         local string frameText = BlzFrameGetText(BlzGetTriggerFrame())
 
-        // Ignore backdrop/container hover events; only react to actual slot buttons.
-        if frameText == "" then
-            return
+        if frameText != "" then
+            set btnIndex = S2I(frameText)
+        else
+            set btnIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
+            if btnIndex <= 0 then
+                set btnIndex = ResolveBagIndexFromMouse()
+            endif
         endif
-        set btnIndex = S2I(frameText)
         if btnIndex > 0 then
             // call Debug("HoverAction triggered")
             set LastHoveredIndex[pId] = btnIndex
             set PanelHover[pId] = true
             // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
-            if DragActive[pId] then
+            if SwapIndex[pId] > 0 then
+                call SwapHoverShowOnSlot(pId, btnIndex)
+            elseif DragActive[pId] then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", btnIndex), true)
                 call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "●")
             endif
@@ -1489,14 +1562,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer stillHovering
         local string frameText = BlzFrameGetText(BlzGetTriggerFrame())
 
-        // Ignore backdrop/container hover events; only react to actual slot buttons.
-        if frameText == "" then
+        if frameText != "" then
+            set btnIndex = S2I(frameText)
+        else
+            set btnIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
+            if btnIndex <= 0 then
+                set btnIndex = ResolveBagIndexFromMouse()
+            endif
+        endif
+        if btnIndex <= 0 then
             return
         endif
         // call Debug("HoverLeaveAction triggered")
         // Clear overlay text if leaving the button; do not flip PanelHover here
-        set btnIndex = S2I(frameText)
-        if DragActive[pId] then
+        if SwapIndex[pId] > 0 then
+            call SwapHoverHide(pId)
+        elseif DragActive[pId] then
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", btnIndex), "")
         endif
         // Ignore synthetic LEAVE events when mouse is still over a valid bag slot.
@@ -1504,6 +1585,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if stillHovering > 0 then
             set LastHoveredIndex[pId] = stillHovering
             set PanelHover[pId] = true
+            if SwapIndex[pId] > 0 then
+                call SwapHoverShowOnSlot(pId, stillHovering)
+            endif
             return
         endif
         // Only clear LastHoveredIndex if the panel itself is not hovered
@@ -1542,6 +1626,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         set PanelHover[pId] = false
         set LastHoveredIndex[pId] = 0
+        call SwapHoverHide(pId)
         call Debug("BagPanelLeaveAction LEAVE")
     endfunction
 
@@ -1633,6 +1718,39 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set DragActive[pId] = false
             call FrameLoseFocus()
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
+            if SwapIndex[pId] > 0 and PanelHover[pId] then
+                set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 and targetIndex > 0 then
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex
+                else
+                    set bagIndex = rawIdx
+                endif
+                if rawIdx > 0 and rawIdx <= Cols * Rows then
+                    if SwapIndex[pId] == bagIndex then
+                        set SwapIndex[pId] = 0
+                        call SwapHighlightHide(pId)
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                        endif
+                        call FrameLoseFocus()
+                        return
+                    elseif TasItemBagSwap(udg_Heroes[GetPlayerNumber(p)], SwapIndex[pId], bagIndex) then
+                        set SwapIndex[pId] = 0
+                        call SwapHighlightHide(pId)
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                        endif
+                        set DragOriginType[pId] = 0
+                        set DragOriginIndex[pId] = 0
+                        set DragActive[pId] = false
+                        call FrameLoseFocus()
+                        return
+                    endif
+                endif
+            endif
             // Finalize armed bag swap onto an inventory slot (supports empty slots).
             if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 if SwapBagSlotToInventorySlot(p, invIndex) then
