@@ -54,7 +54,7 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
         call DisplayTextToForce(GetPlayersAll(), "\n\n\n\n\n\n\n\n\n\n\n\n")
 
         set udg_OfflineProbeTimer = CreateTimer()
-        call TimerStart(udg_OfflineProbeTimer, 3.0, false, function CheckFirstPlayingUserLumber)
+        call TimerStart(udg_OfflineProbeTimer, 2.0, false, function CheckFirstPlayingUserLumber)
     endfunction
 
 

@@ -124,7 +124,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string SplitLabelPrefix = "|cffffcc00Split:|r "
         private constant integer POPUP_FRAME_LEVEL = 1000
         private constant integer SPLIT_FRAME_LEVEL = 1001
-        private constant real SELL_RANGE = 400.0
+        private constant real SELL_RANGE = 500.0
         private constant integer SELL_GOLD_PER_LEVEL = 25
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -1114,7 +1114,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call RemoveItem(it)
             call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + goldGain)
             if GetLocalPlayer() == p then
-                call DisplayTimedTextToPlayer(p, 0.42, 0.76, 2.00, "|cffffcc00+" + I2S(goldGain) + "|r")
+                call NeatMessageTimed("|cffffcc00+" + I2S(goldGain) + "|r", p, 2.00)
+                //call DisplayTimedTextToPlayer(p, 0.42, 0.76, 2.00, "|cffffcc00+" + I2S(goldGain) + "|r")
                 call StartSound(gg_snd_ReceiveGold)
             endif
         endif
