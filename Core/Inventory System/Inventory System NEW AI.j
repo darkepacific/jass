@@ -107,7 +107,7 @@ library MultiPageInventorySystem
         // Reset all stored items for this player (equipped + extra bag)
         set i = 0
         loop
-            exitwhen i > udg_BAG_SIZE
+            exitwhen i >= udg_BAG_SIZE
             if udg_P_Items[bagNum + i] != null then
                 call RemoveItem(udg_P_Items[bagNum + i])
                 set udg_P_Items[bagNum + i] = null
