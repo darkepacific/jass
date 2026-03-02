@@ -1248,6 +1248,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function SellBagIndexToShop takes player p, integer bagIndex, unit shop, boolean requireRange returns boolean
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
+        local texttag gainTag
         local integer goldGain
         local real dx
         local real dy
@@ -1308,22 +1309,25 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if TasItemBagRemoveIndex(hero, bagIndex, false) then
             call RemoveItem(it)
             call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + goldGain)
+
             set heroLoc = GetUnitLoc(hero)
-            call CreateTextTagLocBJ("|cffffcc00+" + I2S(goldGain) + "|r", heroLoc, 45, 9.0, 100, 100, 100, 0)
-            call ShowTextTagForceBJ( false, GetLastCreatedTextTag(), GetPlayersAll() )
-            if IsHordeHero( hero ) then
-                call ShowTextTagForceBJ( true, GetLastCreatedTextTag(), udg_HordePlayers )
-            elseif IsAllianceHero( hero ) then
-                call ShowTextTagForceBJ( true, GetLastCreatedTextTag(), udg_AlliancePlayers )
+            call CreateTextTagLocBJ("|cffffcc00+" + I2S(goldGain) + "|r", heroLoc, 25, 10.0, 100, 100, 100, 0)
+            set gainTag = GetLastCreatedTextTag()
+            call SetTextTagVisibility(gainTag, false)
+            if IsHordePlayer(p) then
+                call SetTextTagVisibility(gainTag, true)
+            elseif IsAlliancePlayer(p) then
+                call SetTextTagVisibility(gainTag, true)
             endif
             call RemoveLocation(heroLoc)
-            call SetTextTagVelocity(GetLastCreatedTextTag(), 0, 50)
+            call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 40, 90 )
             call CleanUpText( 3.00, 2.00)
             call StartSound(gg_snd_ReceiveGold)
             set hero = null
             set heroLoc = null
             set it = null
             set shop = null
+            set gainTag = null
             return true
         endif
 
@@ -1648,6 +1652,25 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return idx
     endfunction
 
+    // True if mouse is anywhere inside the bag panel rectangle (including slot gaps/margins).
+    private function IsMouseInsideBagPanel takes nothing returns boolean
+        local real mx = BlzGetTriggerPlayerMouseX()
+        local real my = BlzGetTriggerPlayerMouseY()
+        local framehandle slotFrame = BlzGetFrameByName("TasItemBagSlot", 1)
+        local real slotW = BlzFrameGetWidth(slotFrame)
+        local real slotH = BlzFrameGetHeight(slotFrame)
+        local real panelW = slotW * Cols + (Cols - 1) * 0.002 + 0.02
+        local real panelH = slotH * Rows + (Rows - 1) * 0.002 + 0.012
+        local real panelTLX = PosX - panelW * 0.5
+        local real panelTLY = PosY
+        local real pad = 0.003
+
+        if mx >= (panelTLX - pad) and mx <= (panelTLX + panelW + pad) and my <= (panelTLY + pad) and my >= (panelTLY - panelH - pad) then
+            return true
+        endif
+        return false
+    endfunction
+
     private function BagButtonAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(GetTriggerPlayer())
@@ -1830,6 +1853,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             return
         endif
+        if IsMouseInsideBagPanel() then
+            set PanelHover[pId] = true
+            return
+        endif
+        set PanelHover[pId] = false
         // Only clear LastHoveredIndex if the panel itself is not hovered
         if not PanelHover[pId] then
             set LastHoveredIndex[pId] = 0
@@ -1860,7 +1888,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(GetTriggerPlayer())
         // In WC3 UI, the parent frame can receive a LEAVE as soon as the mouse is over a child.
         // If the mouse is still inside the panel grid bounds, ignore this LEAVE.
-        if ResolveBagIndexFromMouse() > 0 then
+        if IsMouseInsideBagPanel() then
             set PanelHover[pId] = true
             return
         endif
@@ -1895,10 +1923,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local string panelStr
         local integer itemCharges
         local itemtype itemType
+        local boolean mouseInPanel = IsMouseInsideBagPanel()
 
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
+        endif
+
+        if mouseInPanel then
+            set PanelHover[pId] = true
         endif
 
         if PanelHover[pId] then
