@@ -2154,6 +2154,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Armed SELECT + selecting a vendor sells immediately to that selected shop.
         if SwapIndex[pId] > 0 and IsVendorUnit(selected) then
+            // Shop-select sell should always override any queued world-drop command.
+            call ClearWorldDropQueue(pId)
+            call Debug("Shop-select immediate sell: player=" + I2S(pId) + ", bagIndex=" + I2S(SwapIndex[pId]) + ", shop=" + GetUnitName(selected))
             if SellBagIndexToShop(p, SwapIndex[pId], selected, false) then
                 set SwapIndex[pId] = 0
                 call SwapHighlightHide(pId)
