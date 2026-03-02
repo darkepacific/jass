@@ -84,6 +84,41 @@ library MultiPageInventorySystem
         return true
     endfunction
 
+    // Public helpers for external systems (e.g. pickup-intent relief in TasItemBag)
+    function MPInventoryGetMaxPages takes nothing returns integer
+        return maxPages
+    endfunction
+
+    function MPInventoryPageHasEmptySlot takes player p, integer page returns boolean
+        local integer slot = 1
+        if p == null then
+            return false
+        endif
+        if page < 1 or page > maxPages then
+            return false
+        endif
+        loop
+            exitwhen slot > 6
+            if udg_P_Items[GetPItemsIndex(p, page, slot)] == null then
+                return true
+            endif
+            set slot = slot + 1
+        endloop
+        return false
+    endfunction
+
+    function MPInventoryFindPageWithEmptySlot takes player p, integer skipPage returns integer
+        local integer page = 1
+        loop
+            exitwhen page > maxPages
+            if page != skipPage and MPInventoryPageHasEmptySlot(p, page) then
+                return page
+            endif
+            set page = page + 1
+        endloop
+        return 0
+    endfunction
+
     function ShowInventoryButtons takes player p, boolean b returns nothing
         if GetLocalPlayer() == p then 
             call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 99), b) 
@@ -258,6 +293,41 @@ library MultiPageInventorySystem
         set oldItem = null
         set newItem = null
     endfunction 
+
+    function MPInventorySwitchToPage takes player p, integer targetPage returns boolean
+        local integer playerNum = GetPlayerHeroNumber(p)
+        local unit hero = udg_Heroes[playerNum]
+        local string s
+
+        if p == null then
+            return false
+        endif
+        if targetPage < 1 or targetPage > maxPages then
+            set hero = null
+            return false
+        endif
+        if hero == null then
+            return false
+        endif
+        if not IsAbleToChangePage(hero) then
+            set hero = null
+            return false
+        endif
+        if udg_Bag_Page[playerNum] == targetPage then
+            set hero = null
+            return true
+        endif
+
+        call DropInventoryToP_Items(p)
+        set udg_Bag_Page[playerNum] = targetPage
+        call LoadInventoryFromP_Items(p)
+        set s = "|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r"
+        call InventoryButtonsSetPageText(p, s)
+
+        set s = null
+        set hero = null
+        return true
+    endfunction
 
     private function InventoryButtonClickMain takes nothing returns nothing 
         local string s = "" 

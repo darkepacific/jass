@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem
     /*  TasItemBag 1.3
     by Tasyen
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -147,6 +147,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private boolean array IgnoreNextWorldDropOrder
         private constant real WORLD_DROP_REACH = 140.0
         private constant real WORLD_DROP_TIMEOUT = 4.0
+
+        // Option A2 pickup-intent relief: when smart-picking an item with full inventory,
+        // switch to another page with a free slot only when near the target item.
+        private timer PickupIntentTimer
+        private boolean array PickupIntentActive
+        private unit array PickupIntentHero
+        private item array PickupIntentItem
+        private real array PickupIntentTimeLeft
+        private boolean array PickupIntentProcessed
+        private integer array PickupIntentOriginalPage
+        private integer array PickupIntentSwitchPage
+        private constant integer ORDER_ID_SMART = 851971
+        private constant real PICKUP_INTENT_REACH = 170.0
+        private constant real PICKUP_INTENT_TIMEOUT = 4.0
 
         // ================================================================
         // P_Items Layout (single source of truth = udg_BAG_SIZE)
@@ -941,6 +955,111 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set IgnoreNextWorldDropOrder[pId] = false
     endfunction
 
+    private function ClearPickupIntent takes integer pId returns nothing
+        set PickupIntentActive[pId] = false
+        set PickupIntentHero[pId] = null
+        set PickupIntentItem[pId] = null
+        set PickupIntentTimeLeft[pId] = 0.0
+        set PickupIntentProcessed[pId] = false
+        set PickupIntentOriginalPage[pId] = 0
+        set PickupIntentSwitchPage[pId] = 0
+    endfunction
+
+    private function StartPickupIntent takes player p, unit hero, item targetItem returns nothing
+        local integer pId = GetPlayerId(p)
+        local integer playerNum = GetPlayerHeroNumber(p)
+        local integer currentPage
+        local integer reliefPage
+
+        if hero == null or targetItem == null then
+            call ClearPickupIntent(pId)
+            return
+        endif
+        if UnitInventorySize(hero) <= 0 then
+            call ClearPickupIntent(pId)
+            return
+        endif
+
+        // No need to assist when inventory still has space.
+        if UnitInventoryCount(hero) < UnitInventorySize(hero) then
+            call ClearPickupIntent(pId)
+            return
+        endif
+
+        set PickupIntentActive[pId] = true
+        set PickupIntentHero[pId] = hero
+        set PickupIntentItem[pId] = targetItem
+        set PickupIntentTimeLeft[pId] = PICKUP_INTENT_TIMEOUT
+        set PickupIntentProcessed[pId] = false
+        set PickupIntentOriginalPage[pId] = udg_Bag_Page[playerNum]
+        set PickupIntentSwitchPage[pId] = 0
+        call Debug("Pickup intent armed: player=" + I2S(pId) + ", page=" + I2S(PickupIntentOriginalPage[pId]) + ", item=" + GetItemName(targetItem))
+
+        // Immediate relief attempt (Phase 1 reliability): if we can switch now, do it now.
+        set currentPage = udg_Bag_Page[playerNum]
+        set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
+        if reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+            set PickupIntentProcessed[pId] = true
+            set PickupIntentSwitchPage[pId] = reliefPage
+            call Debug("Pickup intent immediate relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
+        endif
+    endfunction
+
+    private function PickupIntentTimerAction takes nothing returns nothing
+        local integer pId = 0
+        local player p
+        local unit hero
+        local item targetItem
+        local integer playerNum
+        local integer currentPage
+        local integer reliefPage
+        local real dx
+        local real dy
+        local real dist
+
+        loop
+            exitwhen pId >= bj_MAX_PLAYERS
+            if PickupIntentActive[pId] then
+                set p = Player(pId)
+                set hero = PickupIntentHero[pId]
+                set targetItem = PickupIntentItem[pId]
+
+                if hero == null or GetWidgetLife(hero) <= 0.405 then
+                    call ClearPickupIntent(pId)
+                elseif targetItem == null then
+                    call ClearPickupIntent(pId)
+                elseif UnitHasItem(hero, targetItem) then
+                    call ClearPickupIntent(pId)
+                else
+                    set PickupIntentTimeLeft[pId] = PickupIntentTimeLeft[pId] - 0.03
+                    if PickupIntentTimeLeft[pId] <= 0.0 then
+                        call ClearPickupIntent(pId)
+                    elseif (not PickupIntentProcessed[pId]) and UnitInventoryCount(hero) >= UnitInventorySize(hero) then
+                        set dx = GetUnitX(hero) - GetItemX(targetItem)
+                        set dy = GetUnitY(hero) - GetItemY(targetItem)
+                        set dist = SquareRoot(dx*dx + dy*dy)
+                        if dist <= PICKUP_INTENT_REACH then
+                            set playerNum = GetPlayerHeroNumber(p)
+                            set currentPage = udg_Bag_Page[playerNum]
+                            set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
+                            if reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+                                set PickupIntentProcessed[pId] = true
+                                set PickupIntentSwitchPage[pId] = reliefPage
+                                call Debug("Pickup intent relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
+                            elseif reliefPage <= 0 then
+                                call Debug("Pickup intent: no relief page available for player=" + I2S(pId))
+                            endif
+                        endif
+                    endif
+                endif
+            endif
+            set targetItem = null
+            set hero = null
+            set p = null
+            set pId = pId + 1
+        endloop
+    endfunction
+
     private function StartWorldDropFromSelection takes player p, integer bagIndex, real x, real y returns boolean
         local integer pId = GetPlayerId(p)
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
@@ -1023,18 +1142,34 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit u = GetTriggerUnit()
         local player owner
         local integer pId
+        local integer orderId
+        local item orderTargetItem
         if u == null then
             return
         endif
         set owner = GetOwningPlayer(u)
         set pId = GetPlayerId(owner)
-        if u == udg_Heroes[GetPlayerNumber(owner)] and WorldDropActive[pId] then
-            if IgnoreNextWorldDropOrder[pId] then
-                set IgnoreNextWorldDropOrder[pId] = false
-            else
-                call ClearWorldDropQueue(pId)
+        set orderId = GetIssuedOrderId()
+        set orderTargetItem = GetOrderTargetItem()
+        if u == udg_Heroes[GetPlayerNumber(owner)] then
+            // Option A2 pickup intent tracking from SMART item-target orders.
+            // Do not clear on follow-up move orders; clear only when retargeting to another item.
+            if orderId == ORDER_ID_SMART and orderTargetItem != null then
+                if PickupIntentActive[pId] and orderTargetItem != PickupIntentItem[pId] then
+                    call ClearPickupIntent(pId)
+                endif
+                call StartPickupIntent(owner, u, orderTargetItem)
+            endif
+
+            if WorldDropActive[pId] then
+                if IgnoreNextWorldDropOrder[pId] then
+                    set IgnoreNextWorldDropOrder[pId] = false
+                else
+                    call ClearWorldDropQueue(pId)
+                endif
             endif
         endif
+        set orderTargetItem = null
         set owner = null
         set u = null
     endfunction
@@ -2223,6 +2358,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function ItemGainAction takes nothing returns nothing
+        local integer pId = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
+        if PickupIntentActive[pId] then
+            call ClearPickupIntent(pId)
+        endif
+
         if udg_dontDepositIntoBag then
             set udg_dontDepositIntoBag = false
             return
@@ -2589,7 +2729,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function init_function takes nothing returns nothing
         set ItemGainTimer = CreateTimer()
         set WorldDropTimer = CreateTimer()
+        set PickupIntentTimer = CreateTimer()
         call TimerStart(WorldDropTimer, 0.03, true, function WorldDropTimerAction)
+        call TimerStart(PickupIntentTimer, 0.03, true, function PickupIntentTimerAction)
         call TimerStart(ItemGainTimer, 0, false, function InitBagAt0s)  
         
         // set udg_BAG_SIZE = 13 + PITEMS_EXTRA_SLOTS
