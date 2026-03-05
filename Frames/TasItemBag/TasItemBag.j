@@ -1,6 +1,6 @@
 library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem
     /*  TasItemBag 1.3
-    by Tasyen
+    by Tasyen, expanded by Darke Pacific
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
     The Items in the bag are displayed in a scrollable UI which is opened/closed by a button.
     Items from the bag can be equiped or droped.
@@ -148,6 +148,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant real WORLD_DROP_REACH = 140.0
         private constant real WORLD_DROP_TIMEOUT = 4.0
 
+        // Track the most recent SMART item-target order per player.
+        // Used to disambiguate pickup events where GetManipulatedItem can be
+        // the pre-existing stack handle instead of the ground item handle.
+        private item array LastSmartPickupTarget
+        private real array LastSmartPickupTimeLeft
+        // Keep this long enough for far-distance move-to-pickup travel.
+        // A short window causes handle disambiguation to expire before pickup fires.
+        private constant real LAST_SMART_PICKUP_WINDOW = 8.00
+
         // Option A2 pickup-intent relief: when smart-picking an item with full inventory,
         // switch to another page with a free slot only when near the target item.
         private timer PickupIntentTimer
@@ -161,6 +170,30 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer ORDER_ID_SMART = 851971
         private constant real PICKUP_INTENT_REACH = 170.0
         private constant real PICKUP_INTENT_TIMEOUT = 4.0
+        // Pickup relief mode:
+        // false = pure A2 (near-item timing only), true = immediate-first then fallback (A1-style).
+        // Current default: immediate-first (smoother feel in live play).
+        public boolean PickupIntentUseImmediateRelief = true
+        // Phase 1.5: after assisted pickup succeeds, return to the original page
+        // only if the player is still on the temporary relief page.
+        public boolean PickupIntentAutoReturnPage = true
+
+        // Option A: short local suppression window for false-positive native
+        // "Inventory is full" feedback during assisted pickup timing.
+        private boolean array PickupWarnSuppressActive
+        private real array PickupWarnSuppressTimeLeft
+        private constant real PICKUP_WARN_SUPPRESS_WINDOW = 0.40
+
+        // Deferred page return for Phase 1.5:
+        // queue the return on pickup, execute only after bag insert runs.
+        private boolean array PickupReturnPending
+        private integer array PickupReturnOriginalPage
+        private integer array PickupReturnSwitchPage
+        private item array PickupReturnItem
+
+        // Option D placeholder: race-aware full feedback hook.
+        // Keep behavior identical for now (same ErrorMessage) until custom sounds are imported.
+        private constant string INVENTORY_FULL_MESSAGE = "Inventory is full."
 
         // ================================================================
         // P_Items Layout (single source of truth = udg_BAG_SIZE)
@@ -359,7 +392,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'n036' // Agility Vendor
         set VendorUnitCount = VendorUnitCount + 1
-        set VendorUnitId[VendorUnitCount] = 'n000' // Argent Vendor
+        set VendorUnitId[VendorUnitCount] = 'n00O' // Argent Vendor
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'n010' // Blood Elf Vendor
         set VendorUnitCount = VendorUnitCount + 1
@@ -368,6 +401,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set VendorUnitId[VendorUnitCount] = 'n00Q' // Dwarf Vendor
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'n035' // Epic Vendor
+        set VendorUnitCount = VendorUnitCount + 1
+        set VendorUnitId[VendorUnitCount] = 'ngme' // Goblin Merchant
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'n00N' // Human Vendor
         set VendorUnitCount = VendorUnitCount + 1
@@ -398,6 +433,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set VendorUnitId[VendorUnitCount] = 'n022' // Wisp Vendor
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'n00E' // Worgen Vendor
+        
 
         // Flight Path vendors (only entries containing "Flight Path")
         set VendorUnitCount = VendorUnitCount + 1
@@ -475,6 +511,39 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return false
     endfunction
 
+    private function PlayInventoryFullRaceSoundPlaceholder takes player p, unit hero returns nothing
+        local race heroRace
+        if p == null then
+            return
+        endif
+
+        if hero == null then
+            set hero = udg_Heroes[GetPlayerNumber(p)]
+        endif
+
+        if hero != null then
+            set heroRace = GetUnitRace(hero)
+        else
+            set heroRace = GetPlayerRace(p)
+        endif
+
+        // Placeholder branch map by race (future race-specific sounds).
+        if heroRace == RACE_HUMAN then
+            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+        elseif heroRace == RACE_ORC then
+            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+        elseif heroRace == RACE_UNDEAD then
+            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+        elseif heroRace == RACE_NIGHTELF then
+            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+        else
+            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+        endif
+
+        set heroRace = null
+        set hero = null
+    endfunction
+
     // Finds the next empty (null) slot for this player's bag.
     // Returns 0 when the bag is full.
     private function BagNextEmptySlot takes integer playerKey returns integer
@@ -512,6 +581,98 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
         return ( GetItemType(i) == ITEM_TYPE_CHARGED or GetItemType(i) == ITEM_TYPE_MISCELLANEOUS or GetItemType(i) == ITEM_TYPE_CAMPAIGN or GetItemType(i) == ITEM_TYPE_UNKNOWN)
+    endfunction
+
+    // Safe stack preference for picked items:
+    // Merge into matching CURRENT inventory stacks first (slots 1..6 via UnitItemInSlot).
+    // Returns true when the picked item was fully absorbed/removed.
+    private function MergePickedItemIntoPagedStacks takes unit hero, item picked returns boolean
+        local integer invSlot
+        local integer itemCode
+        local integer maxCharges
+        local integer incomingCharges
+        local integer existingCharges
+        local integer space
+        local integer addCharges
+        local integer beforeCharges
+        local integer afterCharges
+        local integer absorbed
+        local integer originalCharges
+        local item existing
+
+        if hero == null or picked == null then
+            return false
+        endif
+        if not UnitHasItem(hero, picked) then
+            return false
+        endif
+        if not IsStackableType(picked) then
+            return false
+        endif
+
+        set incomingCharges = GetItemCharges(picked)
+        if incomingCharges <= 0 then
+            return false
+        endif
+
+        set originalCharges = incomingCharges
+        set maxCharges = DEFAULT_MAX_CHARGES
+        if incomingCharges > maxCharges then
+            set incomingCharges = maxCharges
+        endif
+        set itemCode = GetItemTypeId(picked)
+        // Merge against LIVE inventory only (current page equipped slots).
+        set invSlot = 0
+        loop
+            exitwhen invSlot >= bj_MAX_INVENTORY or incomingCharges <= 0
+            set existing = UnitItemInSlot(hero, invSlot)
+            if existing != null and existing != picked and IsStackableType(existing) and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                set existingCharges = GetItemCharges(existing)
+                if existingCharges < 0 then
+                    set existingCharges = 0
+                elseif existingCharges > maxCharges then
+                    set existingCharges = maxCharges
+                    call SetItemCharges(existing, existingCharges)
+                endif
+                set beforeCharges = existingCharges
+                set space = maxCharges - beforeCharges
+                if space > 0 then
+                    if incomingCharges > space then
+                        set addCharges = space
+                    else
+                        set addCharges = incomingCharges
+                    endif
+                    call SetItemCharges(existing, beforeCharges + addCharges)
+                else
+                    set addCharges = 0
+                endif
+                set afterCharges = GetItemCharges(existing)
+                set absorbed = afterCharges - beforeCharges
+                if absorbed < 0 then
+                    set absorbed = 0
+                endif
+                set incomingCharges = incomingCharges - absorbed
+                if incomingCharges < 0 then
+                    set incomingCharges = 0
+                endif
+            endif
+            set invSlot = invSlot + 1
+        endloop
+
+        if incomingCharges <= 0 then
+            call RemoveItem(picked)
+            call RequestUIUpdate()
+            set existing = null
+            return true
+        endif
+
+        if incomingCharges < originalCharges then
+            call SetItemCharges(picked, incomingCharges)
+            call RequestUIUpdate()
+        endif
+
+        set existing = null
+        return false
     endfunction
 
     private function BagHasMergeSpace takes integer playerKey, item incoming returns boolean
@@ -891,7 +1052,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             endif
 
-            call ErrorMessage("Inventory is full.", GetOwningPlayer(u))
+            call PlayInventoryFullRaceSoundPlaceholder(GetOwningPlayer(u), u)
             set invItem = null
             set u = null
             return
@@ -965,6 +1126,40 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentSwitchPage[pId] = 0
     endfunction
 
+    private function ClearPickupIntentReturn takes integer pId returns nothing
+        set PickupReturnPending[pId] = false
+        set PickupReturnOriginalPage[pId] = 0
+        set PickupReturnSwitchPage[pId] = 0
+        set PickupReturnItem[pId] = null
+    endfunction
+
+    private function StartPickupWarningSuppression takes integer pId, real duration returns nothing
+        if duration <= 0.0 then
+            set duration = PICKUP_WARN_SUPPRESS_WINDOW
+        endif
+        set PickupWarnSuppressActive[pId] = true
+        if PickupWarnSuppressTimeLeft[pId] < duration then
+            set PickupWarnSuppressTimeLeft[pId] = duration
+        endif
+    endfunction
+
+    private function TickPickupWarningSuppression takes integer pId returns nothing
+        if not PickupWarnSuppressActive[pId] then
+            return
+        endif
+
+        set PickupWarnSuppressTimeLeft[pId] = PickupWarnSuppressTimeLeft[pId] - 0.03
+        if GetLocalPlayer() == Player(pId) then
+            call StopSound(gg_snd_Error, false, false)
+            call ClearTextMessages()
+        endif
+
+        if PickupWarnSuppressTimeLeft[pId] <= 0.0 then
+            set PickupWarnSuppressActive[pId] = false
+            set PickupWarnSuppressTimeLeft[pId] = 0.0
+        endif
+    endfunction
+
     private function StartPickupIntent takes player p, unit hero, item targetItem returns nothing
         local integer pId = GetPlayerId(p)
         local integer playerNum = GetPlayerHeroNumber(p)
@@ -986,6 +1181,26 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
+        // Refresh same-item intent without losing original-page context.
+        if PickupIntentActive[pId] and PickupIntentItem[pId] == targetItem then
+            set PickupIntentHero[pId] = hero
+            set PickupIntentTimeLeft[pId] = PICKUP_INTENT_TIMEOUT
+
+            set currentPage = udg_Bag_Page[playerNum]
+            if not PickupIntentProcessed[pId] and PickupIntentUseImmediateRelief then
+                set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
+                if reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+                    call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
+                    set PickupIntentProcessed[pId] = true
+                    set PickupIntentSwitchPage[pId] = reliefPage
+                    call Debug("Pickup intent refreshed relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
+                endif
+            elseif PickupIntentProcessed[pId] then
+                call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
+            endif
+            return
+        endif
+
         set PickupIntentActive[pId] = true
         set PickupIntentHero[pId] = hero
         set PickupIntentItem[pId] = targetItem
@@ -993,12 +1208,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentProcessed[pId] = false
         set PickupIntentOriginalPage[pId] = udg_Bag_Page[playerNum]
         set PickupIntentSwitchPage[pId] = 0
+        call ClearPickupIntentReturn(pId)
         call Debug("Pickup intent armed: player=" + I2S(pId) + ", page=" + I2S(PickupIntentOriginalPage[pId]) + ", item=" + GetItemName(targetItem))
 
-        // Immediate relief attempt (Phase 1 reliability): if we can switch now, do it now.
+        // Optional immediate-first relief. For pure A2 testing keep this disabled.
         set currentPage = udg_Bag_Page[playerNum]
         set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
-        if reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+        if PickupIntentUseImmediateRelief and reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+            call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
             set PickupIntentProcessed[pId] = true
             set PickupIntentSwitchPage[pId] = reliefPage
             call Debug("Pickup intent immediate relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
@@ -1019,6 +1236,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         loop
             exitwhen pId >= bj_MAX_PLAYERS
+            if LastSmartPickupTimeLeft[pId] > 0.0 then
+                set LastSmartPickupTimeLeft[pId] = LastSmartPickupTimeLeft[pId] - 0.03
+                if LastSmartPickupTimeLeft[pId] <= 0.0 then
+                    set LastSmartPickupTimeLeft[pId] = 0.0
+                    set LastSmartPickupTarget[pId] = null
+                endif
+            endif
+            call TickPickupWarningSuppression(pId)
             if PickupIntentActive[pId] then
                 set p = Player(pId)
                 set hero = PickupIntentHero[pId]
@@ -1029,6 +1254,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 elseif targetItem == null then
                     call ClearPickupIntent(pId)
                 elseif UnitHasItem(hero, targetItem) then
+                    // Race-safe fallback: if periodic timer observes pickup before
+                    // ItemGainAction resolves intent, still arm deferred page return.
+                    if PickupIntentAutoReturnPage and PickupIntentProcessed[pId] then
+                        if PickupIntentSwitchPage[pId] > 0 and PickupIntentOriginalPage[pId] > 0 and PickupIntentOriginalPage[pId] != PickupIntentSwitchPage[pId] then
+                            set PickupReturnPending[pId] = true
+                            set PickupReturnOriginalPage[pId] = PickupIntentOriginalPage[pId]
+                            set PickupReturnSwitchPage[pId] = PickupIntentSwitchPage[pId]
+                            set PickupReturnItem[pId] = targetItem
+                        endif
+                    endif
                     call ClearPickupIntent(pId)
                 else
                     set PickupIntentTimeLeft[pId] = PickupIntentTimeLeft[pId] - 0.03
@@ -1043,6 +1278,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             set currentPage = udg_Bag_Page[playerNum]
                             set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
                             if reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+                                call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
                                 set PickupIntentProcessed[pId] = true
                                 set PickupIntentSwitchPage[pId] = reliefPage
                                 call Debug("Pickup intent relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
@@ -1058,6 +1294,90 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set p = null
             set pId = pId + 1
         endloop
+    endfunction
+
+    private function ResolvePickupIntentOnGain takes unit u, item gained returns nothing
+        local player p
+        local integer pId
+        local integer originalPage
+        local integer switchedPage
+        local item resolvedItem
+
+        if u == null or gained == null then
+            return
+        endif
+
+        set p = GetOwningPlayer(u)
+        set pId = GetPlayerId(p)
+
+        if not PickupIntentActive[pId] then
+            set p = null
+            return
+        endif
+
+        set resolvedItem = PickupIntentItem[pId]
+        // Handle-robust match: accept direct handle match or same-type gain while intent is active.
+        if gained != resolvedItem then
+            if gained == null or resolvedItem == null or GetItemTypeId(gained) != GetItemTypeId(resolvedItem) then
+                set resolvedItem = null
+            endif
+        endif
+        if resolvedItem == null then
+            set p = null
+            return
+        endif
+
+        if PickupIntentAutoReturnPage and PickupIntentProcessed[pId] then
+            set switchedPage = PickupIntentSwitchPage[pId]
+            set originalPage = PickupIntentOriginalPage[pId]
+            if switchedPage > 0 and originalPage > 0 and originalPage != switchedPage then
+                // Defer return until the item has been moved into bag storage.
+                set PickupReturnPending[pId] = true
+                set PickupReturnOriginalPage[pId] = originalPage
+                set PickupReturnSwitchPage[pId] = switchedPage
+                set PickupReturnItem[pId] = resolvedItem
+            endif
+        endif
+
+        call ClearPickupIntent(pId)
+        set resolvedItem = null
+        set p = null
+    endfunction
+
+    private function FinalizePickupIntentReturn takes unit u, item handledItem returns nothing
+        local player p
+        local integer pId
+        local integer playerNum
+        local integer currentPage
+        local integer originalPage
+        local integer switchedPage
+
+        if u == null or handledItem == null then
+            return
+        endif
+
+        set p = GetOwningPlayer(u)
+        set pId = GetPlayerId(p)
+        if not PickupReturnPending[pId] or handledItem != PickupReturnItem[pId] then
+            set p = null
+            return
+        endif
+
+        set originalPage = PickupReturnOriginalPage[pId]
+        set switchedPage = PickupReturnSwitchPage[pId]
+        if originalPage > 0 and switchedPage > 0 and originalPage != switchedPage then
+            set playerNum = GetPlayerHeroNumber(p)
+            set currentPage = udg_Bag_Page[playerNum]
+            // Guard: do not override manual page changes made after relief switch.
+            if currentPage == switchedPage then
+                if MPInventorySwitchToPage(p, originalPage) then
+                    call Debug("Pickup intent auto-return: player=" + I2S(pId) + ", page " + I2S(switchedPage) + " -> " + I2S(originalPage))
+                endif
+            endif
+        endif
+
+        call ClearPickupIntentReturn(pId)
+        set p = null
     endfunction
 
     private function StartWorldDropFromSelection takes player p, integer bagIndex, real x, real y returns boolean
@@ -1155,10 +1475,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Option A2 pickup intent tracking from SMART item-target orders.
             // Do not clear on follow-up move orders; clear only when retargeting to another item.
             if orderId == ORDER_ID_SMART and orderTargetItem != null then
+                set LastSmartPickupTarget[pId] = orderTargetItem
+                set LastSmartPickupTimeLeft[pId] = LAST_SMART_PICKUP_WINDOW
                 if PickupIntentActive[pId] and orderTargetItem != PickupIntentItem[pId] then
                     call ClearPickupIntent(pId)
                 endif
                 call StartPickupIntent(owner, u, orderTargetItem)
+            // Any other explicit order from the player invalidates prior smart pickup intent/target.
+            // This prevents stale long-window targets from leaking into unrelated gains.
+            elseif orderId != ORDER_ID_SMART then
+                set LastSmartPickupTarget[pId] = null
+                set LastSmartPickupTimeLeft[pId] = 0.0
+                if PickupIntentActive[pId] then
+                    call ClearPickupIntent(pId)
+                endif
             endif
 
             if WorldDropActive[pId] then
@@ -2014,7 +2344,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPanelEnterAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         set PanelHover[pId] = true
-        call Debug("BagPanelEnterAction ENTER")
+        // call Debug("BagPanelEnterAction ENTER")
         // call Debug("PanelHover ENTER: player " + I2S(pId) + ", PanelHover=true")
     endfunction
 
@@ -2030,7 +2360,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PanelHover[pId] = false
         set LastHoveredIndex[pId] = 0
         call SwapHoverHide(pId)
-        call Debug("BagPanelLeaveAction LEAVE")
+        // call Debug("BagPanelLeaveAction LEAVE")
     endfunction
 
     // Panel hover dispatcher: this trigger is registered for both ENTER and LEAVE,
@@ -2348,37 +2678,103 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     // Process delayed item gains: move picked-up items into the bag after a short delay
     private function ItemGainTimerAction takes nothing returns nothing
+        local unit u
+        local item it
+        local integer pId
         loop
             exitwhen ItemGainTimerCount <= 0
-            if UnitHasItem(ItemGainTimerUnit[ItemGainTimerCount], ItemGainTimerItem[ItemGainTimerCount]) then
-                call TasItemBagAddItem(ItemGainTimerUnit[ItemGainTimerCount], ItemGainTimerItem[ItemGainTimerCount], true)
+            set u = ItemGainTimerUnit[ItemGainTimerCount]
+            set it = ItemGainTimerItem[ItemGainTimerCount]
+            set pId = GetPlayerId(GetOwningPlayer(u))
+
+            // Normalize queued handle during auto-page return flows.
+            // If queue points to a same-type stack handle, use the intended pickup handle.
+            if PickupReturnPending[pId] and PickupReturnItem[pId] != null and it != PickupReturnItem[pId] then
+                if it != null and GetItemTypeId(it) == GetItemTypeId(PickupReturnItem[pId]) and UnitHasItem(u, PickupReturnItem[pId]) then
+                    set it = PickupReturnItem[pId]
+                endif
             endif
+
+            if UnitHasItem(u, it) then
+                if not MergePickedItemIntoPagedStacks(u, it) then
+                    if UnitHasItem(u, it) then
+                        call TasItemBagAddItem(u, it, true)
+                    endif
+                endif
+            endif
+            call FinalizePickupIntentReturn(u, it)
+            set u = null
+            set it = null
             set ItemGainTimerCount = ItemGainTimerCount - 1
         endloop
     endfunction
 
     private function ItemGainAction takes nothing returns nothing
-        local integer pId = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
-        if PickupIntentActive[pId] then
-            call ClearPickupIntent(pId)
+        local unit triggerUnit = GetTriggerUnit()
+        local item manipulated = GetManipulatedItem()
+        local player owner
+        local integer pId
+        local item queuedItem
+        local item intentItem
+        set owner = GetOwningPlayer(triggerUnit)
+        set pId = GetPlayerId(owner)
+        set queuedItem = manipulated
+        set intentItem = PickupIntentItem[pId]
+
+        // When pickup intent is active, prefer the intent target item handle.
+        // This keeps delayed processing aligned with auto-page return logic.
+        if PickupIntentActive[pId] and intentItem != null then
+            if queuedItem == null or GetItemTypeId(intentItem) == GetItemTypeId(queuedItem) then
+                set queuedItem = intentItem
+            endif
         endif
 
+        // Prefer the recent SMART target handle only when pickup intent is not active.
+        // During auto-page relief, intent target must stay authoritative.
+        if (not PickupIntentActive[pId]) and LastSmartPickupTarget[pId] != null and LastSmartPickupTimeLeft[pId] > 0.0 then
+            if queuedItem != null and GetItemTypeId(LastSmartPickupTarget[pId]) == GetItemTypeId(queuedItem) then
+                set queuedItem = LastSmartPickupTarget[pId]
+            endif
+            set LastSmartPickupTarget[pId] = null
+            set LastSmartPickupTimeLeft[pId] = 0.0
+        endif
+
+        // Resolve pickup intent using the same (possibly disambiguated) handle
+        // that will continue through the delayed bag pipeline.
+        call ResolvePickupIntentOnGain(triggerUnit, queuedItem)
+
         if udg_dontDepositIntoBag then
+            call FinalizePickupIntentReturn(triggerUnit, queuedItem)
             set udg_dontDepositIntoBag = false
+            set triggerUnit = null
+            set manipulated = null
+            set queuedItem = null
+            set owner = null
             return
         endif
 
         // Do not move Powerups that can be used into the bag
         if IsItemPowerup(GetManipulatedItem()) and TasItemBagUnitCanUseItems(GetTriggerUnit()) then 
+            call FinalizePickupIntentReturn(triggerUnit, queuedItem)
+            set triggerUnit = null
+            set manipulated = null
+            set queuedItem = null
+            set owner = null
             return
         endif
         
         // dont move it instantly, delay it with a 0s timer, this stops item pickup orders onto the same item in a row and allows the user to do some stuff to pickedup items
         // does not prevent move ground pick up in rotation
         set ItemGainTimerCount = ItemGainTimerCount + 1
-        set ItemGainTimerUnit[ItemGainTimerCount] = GetTriggerUnit()
-        set ItemGainTimerItem[ItemGainTimerCount] = GetManipulatedItem()
+        set ItemGainTimerUnit[ItemGainTimerCount] = triggerUnit
+        set ItemGainTimerItem[ItemGainTimerCount] = queuedItem
         call TimerStart(ItemGainTimer, 0, false, function ItemGainTimerAction)
+
+        set triggerUnit = null
+        set manipulated = null
+        set queuedItem = null
+        set intentItem = null
+        set owner = null
 
     endfunction
      
