@@ -168,8 +168,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private integer array PickupIntentOriginalPage
         private integer array PickupIntentSwitchPage
         private constant integer ORDER_ID_SMART = 851971
-        private constant real PICKUP_INTENT_REACH = 170.0
-        private constant real PICKUP_INTENT_TIMEOUT = 4.0
+        private constant real PICKUP_INTENT_REACH = 250.0 // CHANGED THIS
+        private constant real PICKUP_INTENT_TIMEOUT = 8.0  //CHANGED THIS
         // Pickup relief mode:
         // false = pure A2 (near-item timing only), true = immediate-first then fallback (A1-style).
         // Current default: immediate-first (smoother feel in live play).
