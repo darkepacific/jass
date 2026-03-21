@@ -1320,7 +1320,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer switchedPage
         local item resolvedItem
 
-        if u == null or gained == null then
+        if u == null then
             return
         endif
 
@@ -1333,9 +1333,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         set resolvedItem = PickupIntentItem[pId]
-        // Handle-robust match: accept direct handle match or same-type gain while intent is active.
-        if gained != resolvedItem then
-            if gained == null or resolvedItem == null or GetItemTypeId(gained) != GetItemTypeId(resolvedItem) then
+        // Handle-robust match: when gained is present, accept direct or same-type while intent is active.
+        // If gained is null (merge/consume edge), keep intent item as authoritative.
+        if gained != null and gained != resolvedItem then
+            if resolvedItem == null or GetItemTypeId(gained) != GetItemTypeId(resolvedItem) then
                 set resolvedItem = null
             endif
         endif
@@ -1369,16 +1370,19 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer originalPage
         local integer switchedPage
 
-        if u == null or handledItem == null then
+        if u == null then
             return
         endif
 
         set p = GetOwningPlayer(u)
         set pId = GetPlayerId(p)
-        if not PickupReturnPending[pId] or handledItem != PickupReturnItem[pId] then
+        if not PickupReturnPending[pId] then
             set p = null
             return
         endif
+
+        // Do not gate on handledItem identity/type here.
+        // ResolvePickupIntentOnGain already validated and armed this pending return.
 
         set originalPage = PickupReturnOriginalPage[pId]
         set switchedPage = PickupReturnSwitchPage[pId]
@@ -1504,7 +1508,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set LastSmartPickupTarget[pId] = null
                 set LastSmartPickupTimeLeft[pId] = 0.0
                 if PickupIntentActive[pId] then
-                    call ClearPickupIntent(pId)
+                    // Keep already-processed pickup intent alive through follow-up movement
+                    // orders so auto-return can still finalize on gain/timeout.
+                    if not PickupIntentProcessed[pId] then
+                        call ClearPickupIntent(pId)
+                    endif
                 endif
             endif
 
@@ -2733,7 +2741,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
 
             if UnitHasItem(u, it) then
-                if not MergePickedItemIntoPagedStacks(u, it) then
+                if PickupReturnPending[pId] then
+                    // Relief-switch flow: skip live-inventory merge so charges
+                    // don't leak into the relief page.  TasItemBagAddItem has its
+                    // own bag-storage merge logic.
+                    call TasItemBagAddItem(u, it, true)
+                elseif not MergePickedItemIntoPagedStacks(u, it) then
                     if UnitHasItem(u, it) then
                         call TasItemBagAddItem(u, it, true)
                     endif
@@ -2778,7 +2791,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Resolve pickup intent using the same (possibly disambiguated) handle
         // that will continue through the delayed bag pipeline.
-        call ResolvePickupIntentOnGain(triggerUnit, queuedItem)
+        // Skip during page-switch loads (dontDepositIntoBag) — those UnitAddItem
+        // calls are not real pickups and must not consume / clear the active intent.
+        if not udg_dontDepositIntoBag then
+            call ResolvePickupIntentOnGain(triggerUnit, queuedItem)
+        endif
 
         if udg_dontDepositIntoBag then
             call FinalizePickupIntentReturn(triggerUnit, queuedItem)
