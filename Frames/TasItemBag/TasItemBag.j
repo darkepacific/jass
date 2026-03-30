@@ -176,22 +176,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // false = pure A2 (near-item timing only), true = immediate-first then fallback (A1-style).
         // Current default: immediate-first (smoother feel in live play).
         public boolean PickupIntentUseImmediateRelief = true
-        // Phase 1.5: after assisted pickup succeeds, return to the original page
-        // only if the player is still on the temporary relief page.
-        public boolean PickupIntentAutoReturnPage = true
 
         // Option A: short local suppression window for false-positive native
         // "Inventory is full" feedback during assisted pickup timing.
         private boolean array PickupWarnSuppressActive
         private real array PickupWarnSuppressTimeLeft
         private constant real PICKUP_WARN_SUPPRESS_WINDOW = 0.40
-
-        // Deferred page return for Phase 1.5:
-        // queue the return on pickup, execute only after bag insert runs.
-        private boolean array PickupReturnPending
-        private integer array PickupReturnOriginalPage
-        private integer array PickupReturnSwitchPage
-        private item array PickupReturnItem
 
         // Option D placeholder: race-aware full feedback hook.
         // Keep behavior identical for now (same ErrorMessage) until custom sounds are imported.
@@ -1143,13 +1133,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentSwitchPage[pId] = 0
     endfunction
 
-    private function ClearPickupIntentReturn takes integer pId returns nothing
-        set PickupReturnPending[pId] = false
-        set PickupReturnOriginalPage[pId] = 0
-        set PickupReturnSwitchPage[pId] = 0
-        set PickupReturnItem[pId] = null
-    endfunction
-
     private function StartPickupWarningSuppression takes integer pId, real duration returns nothing
         if duration <= 0.0 then
             set duration = PICKUP_WARN_SUPPRESS_WINDOW
@@ -1225,7 +1208,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentProcessed[pId] = false
         set PickupIntentOriginalPage[pId] = udg_Bag_Page[playerNum]
         set PickupIntentSwitchPage[pId] = 0
-        call ClearPickupIntentReturn(pId)
         call Debug("Pickup intent armed: player=" + I2S(pId) + ", page=" + I2S(PickupIntentOriginalPage[pId]) + ", item=" + GetItemName(targetItem))
 
         // Optional immediate-first relief. For pure A2 testing keep this disabled.
@@ -1271,16 +1253,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 elseif targetItem == null then
                     call ClearPickupIntent(pId)
                 elseif UnitHasItem(hero, targetItem) then
-                    // Race-safe fallback: if periodic timer observes pickup before
-                    // ItemGainAction resolves intent, still arm deferred page return.
-                    if PickupIntentAutoReturnPage and PickupIntentProcessed[pId] then
-                        if PickupIntentSwitchPage[pId] > 0 and PickupIntentOriginalPage[pId] > 0 and PickupIntentOriginalPage[pId] != PickupIntentSwitchPage[pId] then
-                            set PickupReturnPending[pId] = true
-                            set PickupReturnOriginalPage[pId] = PickupIntentOriginalPage[pId]
-                            set PickupReturnSwitchPage[pId] = PickupIntentSwitchPage[pId]
-                            set PickupReturnItem[pId] = targetItem
-                        endif
-                    endif
+                    // Item already picked up; clear the intent.
                     call ClearPickupIntent(pId)
                 else
                     set PickupIntentTimeLeft[pId] = PickupIntentTimeLeft[pId] - 0.03
@@ -1316,8 +1289,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function ResolvePickupIntentOnGain takes unit u, item gained returns nothing
         local player p
         local integer pId
-        local integer originalPage
-        local integer switchedPage
         local item resolvedItem
 
         if u == null then
@@ -1345,30 +1316,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        if PickupIntentAutoReturnPage and PickupIntentProcessed[pId] then
-            set switchedPage = PickupIntentSwitchPage[pId]
-            set originalPage = PickupIntentOriginalPage[pId]
-            if switchedPage > 0 and originalPage > 0 and originalPage != switchedPage then
-                // Defer return until the item has been moved into bag storage.
-                set PickupReturnPending[pId] = true
-                set PickupReturnOriginalPage[pId] = originalPage
-                set PickupReturnSwitchPage[pId] = switchedPage
-                set PickupReturnItem[pId] = resolvedItem
-            endif
-        endif
-
         call ClearPickupIntent(pId)
         set resolvedItem = null
         set p = null
     endfunction
 
-    private function FinalizePickupIntentReturn takes unit u, item handledItem returns nothing
+    private function RestorePlayerIntendedPage takes unit u returns nothing
         local player p
         local integer pId
         local integer playerNum
         local integer currentPage
-        local integer originalPage
-        local integer switchedPage
+        local integer intendedPage
 
         if u == null then
             return
@@ -1376,28 +1334,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set p = GetOwningPlayer(u)
         set pId = GetPlayerId(p)
-        if not PickupReturnPending[pId] then
-            set p = null
-            return
-        endif
-
-        // Do not gate on handledItem identity/type here.
-        // ResolvePickupIntentOnGain already validated and armed this pending return.
-
-        set originalPage = PickupReturnOriginalPage[pId]
-        set switchedPage = PickupReturnSwitchPage[pId]
-        if originalPage > 0 and switchedPage > 0 and originalPage != switchedPage then
-            set playerNum = GetPlayerHeroNumber(p)
-            set currentPage = udg_Bag_Page[playerNum]
-            // Guard: do not override manual page changes made after relief switch.
-            if currentPage == switchedPage then
-                if MPInventorySwitchToPage(p, originalPage) then
-                    call Debug("Pickup intent auto-return: player=" + I2S(pId) + ", page " + I2S(switchedPage) + " -> " + I2S(originalPage))
-                endif
+        set playerNum = GetPlayerHeroNumber(p)
+        set currentPage = udg_Bag_Page[playerNum]
+        set intendedPage = MPInventoryGetPlayerIntendedPage(p)
+        if intendedPage > 0 and currentPage != intendedPage then
+            if MPInventorySwitchToPage(p, intendedPage) then
+                call Debug("Auto-return to intended page: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(intendedPage))
             endif
         endif
 
-        call ClearPickupIntentReturn(pId)
         set p = null
     endfunction
 
@@ -1508,8 +1453,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set LastSmartPickupTarget[pId] = null
                 set LastSmartPickupTimeLeft[pId] = 0.0
                 if PickupIntentActive[pId] then
-                    // Keep already-processed pickup intent alive through follow-up movement
-                    // orders so auto-return can still finalize on gain/timeout.
+                    // After a relief page-switch the engine issues follow-up movement
+                    // orders. Don't kill the intent until the pickup actually fires.
                     if not PickupIntentProcessed[pId] then
                         call ClearPickupIntent(pId)
                     endif
@@ -2726,22 +2671,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit u
         local item it
         local integer pId
+        local integer playerNum
+        local integer currentPage
+        local integer intendedPage
         loop
             exitwhen ItemGainTimerCount <= 0
             set u = ItemGainTimerUnit[ItemGainTimerCount]
             set it = ItemGainTimerItem[ItemGainTimerCount]
             set pId = GetPlayerId(GetOwningPlayer(u))
 
-            // Normalize queued handle during auto-page return flows.
-            // If queue points to a same-type stack handle, use the intended pickup handle.
-            if PickupReturnPending[pId] and PickupReturnItem[pId] != null and it != PickupReturnItem[pId] then
-                if it != null and GetItemTypeId(it) == GetItemTypeId(PickupReturnItem[pId]) and UnitHasItem(u, PickupReturnItem[pId]) then
-                    set it = PickupReturnItem[pId]
-                endif
-            endif
+            // Check whether current page differs from the player's intended page
+            // BEFORE processing the item, so we know this was a relief-switch pickup.
+            set playerNum = GetPlayerHeroNumber(GetOwningPlayer(u))
+            set currentPage = udg_Bag_Page[playerNum]
+            set intendedPage = MPInventoryGetPlayerIntendedPage(GetOwningPlayer(u))
 
             if UnitHasItem(u, it) then
-                if PickupReturnPending[pId] then
+                if intendedPage > 0 and currentPage != intendedPage then
                     // Relief-switch flow: skip live-inventory merge so charges
                     // don't leak into the relief page.  TasItemBagAddItem has its
                     // own bag-storage merge logic.
@@ -2752,7 +2698,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                 endif
             endif
-            call FinalizePickupIntentReturn(u, it)
+            call RestorePlayerIntendedPage(u)
             set u = null
             set it = null
             set ItemGainTimerCount = ItemGainTimerCount - 1
@@ -2798,7 +2744,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if udg_dontDepositIntoBag then
-            call FinalizePickupIntentReturn(triggerUnit, queuedItem)
+            // Page-switch re-equip — not a real pickup. Do NOT restore intended page
+            // here; the page switch is still in progress.
             set udg_dontDepositIntoBag = false
             set triggerUnit = null
             set manipulated = null
@@ -2809,7 +2756,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Do not move Powerups that can be used into the bag
         if IsItemPowerup(GetManipulatedItem()) and TasItemBagUnitCanUseItems(GetTriggerUnit()) then 
-            call FinalizePickupIntentReturn(triggerUnit, queuedItem)
+            call RestorePlayerIntendedPage(triggerUnit)
             set triggerUnit = null
             set manipulated = null
             set queuedItem = null

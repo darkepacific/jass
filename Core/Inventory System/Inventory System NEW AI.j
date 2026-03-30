@@ -12,6 +12,9 @@ library MultiPageInventorySystem
     globals 
         //udg_Bag_Page has now been moved to globals for easier access across libraries
         private integer maxPages = 2
+        // The page the player last voluntarily switched to (via hotkey or button).
+        // System-initiated relief switches do NOT update this.
+        integer array PlayerIntendedPage
         
         private trigger trigInvMain = CreateTrigger() 
         private trigger trigInvLeft = CreateTrigger() 
@@ -89,6 +92,10 @@ library MultiPageInventorySystem
         return maxPages
     endfunction
 
+    function MPInventoryGetPlayerIntendedPage takes player p returns integer
+        return PlayerIntendedPage[GetPlayerId(p)]
+    endfunction
+
     function MPInventoryPageHasEmptySlot takes player p, integer page returns boolean
         local integer slot = 1
         if p == null then
@@ -155,6 +162,7 @@ library MultiPageInventorySystem
         set udg_PrevBONUSInt[playerNum] = 0
 
         set udg_Bag_Page[playerNum] = 1
+        set PlayerIntendedPage[GetPlayerId(p)] = 1
 
         call InventoryButtonsSetPageText(p,("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") )
 
@@ -339,6 +347,7 @@ library MultiPageInventorySystem
             call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 99), true) 
             call DropInventoryToP_Items(p) 
             set udg_Bag_Page[playerNum] = 1 
+            set PlayerIntendedPage[GetPlayerId(p)] = 1
             call LoadInventoryFromP_Items(p)
             set s =("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") 
             call InventoryButtonsSetPageText(p, s) 
@@ -364,6 +373,7 @@ library MultiPageInventorySystem
                 set udg_Bag_Page[playerNum] =(udg_Bag_Page[playerNum] - 1) 
             endif 
             call Debug("[LEFT] PAGE AFTER CHANGE: " + I2S(udg_Bag_Page[playerNum])) 
+            set PlayerIntendedPage[GetPlayerId(p)] = udg_Bag_Page[playerNum]
             call LoadInventoryFromP_Items(p) 
             set s =("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") 
             call InventoryButtonsSetPageText(p, s) 
@@ -389,6 +399,7 @@ library MultiPageInventorySystem
                 set udg_Bag_Page[playerNum] =(udg_Bag_Page[playerNum] + 1) 
             endif 
             call Debug("[RIGHT] PAGE AFTER CHANGE: " + I2S(udg_Bag_Page[playerNum])) 
+            set PlayerIntendedPage[GetPlayerId(p)] = udg_Bag_Page[playerNum]
             call LoadInventoryFromP_Items(p) 
             set s =("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") 
             call InventoryButtonsSetPageText(p, s) 
