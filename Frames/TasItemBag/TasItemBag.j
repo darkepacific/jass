@@ -1350,6 +1350,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
+        local effect arrow
         if hero == null then
             return false
         endif
@@ -1372,6 +1373,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set IgnoreNextWorldDropOrder[pId] = true
         call IssuePointOrder(hero, "move", x, y)
 
+        set arrow = AddSpecialEffect("UI\\Feedback\\Confirmation\\Confirmation.mdl", x, y)
+        call BlzSetSpecialEffectColor(arrow, 0, 255, 0)
+        if GetLocalPlayer() != p then
+            call BlzSetSpecialEffectAlpha(arrow, 0)
+        endif
+        call DestroyEffect(arrow)
+
+        set arrow = null
         set hero = null
         set it = null
         return true
