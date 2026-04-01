@@ -1689,6 +1689,50 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return null
     endfunction
 
+    // Find a vendor unit near a world-space click point (used when armed-select clicks on a shop).
+    // Only returns a vendor if the hero is also within SELL_RANGE of it.
+    private function FindVendorNearPoint takes player p, real x, real y returns unit
+        local group g
+        local unit u
+        local unit best = null
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
+        local real bestDist = 99999.0
+        local real dx
+        local real dy
+        local real dist
+        local real hdx
+        local real hdy
+        if hero == null then
+            return null
+        endif
+        set g = CreateGroup()
+        call GroupEnumUnitsInRange(g, x, y, 160.0, null)
+        loop
+            set u = FirstOfGroup(g)
+            exitwhen u == null
+            call GroupRemoveUnit(g, u)
+            if IsVendorUnit(u) and GetWidgetLife(u) > 0.405 and not IsPlayerEnemy(GetOwningPlayer(u), p) then
+                // Hero must be within sell range of the vendor
+                set hdx = GetUnitX(hero) - GetUnitX(u)
+                set hdy = GetUnitY(hero) - GetUnitY(u)
+                if SquareRoot(hdx*hdx + hdy*hdy) <= SELL_RANGE then
+                    set dx = GetUnitX(u) - x
+                    set dy = GetUnitY(u) - y
+                    set dist = dx*dx + dy*dy
+                    if dist < bestDist then
+                        set bestDist = dist
+                        set best = u
+                    endif
+                endif
+            endif
+        endloop
+        call DestroyGroup(g)
+        set g = null
+        set u = null
+        set hero = null
+        return best
+    endfunction
+
     private function SellBagIndexToShop takes player p, integer bagIndex, unit shop, boolean requireRange returns boolean
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
@@ -2377,6 +2421,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer bagIndex
         local item bi
         local boolean didSomething = false
+        local unit clickShop
         local string panelStr
         local integer itemCharges
         local itemtype itemType
@@ -2514,19 +2559,38 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
 
             if SwapIndex[pId] > 0 then
-                // Armed SELECT + left-click outside bag and inventory => move then drop at click point.
+                // Armed SELECT + left-click outside bag and inventory.
                 if (not PanelHover[pId]) then
-                    if StartWorldDropFromSelection(p, SwapIndex[pId], BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY()) then
-                        set SwapIndex[pId] = 0
-                        call SwapHighlightHide(pId)
-                        if GetLocalPlayer() == p then
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    // Check if the player clicked on a vendor — sell instead of drop.
+                    set clickShop = FindVendorNearPoint(p, BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY())
+                    if clickShop != null then
+                        if SellBagIndexToShop(p, SwapIndex[pId], clickShop, true) then
+                            set SwapIndex[pId] = 0
+                            call SwapHighlightHide(pId)
+                            if GetLocalPlayer() == p then
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                            endif
+                            set DragOriginType[pId] = 0
+                            set DragOriginIndex[pId] = 0
+                            set DragActive[pId] = false
+                            call FrameLoseFocus()
                         endif
-                        set DragOriginType[pId] = 0
-                        set DragOriginIndex[pId] = 0
-                        set DragActive[pId] = false
-                        call FrameLoseFocus()
+                        set clickShop = null
+                    else
+                        // No vendor — world drop at click point.
+                        if StartWorldDropFromSelection(p, SwapIndex[pId], BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY()) then
+                            set SwapIndex[pId] = 0
+                            call SwapHighlightHide(pId)
+                            if GetLocalPlayer() == p then
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                            endif
+                            set DragOriginType[pId] = 0
+                            set DragOriginIndex[pId] = 0
+                            set DragActive[pId] = false
+                            call FrameLoseFocus()
+                        endif
                     endif
                 endif
             endif
