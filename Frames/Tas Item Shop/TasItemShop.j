@@ -1,5 +1,5 @@
 library TasItemShop initializer init_function requires TasItemFusion, Power2, Table, ItemHolder, ToggleIconButtonGroup, optional FrameLoader
-    // TasItemShopV4m by Tasyen
+    // TasItemShopV4n by Tasyen
     // TasItemSetCategory(itemCode, category)
     // TasItemShopAdd(itemCode, category)
         // adds itemCode to the common Buyable Item pool and sets the category
@@ -1932,12 +1932,12 @@ library TasItemShop initializer init_function requires TasItemFusion, Power2, Ta
             set frame = BlzCreateFrame("TasButton", FrameSuperBox, 0, CREATE_CONTEXT_CURRENT)
             call CreateTasButtonTooltip(frame, FrameSuperBox, CREATE_CONTEXT_CURRENT)       
     
-            call BlzGetFrameByName("TasButtonIcon", CREATE_CONTEXT_CURRENT)
-            call BlzGetFrameByName("TasButtonText", CREATE_CONTEXT_CURRENT)
-            call BlzGetFrameByName("TasButtonIconGold", CREATE_CONTEXT_CURRENT)
-            call BlzGetFrameByName("TasButtonTextGold", CREATE_CONTEXT_CURRENT)
-            call BlzGetFrameByName("TasButtonIconLumber", CREATE_CONTEXT_CURRENT)
-            call BlzGetFrameByName("TasButtonTextLumber", CREATE_CONTEXT_CURRENT)
+            set frames[0] = BlzGetFrameByName("TasButtonIcon", CREATE_CONTEXT_CURRENT)
+            set frames[0] = BlzGetFrameByName("TasButtonText", CREATE_CONTEXT_CURRENT)
+            set frames[0] = BlzGetFrameByName("TasButtonIconGold", CREATE_CONTEXT_CURRENT)
+            set frames[0] = BlzGetFrameByName("TasButtonTextGold", CREATE_CONTEXT_CURRENT)
+            set frames[0] = BlzGetFrameByName("TasButtonIconLumber", CREATE_CONTEXT_CURRENT)
+            set frames[0] = BlzGetFrameByName("TasButtonTextLumber", CREATE_CONTEXT_CURRENT)
             
             
             call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOM, FrameSuperBox, FRAMEPOINT_BOTTOM, 0, boxFrameBorderGap)
