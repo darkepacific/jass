@@ -345,13 +345,6 @@ library GenericFunctions
     //     call DebugCritical("GetPlayerHero failed to find a hero for player " + GetPlayerName(p))
     //     return null
     // endfunction
-    
-    function B2S takes boolean bool returns string
-        if(bool)then
-            return "true"
-        endif
-        return "false"
-    endfunction
 
     function SanctuaryForces takes player p returns nothing
         local force f 

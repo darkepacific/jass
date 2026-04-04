@@ -1,5 +1,5 @@
 
-library TasItemShopLite initializer init_function requires TasButtonList, optional FrameLoader
+library TasItemShopLite initializer init_function requires TasButtonList, TasItemBag, optional FrameLoader
 /*    TasItemShopLite by Tasyen
 An custom ui to buy items from a big pool and with a search bar, selecting a shop shows the ui.
 
@@ -24,6 +24,7 @@ globals
     public real buttonListButtonGapRow = 0.005
 
     public unit array CurrentShop
+    public real BuyRange = 525.0 // max distance between hero and shop to buy
 
     public framehandle FrameBox
     public framehandle FrameParentSuper
@@ -180,19 +181,44 @@ public function BuyItem takes player p, integer itemCode returns nothing
     local integer playerIndex = GetPlayerId(p)
     local integer gold = TasItemGetCostGold(itemCode)
     local integer lumber = TasItemGetCostLumber(itemCode)
+    local unit hero = udg_Heroes[GetPlayerNumber(p)]
+    local unit shop = CurrentShop[playerIndex]
+    local item newItem
+    local real dx
+    local real dy
+
+    if hero == null or shop == null then
+        set hero = null
+        set shop = null
+        return
+    endif
+
+    // Range check: hero must be close enough to the shop
+    set dx = GetUnitX(hero) - GetUnitX(shop)
+    set dy = GetUnitY(hero) - GetUnitY(shop)
+    if SquareRoot(dx*dx + dy*dy) > BuyRange then
+        call ErrorMessage("Move closer to the shop.", p)
+        set hero = null
+        set shop = null
+        return
+    endif
 
     if GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) >= gold then
         if GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
-            call AddItemToStock(CurrentShop[playerIndex], itemCode, 1, 1)
-            call IssueNeutralImmediateOrderById(p, CurrentShop[playerIndex], itemCode)
-            call RemoveItemFromStock(CurrentShop[playerIndex], itemCode)
-            call Show(p, CurrentShop[playerIndex])
+            call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) - gold)
+            call SetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) - lumber)
+            set newItem = CreateItem(itemCode, GetUnitX(hero), GetUnitY(hero))
+            call TasItemBagAddItem(hero, newItem, true)
+            call Show(p, shop)
         elseif not GetSoundIsPlaying(SoundNoLumber[GetHandleId(GetPlayerRace(p))]) then
             call StartSoundForPlayerBJ(p, SoundNoLumber[GetHandleId(GetPlayerRace(p))])
         endif
     elseif not GetSoundIsPlaying(SoundNoGold[GetHandleId(GetPlayerRace(p))]) then
         call StartSoundForPlayerBJ(p, SoundNoGold[GetHandleId(GetPlayerRace(p))])
     endif
+    set hero = null
+    set shop = null
+    set newItem = null
 endfunction
 private function ButtonListFunction_Search takes nothing returns boolean
     //TasButtonListText
@@ -272,7 +298,16 @@ public function TriggerFuctionESC takes nothing returns nothing
     call Show(GetTriggerPlayer(), null)
 endfunction 
 public function TriggerFuctionSelect takes nothing returns nothing
-    call Show(GetTriggerPlayer(), GetTriggerUnit())
+    local player p = GetTriggerPlayer()
+    local integer pId = GetPlayerId(p)
+    // When TasItemBag has an armed swap, don't open the shop UI —
+    // TasItemBag's SelectAction handles vendor-sell in that state.
+    if TasItemBag_SwapIndex[pId] > 0 then
+        set p = null
+        return
+    endif
+    call Show(p, GetTriggerUnit())
+    set p = null
 endfunction
 function Init takes nothing returns nothing
     local integer i
