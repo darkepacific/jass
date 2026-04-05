@@ -1,27 +1,89 @@
 function InitShopUserData  takes nothing returns nothing
-// shops with the unitCode 'n000' sell this items
-    call TasItemShopAddShop5('n00N', 'pdiv','pres','pghe','pgma', 'rej4')
-    call TasItemShopAddShop5('n00N', 'pnvu','rej3','pnvl','pomn','rej2')
-    call TasItemShopAddShop5('n00N', 'rej1','pspd','dust','pinv','phea')
-    call TasItemShopAddShop5('n00N', 'pman','pgin','pclr','plcl', 0)
 
-// shops with the unitCode 'n001' sell this items
-    call TasItemShopAddShop5('n035', 'ckng','modt','tkno','ratf', 'ofro')
-    call TasItemShopAddShop5('n035', 'desc','fgdg','infs','shar', 'sand')
-    call TasItemShopAddShop5('n035', 'wild','srrc','odef','rde4', 'pmna')
-    call TasItemShopAddShop5('n035', 'rhth','ssil','spsh','sres', 'pdiv')
-    call TasItemShopAddShop5('n035', 'pres','totw','fgfh','fgrd', 'fgrg')
-    call TasItemShopAddShop5('n035', 'hcun','hval','mcou','ajen', 'clfm')
-    call TasItemShopAddShop5('n035', 'ratc','war2','kpin','lgdh', 'ankh')
-    call TasItemShopAddShop5('n035', 'belv','bgst','ciri','lhst', 'afac')
-    call TasItemShopAddShop5('n035', 'whwd','fgsk','wcyc','hlst', 'mnst')
-    call TasItemShopAddShop5('n035', 'sbch','brac','rwiz','pghe', 'pgma')
-    call TasItemShopAddShop5('n035', 'pnvu','sror','woms','crys', 'evtl')
-    call TasItemShopAddShop5('n035', 'penr','prvt','rat9','rde3', 'rlif')
-    call TasItemShopAddShop5('n035', 'bspd','rej3','will','wlsd', 'wswd')
-    call TasItemShopAddShop5('n035', 'cnob','gcel','rat6','rde2', 0)
+    // ---- Epic Vendor ('n035') ----
+    // Arcanite Reaper
+    call TasItemShopAddShop('n035', 'I086')
+    // Jin'do's Hexxer Mace
+    call TasItemShopAddShop('n035', 'I06W')
+    // Azure Crystal Hammer
+    call TasItemShopAddShop('n035', 'I06V')
+    // Seer Staff
+    call TasItemShopAddShop('n035', 'I06U')
+    // Blademail
+    call TasItemShopAddShop('n035', 'I06S')
+    // Sea Heavy Armor
+    call TasItemShopAddShop('n035', 'I06P')
+    // Spellfire Blade
+    call TasItemShopAddShop('n035', 'I0AD')
+    // Chronoboom Displacer
+    call TasItemShopAddShop('n035', 'I084')
+    // Firelord's Crown
+    call TasItemShopAddShop('n035', 'I07R')
+    // Arcane Scepter
+    call TasItemShopAddShop('n035', 'I078')
+    // Heartseeker
+    call TasItemShopAddShop('n035', 'I06X')
+    // Flamewalker's Mantle
+    call TasItemShopAddShop('n035', 'I06T')
+    // Elune's Veil
+    call TasItemShopAddShop('n035', 'I06Z')
+    // Dread Magic Cap
+    call TasItemShopAddShop('n035', 'I06Y')
+    // Death's Sting
+    call TasItemShopAddShop('n035', 'I06R')
+    // Chalice of Holy Regeneration
+    call TasItemShopAddShop('n035', 'I06M')
 
-// this unit sells other items then his normal type would
-    // call TasItemShopAddShop5Unit(udg_SpecialShop, 'ckng','tkno','rde4','tdx2', 'tin2')
-    // call TasItemShopAddShop5Unit(udg_SpecialShop, 'tpow', 0, 0 , 0, 0)
+    // ---- Human Vendor ('n00N') ----
+    // Cooked Pumpkin
+    call TasItemShopAddShop('n00N', 'I00M')
+    // Dalaran Sharp
+    call TasItemShopAddShop('n00N', 'I00X')
+    // Apple Pie
+    call TasItemShopAddShop('n00N', 'I02M')
+    // Frozen Haunch
+    call TasItemShopAddShop('n00N', 'I02N')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n00N', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n00N', 'I012')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n00N', 'I036')
+    // Kul Tiras Wine
+    call TasItemShopAddShop('n00N', 'I02I')
+    // Burning Wand
+    call TasItemShopAddShop('n00N', 'I00K')
+    // Cinder Wand
+    call TasItemShopAddShop('n00N', 'I00J')
+    // Iron Mace
+    call TasItemShopAddShop('n00N', 'I01K')
+
+    // ---- Wisp Vendor ('n022') ----
+    // Shiny Red Apple
+    call TasItemShopAddShop('n022', 'I00W')
+    // Dalaran Sharp
+    call TasItemShopAddShop('n022', 'I00X')
+    // Diseased Frog Legs
+    call TasItemShopAddShop('n022', 'I04B')
+    // Potion of Greater Healing
+    call TasItemShopAddShop('n022', 'pghe')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n022', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n022', 'I012')
+    // Sweet Nectar
+    call TasItemShopAddShop('n022', 'I04C')
+    // Potion of Mana
+    call TasItemShopAddShop('n022', 'I04E')
+    // Marksman's Bow
+    call TasItemShopAddShop('n022', 'I04G')
+    // Wand of the Twisted Root
+    call TasItemShopAddShop('n022', 'I04F')
+    // Well Spring Trinket
+    call TasItemShopAddShop('n022', 'I04D')
+    // Chalice of Holy Regeneration
+    call TasItemShopAddShop('n022', 'I06M')
+
+    // ---- Tuskarr Vendor ('n01V') ----
+
 endfunction

@@ -18,7 +18,7 @@ globals
     
     public trigger TriggerSelect
     public trigger TriggerESC
-    public integer buttonListRows = 5
+    public integer buttonListRows = 6
     public integer buttonListCols = 3
     public real buttonListButtonGapCol = 0.001
     public real buttonListButtonGapRow = 0.005
@@ -51,14 +51,6 @@ public real buttonListButtonSizeY = 0.0325
 //public string buttonListButtonName = "TasButton"
 //public real buttonListButtonSizeX = 0.2
 //public real buttonListButtonSizeY = 0.0265
-
-// Undo-buy stack per player (right-click shop item to refund)
-private constant integer UNDO_MAX = 12
-private integer array UndoCount
-private integer array UndoItemCode
-private integer array UndoGold
-private integer array UndoLumber
-private item array UndoItem
 
 endglobals
 public function ParentFunc takes nothing returns framehandle // who is the parent of this UI
@@ -113,16 +105,28 @@ public function updateItemFrame takes integer createContext, integer data return
     call BlzFrameSetText(BlzGetFrameByName("TasButtonListTooltipName", createContext), GetObjectName(data))
     call BlzFrameSetText(BlzGetFrameByName("TasButtonListTooltipText", createContext), BlzGetAbilityExtendedTooltip(data, 0))
 
-    if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_GOLD) >= gold then
-        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), I2S(gold))
+    if lumber > 0 then
+        // Honor (lumber) item — show lumber, hide gold
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconGold", createContext), false)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextGold", createContext), false)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconLumber", createContext), true)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextLumber", createContext), true)
+        if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
+            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), I2S(lumber))
+        else
+            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), "|cffff2010" + I2S(lumber))
+        endif
     else
-        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), "|cffff2010" + I2S(gold))
-    endif
-
-    if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
-        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), I2S(lumber))
-    else
-        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), "|cffff2010" + I2S(lumber))
+        // Gold item — show gold, hide lumber
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconLumber", createContext), false)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextLumber", createContext), false)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconGold", createContext), true)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextGold", createContext), true)
+        if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_GOLD) >= gold then
+            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), I2S(gold))
+        else
+            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), "|cffff2010" + I2S(gold))
+        endif
     endif
 endfunction
 public function updateItemFrameAction takes nothing returns nothing
@@ -134,29 +138,6 @@ public function updateItemFrameAction takes nothing returns nothing
        
     //call BJDebugMsg("updateItemFrameAction" + " context: " + I2S(context) + " buttonIndex: " + I2S(buttonIndex))
     call updateItemFrame(context, TasButtonListData)
-endfunction
-
-private function UndoPush takes integer pId, integer itemCode, integer gold, integer lumber, item bought returns nothing
-    local integer base = pId * UNDO_MAX
-    local integer count = UndoCount[pId]
-    if count >= UNDO_MAX then
-        return
-    endif
-    set UndoItemCode[base + count] = itemCode
-    set UndoGold[base + count] = gold
-    set UndoLumber[base + count] = lumber
-    set UndoItem[base + count] = bought
-    set UndoCount[pId] = count + 1
-endfunction
-private function UndoClear takes integer pId returns nothing
-    local integer base = pId * UNDO_MAX
-    local integer i = 0
-    loop
-        exitwhen i >= UndoCount[pId]
-        set UndoItem[base + i] = null
-        set i = i + 1
-    endloop
-    set UndoCount[pId] = 0
 endfunction
 
 public function Show takes player p, unit shop returns nothing
@@ -207,76 +188,8 @@ public function Show takes player p, unit shop returns nothing
         call UpdateTasButtonList(ButtonListIndex)
     else
         set CurrentShop[playerIndex] = null
-        call UndoClear(playerIndex)
     endif
     set oldShop = null
-endfunction
-
-private function UndoBuyItem takes nothing returns nothing
-    local player p = GetTriggerPlayer()
-    local integer pId = GetPlayerId(p)
-    local integer itemCode = TasButtonListData
-    local unit hero = udg_Heroes[GetPlayerNumber(p)]
-    local unit shop = CurrentShop[pId]
-    local integer base = pId * UNDO_MAX
-    local integer i = UndoCount[pId] - 1
-    local integer j
-    local item undoIt
-    local real dx
-    local real dy
-
-    if hero == null or shop == null then
-        set hero = null
-        set shop = null
-        set p = null
-        return
-    endif
-
-    // Range check
-    set dx = GetUnitX(hero) - GetUnitX(shop)
-    set dy = GetUnitY(hero) - GetUnitY(shop)
-    if SquareRoot(dx*dx + dy*dy) > BuyRange then
-        call ErrorMessage("Move closer to the shop.", p)
-        set hero = null
-        set shop = null
-        set p = null
-        return
-    endif
-
-    // Search stack from top for the most recent buy of this item type
-    loop
-        exitwhen i < 0
-        if UndoItemCode[base + i] == itemCode then
-            set undoIt = UndoItem[base + i]
-            if GetItemTypeId(undoIt) > 0 then
-                call TasItemBagRemoveItem(hero, undoIt, false)
-                call RemoveItem(undoIt)
-                call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + UndoGold[base + i])
-                call SetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) + UndoLumber[base + i])
-            endif
-            // Remove this entry and shift remaining entries down
-            set j = i
-            loop
-                exitwhen j >= UndoCount[pId] - 1
-                set UndoItemCode[base + j] = UndoItemCode[base + j + 1]
-                set UndoGold[base + j] = UndoGold[base + j + 1]
-                set UndoLumber[base + j] = UndoLumber[base + j + 1]
-                set UndoItem[base + j] = UndoItem[base + j + 1]
-                set j = j + 1
-            endloop
-            set UndoCount[pId] = UndoCount[pId] - 1
-            call Show(p, shop)
-            set undoIt = null
-            set hero = null
-            set shop = null
-            set p = null
-            return
-        endif
-        set i = i - 1
-    endloop
-    set hero = null
-    set shop = null
-    set p = null
 endfunction
 public function BuyItem takes player p, integer itemCode returns nothing
     local integer playerIndex = GetPlayerId(p)
@@ -310,10 +223,6 @@ public function BuyItem takes player p, integer itemCode returns nothing
             call SetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) - lumber)
             set newItem = CreateItem(itemCode, GetUnitX(hero), GetUnitY(hero))
             call TasItemBagAddItem(hero, newItem, true)
-            // Track for undo only if item wasn't fully merged (destroyed)
-            if GetItemTypeId(newItem) > 0 and not IsItemVisible(newItem) then
-                call UndoPush(playerIndex, itemCode, gold, lumber, newItem)
-            endif
             call Show(p, shop)
         elseif not GetSoundIsPlaying(SoundNoLumber[GetHandleId(GetPlayerRace(p))]) then
             call StartSoundForPlayerBJ(p, SoundNoLumber[GetHandleId(GetPlayerRace(p))])
@@ -360,7 +269,7 @@ public function InitFrames takes nothing returns nothing
     set FrameMouseListener = BlzCreateFrameByType("SLIDER", "TasItemShopUI", FrameParentList, "", 0)
         
     // ButtonList
-    set ButtonListIndex = CreateTasButtonList10(buttonListButtonName, buttonListCols, buttonListRows, FrameParentList, function ButtonListFunction_LeftClick, function UndoBuyItem, function updateItemFrameAction, function ButtonListFunction_Search, null, null, null, buttonListButtonGapCol, buttonListButtonGapRow)
+    set ButtonListIndex = CreateTasButtonList10(buttonListButtonName, buttonListCols, buttonListRows, FrameParentList, function ButtonListFunction_LeftClick, null, function updateItemFrameAction, function ButtonListFunction_Search, null, null, null, buttonListButtonGapCol, buttonListButtonGapRow)
     set frame = BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + 1)
     call BlzFrameClearAllPoints(frame)
     //call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, FrameCategoryBox, FRAMEPOINT_BOTTOMRIGHT, -0.014, 0)
