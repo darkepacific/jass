@@ -42,12 +42,12 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks
         if not isFadingOut[pid] then 
             if(udg_GameMode == "PVP") then
                 if not isInHeroSelection[pid] then
-                    set Button[(pid* 12) + 1] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffffffN|r|cffffcc00ew Character|r", 78)
+                    set Button[(pid* 12) + 1] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffffffN|r|cffffcc00ew Hero|r", 78)
                 endif
             elseif(udg_GameMode == "Normal") then
                 if not isInHeroSelection[pid] then
-                    set Button[(pid* 12) + 1] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffffffN|r|cffffcc00ew Character|r", 78)
-                    set Button[(pid * 12) + 0] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffffffS|rave Character", 83)
+                    set Button[(pid* 12) + 1] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffffffN|r|cffffcc00ew/Swap Hero|r", 78)
+                    set Button[(pid * 12) + 0] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffffffS|rave Hero", 83)
                 endif
             endif
             call DialogAddButton(Dialog[(pid * 12) + 0], "|cffff8000|cffffffffC|rlose", 67)

@@ -751,6 +751,41 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     call SetItemCharges(i, incomingCharges)
                 endif
                 set itemCode = GetItemTypeId(i)
+
+                // First: merge into hero's 6 native inventory slots
+                set slot = 0
+                loop
+                    exitwhen slot >= UnitInventorySize(u) or incomingCharges <= 0
+                    set existing = UnitItemInSlot(u, slot)
+                    if existing != null and existing != i and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                        set existingCharges = GetItemCharges(existing)
+                        if existingCharges > maxCharges then
+                            set existingCharges = maxCharges
+                            call SetItemCharges(existing, existingCharges)
+                        endif
+                        set space = maxCharges - existingCharges
+                        if space > 0 then
+                            if incomingCharges > space then
+                                set addCharges = space
+                            else
+                                set addCharges = incomingCharges
+                            endif
+                            call SetItemCharges(existing, existingCharges + addCharges)
+                            set incomingCharges = incomingCharges - addCharges
+                        endif
+                    endif
+                    set slot = slot + 1
+                endloop
+
+                // Fully merged into hero inventory -> remove incoming
+                if incomingCharges <= 0 then
+                    call RemoveItem(i)
+                    set existing = null
+                    call RequestUIUpdate()
+                    return
+                endif
+
+                // Second: merge into bag's extra slots
                 set slot = 1
                 set maxSlots = PITEMS_EXTRA_SLOTS
                 loop
