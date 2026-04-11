@@ -15,6 +15,8 @@ library MultiPageInventorySystem
         // The page the player last voluntarily switched to (via hotkey or button).
         // System-initiated relief switches do NOT update this.
         integer array PlayerIntendedPage
+        // Fires after any page change so external systems (e.g. TasItemBag) can refresh.
+        trigger PageChangedTrigger = CreateTrigger()
         
         private trigger trigInvMain = CreateTrigger() 
         private trigger trigInvLeft = CreateTrigger() 
@@ -331,6 +333,7 @@ library MultiPageInventorySystem
         call LoadInventoryFromP_Items(p)
         set s = "|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r"
         call InventoryButtonsSetPageText(p, s)
+        call TriggerExecute(PageChangedTrigger)
 
         set s = null
         set hero = null
@@ -351,6 +354,7 @@ library MultiPageInventorySystem
             call LoadInventoryFromP_Items(p)
             set s =("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") 
             call InventoryButtonsSetPageText(p, s) 
+            call TriggerExecute(PageChangedTrigger)
         endif
 
         set s = null 
@@ -377,6 +381,7 @@ library MultiPageInventorySystem
             call LoadInventoryFromP_Items(p) 
             set s =("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") 
             call InventoryButtonsSetPageText(p, s) 
+            call TriggerExecute(PageChangedTrigger)
         endif
 
         set s = null 
@@ -403,6 +408,7 @@ library MultiPageInventorySystem
             call LoadInventoryFromP_Items(p) 
             set s =("|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r") 
             call InventoryButtonsSetPageText(p, s) 
+            call TriggerExecute(PageChangedTrigger)
         endif
 
         set s = null 

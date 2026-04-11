@@ -203,6 +203,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer PITEMS_EXTRA_COLS = 6
         private constant integer PITEMS_EXTRA_ROWS = 4
         private constant integer PITEMS_EXTRA_SLOTS = PITEMS_EXTRA_COLS * PITEMS_EXTRA_ROWS
+        // Page display row: shows items from the non-visible inventory page
+        private constant integer PAGE_DISPLAY_START = PITEMS_EXTRA_SLOTS + 1
+        private constant integer PAGE_DISPLAY_COUNT = 6
     endglobals
 
     // Maps a 1-based EXTRA-bag slot to the owning player's udg_P_Items index.
@@ -221,6 +224,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local string text = ""
         local integer i
         local integer maxSlots
+        local integer currentPage
+        local integer otherPage
+        local integer arrIndex
         set UIUpdateScheduled = false
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
@@ -287,6 +293,42 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
                 set i = i + 1
             endloop
+
+            // Page display row: show items from the non-visible page
+            set currentPage = udg_Bag_Page[GetPlayerNumber(Player(pId))]
+            if currentPage == 1 then
+                set otherPage = 2
+            else
+                set otherPage = 1
+            endif
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPageLabel", 0), "|cffffcc00Page " + I2S(otherPage) + "|r")
+            set i = 1
+            loop
+                exitwhen i > PAGE_DISPLAY_COUNT
+                set arrIndex = GetPItemsIndex(Player(pId), otherPage, i)
+                set it = udg_P_Items[arrIndex]
+                if it != null then
+                    call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", PAGE_DISPLAY_START + i - 1), true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", PAGE_DISPLAY_START + i - 1), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", PAGE_DISPLAY_START + i - 1), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", PAGE_DISPLAY_START + i - 1), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", PAGE_DISPLAY_START + i - 1), GetItemName(it) + "|n" + BlzGetItemExtendedTooltip(it))
+                    if GetItemCharges(it) > 0 then
+                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", PAGE_DISPLAY_START + i - 1), I2S(GetItemCharges(it)))
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", PAGE_DISPLAY_START + i - 1), true)
+                    else
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", PAGE_DISPLAY_START + i - 1), false)
+                    endif
+                else
+                    call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", PAGE_DISPLAY_START + i - 1), false)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", PAGE_DISPLAY_START + i - 1), "", 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", PAGE_DISPLAY_START + i - 1), "", 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", PAGE_DISPLAY_START + i - 1), "", 0, true)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", PAGE_DISPLAY_START + i - 1), false)
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", PAGE_DISPLAY_START + i - 1), "")
+                endif
+                set i = i + 1
+            endloop
         endif
         set it = null
     endfunction
@@ -297,6 +339,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set UIUpdateScheduled = true
             call TimerStart(TimerUpdate, 0.00, false, function UpdateUI)
         endif
+    endfunction
+
+    // Callback for MultiPageInventorySystem page changes
+    private function PageChangedAction takes nothing returns nothing
+        call RequestUIUpdate()
     endfunction
 
     private function RestoreBagSlotOverlay takes integer pId, integer rawSlotIndex returns nothing
@@ -731,6 +778,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer space
         local integer emptySlot
         local location itemIsland
+        local integer page
 
         if i == null then
             return
@@ -778,6 +826,47 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endloop
 
                 // Fully merged into hero inventory -> remove incoming
+                if incomingCharges <= 0 then
+                    call RemoveItem(i)
+                    set existing = null
+                    call RequestUIUpdate()
+                    return
+                endif
+
+                // Merge into non-visible page inventory slots (stored in udg_P_Items)
+                set page = 1
+                loop
+                    exitwhen page > MPInventoryGetMaxPages() or incomingCharges <= 0
+                    if page != udg_Bag_Page[GetPlayerNumber(GetOwningPlayer(u))] then
+                        set slot = 1
+                        loop
+                            exitwhen slot > 6 or incomingCharges <= 0
+                            set arrIndex = GetPItemsIndex(GetOwningPlayer(u), page, slot)
+                            set existing = udg_P_Items[arrIndex]
+                            if existing != null and existing != i and GetItemTypeId(existing) == itemCode and GetItemCharges(existing) > 0 then
+                                set existingCharges = GetItemCharges(existing)
+                                if existingCharges > maxCharges then
+                                    set existingCharges = maxCharges
+                                    call SetItemCharges(existing, existingCharges)
+                                endif
+                                set space = maxCharges - existingCharges
+                                if space > 0 then
+                                    if incomingCharges > space then
+                                        set addCharges = space
+                                    else
+                                        set addCharges = incomingCharges
+                                    endif
+                                    call SetItemCharges(existing, existingCharges + addCharges)
+                                    set incomingCharges = incomingCharges - addCharges
+                                endif
+                            endif
+                            set slot = slot + 1
+                        endloop
+                    endif
+                    set page = page + 1
+                endloop
+
+                // Fully merged into non-visible page -> remove incoming
                 if incomingCharges <= 0 then
                     call RemoveItem(i)
                     set existing = null
@@ -3020,8 +3109,41 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetHandleId(frame) == 0 then
             call BJDebugMsg("Error - Creating TasItemBagSlot")
         endif
-        call BlzFrameSetSize(panel, BlzFrameGetWidth(frame) * Cols + (Cols - 1) * 0.002 + 0.02, BlzFrameGetHeight(frame) * Rows + (Rows - 1) * 0.002 + 0.012)
+        // Extra height for page-display separator + one row of page items
+        call BlzFrameSetSize(panel, BlzFrameGetWidth(frame) * Cols + (Cols - 1) * 0.002 + 0.02, BlzFrameGetHeight(frame) * Rows + (Rows - 1) * 0.002 + 0.012 + 0.020 + BlzFrameGetHeight(frame))
         call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagSlot", 1), FRAMEPOINT_TOPLEFT, panel, FRAMEPOINT_TOPLEFT, 0.006, - 0.006)
+
+        // Page display separator label
+        set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagPageLabel", panel, "", 0)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", PITEMS_EXTRA_SLOTS - Cols + 1), FRAMEPOINT_BOTTOMLEFT, 0.0, -0.006)
+        call BlzFrameSetText(frame2, "|cffffcc00Page 2|r")
+
+        // 6 display-only slots showing the non-visible page items
+        set buttonIndex = PAGE_DISPLAY_START
+        set count = 0
+        loop
+            exitwhen buttonIndex > PAGE_DISPLAY_START + PAGE_DISPLAY_COUNT - 1
+            set frame3 = BlzCreateFrame("TasItemBagSlot", panel, 0, buttonIndex)
+            call BlzGetFrameByName("TasItemBagSlotButton", buttonIndex)
+            call BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex)
+            call BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", buttonIndex)
+            call BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", buttonIndex)
+            call BlzGetFrameByName("TasItemBagSlotButtonOverLay", buttonIndex)
+            call BlzGetFrameByName("TasItemBagSlotButtonOverLayText", buttonIndex)
+            // Display-only: disable child frames but keep button enabled for tooltips/icons
+            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), false)
+            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", buttonIndex), false)
+            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", buttonIndex), false)
+            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", buttonIndex), false)
+            call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), "TasItemBagSlotButtonTooltip", buttonIndex, "")
+            set count = count + 1
+            if count == 1 then
+                call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0.0, -0.004)
+            else
+                call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", buttonIndex - 1), FRAMEPOINT_TOPRIGHT, 0.002, 0)
+            endif
+            set buttonIndex = buttonIndex + 1
+        endloop
 
         /*
         // Slider disabled (fixed bag size fits on screen).
@@ -3158,6 +3280,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
         
         call TriggerAddAction(TriggerESC, function ESCAction)
+
+        // Listen for page changes from MultiPageInventorySystem
+        call TriggerAddAction(PageChangedTrigger, function PageChangedAction)
 
         // Bind OSKEY_X to toggle the bag UI open/close
         set TriggerUIXKey = CreateTrigger()
