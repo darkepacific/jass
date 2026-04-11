@@ -58,7 +58,7 @@ public function ParentFunc takes nothing returns framehandle // who is the paren
 endfunction
 public function Pos takes framehandle frame returns nothing
     // position of the whole Shop UI
-    call BlzFrameSetAbsPoint(frame, FRAMEPOINT_TOPRIGHT, 0.82, 0.55)
+    call BlzFrameSetAbsPoint(frame, FRAMEPOINT_TOPRIGHT, 0.80, 0.55)
 endfunction
 public function TooltipPos takes framehandle tooltip, framehandle buttonFrame returns nothing
     // position of the tooltips

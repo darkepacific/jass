@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.33//0.3//0.40
+        private real PosY = 0.34//0.3//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -1015,6 +1015,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer b
         local item i
         local item i2
+        local integer codeA
+        local integer codeB
+        local integer chargesA
+        local integer chargesB
+        local integer space
+        local integer add
         if indexA <= 0 or indexB <= 0 or indexA > MAX_INTERACTIVE_SLOT or indexB > MAX_INTERACTIVE_SLOT or indexA == indexB then
             return false
         endif
@@ -1022,6 +1028,36 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set b = SlotToArrayIndex(playerKey, indexB)
         set i = udg_P_Items[a]
         set i2 = udg_P_Items[b]
+
+        // Auto-merge stacks when both items match and at least one slot is in the page row.
+        // This mirrors what the WC3 engine would do on the next page switch (Z press).
+        if i != null and i2 != null and (indexA >= PAGE_DISPLAY_START or indexB >= PAGE_DISPLAY_START) then
+            set codeA = GetItemTypeId(i)
+            set codeB = GetItemTypeId(i2)
+            if codeA == codeB and IsStackableType(i) and GetItemCharges(i) > 0 and GetItemCharges(i2) > 0 then
+                set chargesA = GetItemCharges(i)
+                set chargesB = GetItemCharges(i2)
+                if chargesA + chargesB <= DEFAULT_MAX_CHARGES then
+                    // Fully absorb: merge all into destination, remove source
+                    call SetItemCharges(i2, chargesA + chargesB)
+                    call RemoveItem(i)
+                    set udg_P_Items[a] = null
+                    set i = null
+                    set i2 = null
+                    call RequestUIUpdate()
+                    return true
+                else
+                    // Partial merge: fill destination to cap, leave remainder in source
+                    set space = DEFAULT_MAX_CHARGES - chargesB
+                    if space > 0 then
+                        call SetItemCharges(i2, DEFAULT_MAX_CHARGES)
+                        call SetItemCharges(i, chargesA - space)
+                    endif
+                    // Still do the positional swap so the topped-up stack ends where player intended
+                endif
+            endif
+        endif
+
         set udg_P_Items[a] = i2
         set udg_P_Items[b] = i
         set i = null
