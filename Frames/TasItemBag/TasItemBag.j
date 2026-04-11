@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.40//0.3//0.40
+        private real PosY = 0.33//0.3//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -263,8 +263,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set i = 1
         loop
             exitwhen i > maxSlots
-            if udg_P_Items[BagSlotArrayIndex(pId, i)] != null then
-                set itemCount = itemCount + 1
+            set arrIndex = BagSlotArrayIndex(pId, i)
+            set it = udg_P_Items[arrIndex]
+            if it != null then
+                if GetItemTypeId(it) == 0 then
+                    // Dead handle — item was destroyed externally; clean up
+                    set udg_P_Items[arrIndex] = null
+                else
+                    set itemCount = itemCount + 1
+                endif
             endif
             set i = i + 1
         endloop
@@ -280,7 +287,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set i = 1
             loop
                 exitwhen i > PITEMS_EXTRA_SLOTS
-                set it = udg_P_Items[BagSlotArrayIndex(pId, i)]
+                set arrIndex = BagSlotArrayIndex(pId, i)
+                set it = udg_P_Items[arrIndex]
+                // Detect dead handles (item destroyed externally)
+                if it != null and GetItemTypeId(it) == 0 then
+                    set udg_P_Items[arrIndex] = null
+                    set it = null
+                endif
                 call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), it != null)
                 set text = ""
                 if it != null then
@@ -326,11 +339,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 exitwhen i > PAGE_DISPLAY_COUNT
                 set arrIndex = GetPItemsIndex(Player(pId), otherPage, i)
                 set it = udg_P_Items[arrIndex]
+                // Detect dead handles (item destroyed externally)
+                if it != null and GetItemTypeId(it) == 0 then
+                    set udg_P_Items[arrIndex] = null
+                    set it = null
+                endif
                 if it != null then
                     call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", PAGE_DISPLAY_START + i - 1), true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", PAGE_DISPLAY_START + i - 1), BlzGetItemIconPath(it), 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", PAGE_DISPLAY_START + i - 1), BlzGetItemIconPath(it), 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", PAGE_DISPLAY_START + i - 1), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", PAGE_DISPLAY_START + i - 1), true)
                     call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", PAGE_DISPLAY_START + i - 1), GetItemName(it) + "|n" + BlzGetItemExtendedTooltip(it))
                     if GetItemCharges(it) > 0 then
                         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", PAGE_DISPLAY_START + i - 1), I2S(GetItemCharges(it)))
@@ -342,7 +361,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", PAGE_DISPLAY_START + i - 1), false)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", PAGE_DISPLAY_START + i - 1), "", 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", PAGE_DISPLAY_START + i - 1), "", 0, true)
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", PAGE_DISPLAY_START + i - 1), "", 0, true)
+                    // Hide the disabled backdrop instead of setting empty texture (avoids green "missing texture" fill)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", PAGE_DISPLAY_START + i - 1), false)
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", PAGE_DISPLAY_START + i - 1), false)
                     call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", PAGE_DISPLAY_START + i - 1), "")
                 endif

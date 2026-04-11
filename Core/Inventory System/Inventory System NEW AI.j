@@ -286,8 +286,12 @@ library MultiPageInventorySystem
             if newItem != null then
                 set udg_dontDepositIntoBag = true
                 call UnitAddItem(u, newItem)
-                set udg_P_Items[GetPItemsIndex(p, currentPage, slotActuallyAddedTo)] = newItem
-                set slotActuallyAddedTo = slotActuallyAddedTo + 1 
+                // Check if WC3 engine consumed the item (e.g. auto-merged stacks).
+                // A destroyed item still passes != null but GetItemTypeId returns 0.
+                if GetItemTypeId(newItem) != 0 then
+                    set udg_P_Items[GetPItemsIndex(p, currentPage, slotActuallyAddedTo)] = newItem
+                    set slotActuallyAddedTo = slotActuallyAddedTo + 1
+                endif
             endif
                         
             set i = i + 1
