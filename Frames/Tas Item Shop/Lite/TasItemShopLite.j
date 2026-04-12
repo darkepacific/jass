@@ -18,7 +18,7 @@ globals
     
     public trigger TriggerSelect
     public trigger TriggerESC
-    public integer buttonListRows = 6
+    public integer buttonListRows = 5
     public integer buttonListCols = 3
     public real buttonListButtonGapCol = 0.001
     public real buttonListButtonGapRow = 0.005
@@ -40,7 +40,7 @@ globals
 // which button is used inside the ButtonList? Enable one block and disable the other one
 // "TasButtonSmall" are larger, show item name + gold/lumber
 public string buttonListButtonName = "TasButtonSmall"
-public real buttonListButtonSizeX = 0.1
+public real buttonListButtonSizeX = 0.09 //1.0
 public real buttonListButtonSizeY = 0.0325
 
 // "TasButtonGrid" are smaller, they don't show the names in the list
@@ -273,7 +273,7 @@ public function InitFrames takes nothing returns nothing
     set frame = BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + 1)
     call BlzFrameClearAllPoints(frame)
     //call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, FrameCategoryBox, FRAMEPOINT_BOTTOMRIGHT, -0.014, 0)
-    call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_BOTTOMRIGHT, -0.0045 - (buttonListCols - 1)*(BlzFrameGetWidth(frame) +buttonListButtonGapCol), -0.015)
+    call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_BOTTOMRIGHT, -0.012 - (buttonListCols - 1)*(BlzFrameGetWidth(frame) +buttonListButtonGapCol), -0.015)
     set loopA = buttonListRows*buttonListCols
     loop
         exitwhen loopA <= 0

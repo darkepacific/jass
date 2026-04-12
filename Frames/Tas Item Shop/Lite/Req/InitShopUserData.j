@@ -58,6 +58,30 @@ function InitShopUserData  takes nothing returns nothing
     // Iron Mace
     call TasItemShopAddShop('n00N', 'I01K')
 
+    // ---- Dwarf Vendor ('n00Q') ----
+    // Shiny Red Apple
+    call TasItemShopAddShop('n00Q', 'I00W')
+    // Turkey Leg
+    call TasItemShopAddShop('n00Q', 'I00X')
+    // Freshly Baked Bread
+    call TasItemShopAddShop('n00Q', 'I02Q')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n00Q', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n00Q', 'I012')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n00Q', 'I036')
+    // Box Shield
+    call TasItemShopAddShop('n00Q', 'I00L')
+    // Fine Shortbow
+    call TasItemShopAddShop('n00Q', 'I00O')
+    // Aerie Ale
+    call TasItemShopAddShop('n00Q', 'I022')
+    // Keg of Pale Ale
+    call TasItemShopAddShop('n00Q', 'I037')
+    // Iron Mace
+    call TasItemShopAddShop('n00Q', 'I01K')
+
     // ---- Wisp Vendor ('n022') ----
     // Shiny Red Apple
     call TasItemShopAddShop('n022', 'I00W')
@@ -85,5 +109,9 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n022', 'I06M')
 
     // ---- Tuskarr Vendor ('n01V') ----
+
+    // // --- Mailbox Active ('n026') ----
+    // // Hearthstone
+    // call TasItemShopAddShop('n026', 'I02O')
 
 endfunction

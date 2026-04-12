@@ -23,6 +23,8 @@ function CleanUpItems_Enum takes nothing returns nothing
         set i = i + 1
     endloop
 
+    call TasItemBag_RequestUIUpdate()
+
     set p = null
 endfunction
 

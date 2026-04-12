@@ -190,7 +190,7 @@ Frame "EDITBOX" "TasEditBox" INHERITS WITHCHILDREN "EscMenuEditBoxTemplate" {
 }
 
 Frame "GLUETEXTBUTTON" "TasButtonSmall" INHERITS WITHCHILDREN "TasButtonTemplate" {
-    Width 0.1,
+    Width 0.09,
     Height 0.0325,
 
     Frame "BACKDROP" "TasButtonIcon" {
@@ -204,7 +204,7 @@ Frame "GLUETEXTBUTTON" "TasButtonSmall" INHERITS WITHCHILDREN "TasButtonTemplate
     Frame "TEXT" "TasButtonText" INHERITS "TasButtonSecTextTemplate" {
         UseActiveContext,
         SetPoint TOPLEFT, "TasButtonIcon", TOPRIGHT, 0.001, 0,
-        Width 0.065,
+        Width 0.055,
         Height 0.018,
         Text "Test Text",
     }
@@ -225,7 +225,7 @@ Frame "GLUETEXTBUTTON" "TasButtonSmall" INHERITS WITHCHILDREN "TasButtonTemplate
 
     Frame "TEXT" "TasButtonTextGold" INHERITS "TasButtonSecTextTemplate" {
         UseActiveContext,
-        SetPoint RIGHT, "TasButtonIconLumber", LEFT, -0.002, 0,
+            SetPoint BOTTOMRIGHT, "TasButtonSmall", BOTTOMRIGHT, -0.003, 0.003,
         Text "Test Text",
     }
     Frame "BACKDROP" "TasButtonIconGold" INHERITS "TasButtonSecIconTemplate" {

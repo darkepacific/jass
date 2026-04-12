@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.34//0.3//0.40
+        private real PosY = 0.35//0.3//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -378,6 +378,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set UIUpdateScheduled = true
             call TimerStart(TimerUpdate, 0.00, false, function UpdateUI)
         endif
+    endfunction
+
+    //Public facing one for other libraries/triggers to call
+    function TasItemBag_RequestUIUpdate takes nothing returns nothing
+        call RequestUIUpdate()
     endfunction
 
     private function RestoreBagSlotOverlay takes integer pId, integer rawSlotIndex returns nothing
@@ -1029,15 +1034,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set i = udg_P_Items[a]
         set i2 = udg_P_Items[b]
 
-        // Auto-merge stacks when both items match and at least one slot is in the page row.
-        // This mirrors what the WC3 engine would do on the next page switch (Z press).
-        if i != null and i2 != null and (indexA >= PAGE_DISPLAY_START or indexB >= PAGE_DISPLAY_START) then
+        // Auto-merge matching stacks on any swap (intuitive: same item + swap = combine).
+        if i != null and i2 != null then
             set codeA = GetItemTypeId(i)
             set codeB = GetItemTypeId(i2)
             if codeA == codeB and IsStackableType(i) and GetItemCharges(i) > 0 and GetItemCharges(i2) > 0 then
                 set chargesA = GetItemCharges(i)
                 set chargesB = GetItemCharges(i2)
-                if chargesA + chargesB <= DEFAULT_MAX_CHARGES then
+                // If either stack is already at cap, treat as a plain swap (merge would be a no-op).
+                if chargesA >= DEFAULT_MAX_CHARGES or chargesB >= DEFAULT_MAX_CHARGES then
+                    // fall through to positional swap below
+                elseif chargesA + chargesB <= DEFAULT_MAX_CHARGES then
                     // Fully absorb: merge all into destination, remove source
                     call SetItemCharges(i2, chargesA + chargesB)
                     call RemoveItem(i)
