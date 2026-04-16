@@ -111,6 +111,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public boolean array IgnoreNextSelection // Need to refactor this out
         public boolean array SuppressNextBagPopup
 
+        // Sell-mode state (toggled by shop sell button)
+        public boolean array SellMode
+        public unit array SellTargetShop
+
         // Split UI state (per-player)
         public integer array SplitRequested
         public integer array SplitAmount
@@ -2045,6 +2049,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return false
     endfunction
 
+    public function ClearSwapState takes integer pId returns nothing
+        set SwapIndex[pId] = 0
+        call SwapHighlightHide(pId)
+    endfunction
+
+    public function SellBagSlot takes player p, integer bagIndex, unit shop returns boolean
+        return SellBagIndexToShop(p, bagIndex, shop, true)
+    endfunction
+
     private function BagPopupActionSell takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
@@ -2428,6 +2441,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set bagIndex = rawIndex
         set hero = udg_Heroes[GetPlayerNumber(p)]
         if hero == null then
+            return
+        endif
+
+        // Sell-mode: left-clicking a bag slot sells the item to the shop
+        if SellMode[pId] and evt == FRAMEEVENT_CONTROL_CLICK then
+            if bagIndex <= 0 then
+                set targetIndex = ResolveBagIndexFromMouse()
+                if targetIndex > 0 then
+                    set bagIndex = targetIndex
+                endif
+            endif
+            if bagIndex > 0 and bagIndex <= MAX_INTERACTIVE_SLOT then
+                call SellBagIndexToShop(p, bagIndex, SellTargetShop[pId], false)
+                call RequestUIUpdate()
+            endif
+            set hero = null
+            set it = null
+            call FrameLoseFocus()
             return
         endif
 

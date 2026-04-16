@@ -109,9 +109,29 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n022', 'I06M')
 
     // ---- Tuskarr Vendor ('n01V') ----
+    // Tuskarr Whale Poker
+    call TasItemShopAddShop('n01V', 'I03T')
+    // Talisman of Evasion
+    call TasItemShopAddShop('n01V', 'I0AF')
+    // Freshly Baked Bread
+    call TasItemShopAddShop('n01V', 'I02Q')
+    // Potion of Restoration
+    call TasItemShopAddShop('n01V', 'pres')
+    // Glacial Salmon
+    call TasItemShopAddShop('n01V', 'I06E')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n01V', 'I036')
+    // Kul Tiras Wine
+    call TasItemShopAddShop('n01V', 'I02I')
+    // Aerie Ale
+    call TasItemShopAddShop('n01V', 'I022')
+    // Potion of Greater Mana
+    call TasItemShopAddShop('n01V', 'pgma')
+    // Epicurean Delight
+    call TasItemShopAddShop('n01V', 'I06I')
 
-    // // --- Mailbox Active ('n026') ----
-    // // Hearthstone
-    // call TasItemShopAddShop('n026', 'I02O')
+    // --- Mailbox Active ('n026') ----
+    // Hearthstone
+    call TasItemShopAddShop('n026', 'I02O')
 
 endfunction

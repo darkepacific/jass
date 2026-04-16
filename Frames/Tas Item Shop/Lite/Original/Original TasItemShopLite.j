@@ -1,5 +1,5 @@
 
-library TasItemShopLite initializer init_function requires TasButtonList, TasItemBag, optional FrameLoader
+library TasItemShopLite initializer init_function requires TasButtonList, optional FrameLoader
 /*    TasItemShopLite by Tasyen
 An custom ui to buy items from a big pool and with a search bar, selecting a shop shows the ui.
 
@@ -24,7 +24,6 @@ globals
     public real buttonListButtonGapRow = 0.005
 
     public unit array CurrentShop
-    public real BuyRange = 525.0 // max distance between hero and shop to buy
 
     public framehandle FrameBox
     public framehandle FrameParentSuper
@@ -32,20 +31,20 @@ globals
     public framehandle FrameMouseListener  
     public framehandle FrameParentList
     
+    
     public integer ButtonListIndex // this is the index of the used TasButtonList.
 
     public hashtable Items = null // what can be bought [unit] = {itemCode1, ItemCode2, ...} > [unitCode] = {itemCode1, ItemCode2, ...}
 
 // which button is used inside the ButtonList? Enable one block and disable the other one
-// "TasButtonSmall" are larger, show item name + gold/lumber
-public string buttonListButtonName = "TasButtonSmall"
-public real buttonListButtonSizeX = 0.09 //1.0
-public real buttonListButtonSizeY = 0.0325
+//public string buttonListButtonName = "TasButtonSmall"
+//public real buttonListButtonSizeX = 0.1
+//public real buttonListButtonSizeY = 0.0325
 
 // "TasButtonGrid" are smaller, they don't show the names in the list
-//public string buttonListButtonName = "TasButtonGrid"
-//public real buttonListButtonSizeX = 0.064
-//public real buttonListButtonSizeY = 0.0265
+public string buttonListButtonName = "TasButtonGrid"
+public real buttonListButtonSizeX = 0.064
+public real buttonListButtonSizeY = 0.0265
 
 //public string buttonListButtonName = "TasButton"
 //public real buttonListButtonSizeX = 0.2
@@ -57,7 +56,7 @@ public function ParentFunc takes nothing returns framehandle // who is the paren
 endfunction
 public function Pos takes framehandle frame returns nothing
     // position of the whole Shop UI
-    call BlzFrameSetAbsPoint(frame, FRAMEPOINT_TOPRIGHT, 0.80, 0.55)
+    call BlzFrameSetAbsPoint(frame, FRAMEPOINT_TOPRIGHT, 0.79, 0.55)
 endfunction
 public function TooltipPos takes framehandle tooltip, framehandle buttonFrame returns nothing
     // position of the tooltips
@@ -104,28 +103,16 @@ public function updateItemFrame takes integer createContext, integer data return
     call BlzFrameSetText(BlzGetFrameByName("TasButtonListTooltipName", createContext), GetObjectName(data))
     call BlzFrameSetText(BlzGetFrameByName("TasButtonListTooltipText", createContext), BlzGetAbilityExtendedTooltip(data, 0))
 
-    if lumber > 0 then
-        // Honor (lumber) item — show lumber, hide gold
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconGold", createContext), false)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextGold", createContext), false)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconLumber", createContext), true)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextLumber", createContext), true)
-        if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
-            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), I2S(lumber))
-        else
-            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), "|cffff2010" + I2S(lumber))
-        endif
+    if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_GOLD) >= gold then
+        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), I2S(gold))
     else
-        // Gold item — show gold, hide lumber
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconLumber", createContext), false)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextLumber", createContext), false)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonIconGold", createContext), true)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasButtonTextGold", createContext), true)
-        if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_GOLD) >= gold then
-            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), I2S(gold))
-        else
-            call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), "|cffff2010" + I2S(gold))
-        endif
+        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextGold", createContext), "|cffff2010" + I2S(gold))
+    endif
+
+    if GetPlayerState(GetLocalPlayer(), PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
+        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), I2S(lumber))
+    else
+        call BlzFrameSetText(BlzGetFrameByName("TasButtonTextLumber", createContext), "|cffff2010" + I2S(lumber))
     endif
 endfunction
 public function updateItemFrameAction takes nothing returns nothing
@@ -138,7 +125,6 @@ public function updateItemFrameAction takes nothing returns nothing
     //call BJDebugMsg("updateItemFrameAction" + " context: " + I2S(context) + " buttonIndex: " + I2S(buttonIndex))
     call updateItemFrame(context, TasButtonListData)
 endfunction
-
 public function Show takes player p, unit shop returns nothing
     local integer playerIndex = GetPlayerId(p)
     local integer shopHandle = GetHandleId(shop)
@@ -194,51 +180,19 @@ public function BuyItem takes player p, integer itemCode returns nothing
     local integer playerIndex = GetPlayerId(p)
     local integer gold = TasItemGetCostGold(itemCode)
     local integer lumber = TasItemGetCostLumber(itemCode)
-    local unit hero = udg_Heroes[GetPlayerNumber(p)]
-    local unit shop = CurrentShop[playerIndex]
-    local item newItem
-    local real dx
-    local real dy
-
-    if hero == null or shop == null then
-        set hero = null
-        set shop = null
-        return
-    endif
-
-    // Range check: hero must be close enough to the shop
-    set dx = GetUnitX(hero) - GetUnitX(shop)
-    set dy = GetUnitY(hero) - GetUnitY(shop)
-    if SquareRoot(dx*dx + dy*dy) > BuyRange then
-        call ErrorMessage("Move closer to the shop.", p)
-        set hero = null
-        set shop = null
-        return
-    endif
 
     if GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) >= gold then
         if GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
-            set newItem = CreateItem(itemCode, GetUnitX(hero), GetUnitY(hero))
-            if GetItemType(newItem) == ITEM_TYPE_POWERUP then
-                // Route through native shop sale so EVENT_PLAYER_UNIT_SELL_ITEM fires
-                call RemoveItem(newItem)
-                call AddItemToStock(shop, itemCode, 1, 1)
-                call IssueNeutralImmediateOrderById(p, shop, itemCode)
-            else
-                call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) - gold)
-                call SetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) - lumber)
-                call TasItemBagAddItem(hero, newItem, true)
-            endif
-            call Show(p, shop)
+            call AddItemToStock(CurrentShop[playerIndex], itemCode, 1, 1)
+            call IssueNeutralImmediateOrderById(p, CurrentShop[playerIndex], itemCode)
+            call RemoveItemFromStock(CurrentShop[playerIndex], itemCode)
+            call Show(p, CurrentShop[playerIndex])
         elseif not GetSoundIsPlaying(SoundNoLumber[GetHandleId(GetPlayerRace(p))]) then
             call StartSoundForPlayerBJ(p, SoundNoLumber[GetHandleId(GetPlayerRace(p))])
         endif
     elseif not GetSoundIsPlaying(SoundNoGold[GetHandleId(GetPlayerRace(p))]) then
         call StartSoundForPlayerBJ(p, SoundNoGold[GetHandleId(GetPlayerRace(p))])
     endif
-    set hero = null
-    set shop = null
-    set newItem = null
 endfunction
 private function ButtonListFunction_Search takes nothing returns boolean
     //TasButtonListText
@@ -279,7 +233,7 @@ public function InitFrames takes nothing returns nothing
     set frame = BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + 1)
     call BlzFrameClearAllPoints(frame)
     //call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, FrameCategoryBox, FRAMEPOINT_BOTTOMRIGHT, -0.014, 0)
-    call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_BOTTOMRIGHT, -0.012 - (buttonListCols - 1)*(BlzFrameGetWidth(frame) +buttonListButtonGapCol), -0.015)
+    call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_BOTTOMRIGHT, -0.0045 - (buttonListCols - 1)*(BlzFrameGetWidth(frame) +buttonListButtonGapCol), -0.015)
     set loopA = buttonListRows*buttonListCols
     loop
         exitwhen loopA <= 0
@@ -301,10 +255,6 @@ public function InitFrames takes nothing returns nothing
     //call BlzFrameSetAllPoints(FrameMouseListener, this.ButtonList.TotalFrame)
     //call TasSliderAction(FrameMouseListener, nil, cols, this.ButtonList.Slider)
 
-    // Nudge search box left so it sits inside the button grid area
-    call BlzFrameClearAllPoints(TasButtonListInputFrame[ButtonListIndex])
-    call BlzFrameSetPoint(TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, FrameParentList, FRAMEPOINT_TOPRIGHT, -0.003, 0)
-
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, 0.003, 0.003)
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_BOTTOMLEFT, BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + buttonListRows*buttonListCols - (buttonListCols - 1)), FRAMEPOINT_BOTTOMLEFT, -0.003, -0.003)
     call BlzFrameSetVisible(FrameParentSuper, false)
@@ -318,22 +268,11 @@ public function CreateTriggerEx takes code action returns trigger
     call TriggerAddAction(t, action)
     return t
 endfunction
-
 public function TriggerFuctionESC takes nothing returns nothing
     call Show(GetTriggerPlayer(), null)
 endfunction 
-
 public function TriggerFuctionSelect takes nothing returns nothing
-    local player p = GetTriggerPlayer()
-    local integer pId = GetPlayerId(p)
-    // When TasItemBag has an armed swap, don't open the shop UI —
-    // TasItemBag's SelectAction handles vendor-sell in that state.
-    if TasItemBag_SwapIndex[pId] > 0 then
-        set p = null
-        return
-    endif
-    call Show(p, GetTriggerUnit())
-    set p = null
+    call Show(GetTriggerPlayer(), GetTriggerUnit())
 endfunction
 function Init takes nothing returns nothing
     local integer i
@@ -342,7 +281,6 @@ function Init takes nothing returns nothing
         call DestroyTimer(GetExpiredTimer())
     endif    
     call InitFrames()
-
     //this.SoundConfig()
     static if LIBRARY_FrameLoader then
         call FrameLoaderAdd(function InitFrames)
@@ -358,9 +296,7 @@ function Init takes nothing returns nothing
         call TriggerRegisterPlayerEventEndCinematic(TriggerESC, Player(i))
         set i = i - 1
     endloop
-
 endfunction
-
 public function init_function takes nothing returns nothing    
     set Items = InitHashtable()
     if AutoRun then
