@@ -132,6 +132,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer POPUP_FRAME_LEVEL = 1000
         private constant integer SPLIT_FRAME_LEVEL = 1001
         private constant real SELL_RANGE = 525.0
+        private constant real DETECT_VENDOR_RANGE = 120.0
         private constant integer SELL_GOLD_PER_LEVEL = 25
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -1913,7 +1914,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     // Find a vendor unit near a world-space click point (used when armed-select clicks on a shop).
-    // Find the nearest vendor within 160 of the click point (no hero range check).
+    // Find the nearest vendor within DETECT_VENDOR_RANGE of the click point (no hero range check).
     private function FindVendorNearClick takes player p, real x, real y returns unit
         local group g
         local unit u
@@ -1923,7 +1924,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local real dy
         local real dist
         set g = CreateGroup()
-        call GroupEnumUnitsInRange(g, x, y, 160.0, null)
+        call GroupEnumUnitsInRange(g, x, y, DETECT_VENDOR_RANGE, null)
         loop
             set u = FirstOfGroup(g)
             exitwhen u == null
