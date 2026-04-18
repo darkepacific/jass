@@ -2721,11 +2721,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
             // Right-click: A) deposit when over inventory, B) quick SELECT-arm when over bag
-            if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
-                call DepositInventorySlot(p, invIndex)
-                set didSomething = true
-            elseif PanelHover[pId] then
+            // [DISABLED] Right-click deposit competes with native WC3 right-click.
+            // Uncomment to re-enable inventory right-click deposit:
+            // if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
+            //     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
+            //     call DepositInventorySlot(p, invIndex)
+            //     set didSomething = true
+            // else
+            if PanelHover[pId] then
                 set rawIdx = ResolveBagIndexFromMouse()
                 if rawIdx <= 0 and targetIndex > 0 then
                     set bagIndex = targetIndex
