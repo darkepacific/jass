@@ -1764,6 +1764,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // If the target slot is the first open one, preserve the original item handle path.
         if firstOpen == invSlot then
+            // Ensure ItemBag2Equip knows the correct source slot (page display slots included).
+            set TransferIndex[pId] = bagSlot
             call ItemBag2Equip(p, bagItem)
 
             // If equip failed, put removed inventory item back and abort.
