@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.4//0.35//0.3//0.40
+        private real PosY = 0.38//0.35//0.3//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -1035,6 +1035,69 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return udg_P_Items[SlotToArrayIndex(playerKey, index)]
     endfunction
     
+    // Returns the active page's display start index (25 for page 1, 31 for page 2), or 0 if invalid.
+    private function GetActivePageDisplayStart takes integer playerKey returns integer
+        local integer currentPage = udg_Bag_Page[GetPlayerNumber(Player(playerKey))]
+        if currentPage == 1 then
+            return PAGE1_DISPLAY_START
+        elseif currentPage == 2 then
+            return PAGE2_DISPLAY_START
+        endif
+        return 0
+    endfunction
+
+    // Returns true if slotIndex is a page display slot on the currently-equipped page.
+    private function IsActivePageSlot takes integer playerKey, integer slotIndex returns boolean
+        local integer start = GetActivePageDisplayStart(playerKey)
+        return start > 0 and slotIndex >= start and slotIndex < start + 6
+    endfunction
+
+    // Converts a page display slot index to a 0-based hero inventory slot.
+    private function PageSlotToInvSlot takes integer slotIndex returns integer
+        if slotIndex >= PAGE2_DISPLAY_START then
+            return slotIndex - PAGE2_DISPLAY_START
+        endif
+        return slotIndex - PAGE1_DISPLAY_START
+    endfunction
+
+    // Unequip an item from the hero's inventory slot: remove, move to island, mark stored.
+    private function UnequipFromHero takes unit hero, integer invSlot returns nothing
+        local item removed
+        local location itemIsland
+        call DisableTrigger(gg_trg_Lose_Item)
+        set removed = UnitRemoveItemFromSlot(hero, invSlot)
+        if removed != null then
+            set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
+            call SetItemPositionLoc(removed, itemIsland)
+            call SetItemUserData(removed, 1)
+            call SetItemVisible(removed, false)
+            call RemoveLocation(itemIsland)
+            set itemIsland = null
+        endif
+        call EnableTrigger(gg_trg_Lose_Item)
+        set removed = null
+    endfunction
+
+    // Equip an item into a specific hero inventory slot. Creates a new WC3 item
+    // instance, updates udg_P_Items[arrIndex] to the new handle, and destroys the old.
+    private function EquipToHeroSlot takes unit hero, item it, integer invSlot, integer arrIndex returns nothing
+        local integer typeId = GetItemTypeId(it)
+        local integer charges = GetItemCharges(it)
+        local item newItem
+        set udg_dontDepositIntoBag = true
+        if UnitAddItemToSlotById(hero, typeId, invSlot) then
+            set newItem = UnitItemInSlot(hero, invSlot)
+            if newItem != null and charges > 0 then
+                call SetItemCharges(newItem, charges)
+            endif
+            // Update P_Items to reference the new WC3 handle
+            set udg_P_Items[arrIndex] = newItem
+            // Destroy the old island-parked item
+            call RemoveItem(it)
+            set newItem = null
+        endif
+    endfunction
+
     function TasItemBagSwap takes unit u, integer indexA, integer indexB returns boolean
         local integer playerKey = GetPlayerId(GetOwningPlayer(u))
         local integer a
@@ -1047,6 +1110,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer chargesB
         local integer space
         local integer add
+        local boolean aIsActive
+        local boolean bIsActive
+        local unit hero
         if indexA <= 0 or indexB <= 0 or indexA > MAX_INTERACTIVE_SLOT or indexB > MAX_INTERACTIVE_SLOT or indexA == indexB then
             return false
         endif
@@ -1054,6 +1120,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set b = SlotToArrayIndex(playerKey, indexB)
         set i = udg_P_Items[a]
         set i2 = udg_P_Items[b]
+        set aIsActive = IsActivePageSlot(playerKey, indexA)
+        set bIsActive = IsActivePageSlot(playerKey, indexB)
 
         // Auto-merge matching stacks on any swap (intuitive: same item + swap = combine).
         if i != null and i2 != null then
@@ -1068,8 +1136,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 elseif chargesA + chargesB <= DEFAULT_MAX_CHARGES then
                     // Fully absorb: merge all into destination, remove source
                     call SetItemCharges(i2, chargesA + chargesB)
+                    // If source was on active page, unequip it first
+                    if aIsActive then
+                        call UnequipFromHero(u, PageSlotToInvSlot(indexA))
+                    endif
                     call RemoveItem(i)
                     set udg_P_Items[a] = null
+                    // If destination is on active page, sync the equipped item's charges
+                    if bIsActive then
+                        set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
+                        if hero != null then
+                            call SetItemCharges(UnitItemInSlot(hero, PageSlotToInvSlot(indexB)), chargesA + chargesB)
+                        endif
+                        set hero = null
+                    endif
                     set i = null
                     set i2 = null
                     call RequestUIUpdate()
@@ -1081,6 +1161,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call SetItemCharges(i2, DEFAULT_MAX_CHARGES)
                         call SetItemCharges(i, chargesA - space)
                     endif
+                    // If either side is on active page, sync hero inventory charges
+                    if aIsActive then
+                        set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
+                        if hero != null then
+                            call SetItemCharges(UnitItemInSlot(hero, PageSlotToInvSlot(indexA)), GetItemCharges(i))
+                        endif
+                        set hero = null
+                    endif
+                    if bIsActive then
+                        set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
+                        if hero != null then
+                            call SetItemCharges(UnitItemInSlot(hero, PageSlotToInvSlot(indexB)), GetItemCharges(i2))
+                        endif
+                        set hero = null
+                    endif
                     // Still do the positional swap so the topped-up stack ends where player intended
                 endif
             endif
@@ -1088,6 +1183,44 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set udg_P_Items[a] = i2
         set udg_P_Items[b] = i
+
+        // Sync hero inventory when items move in/out of the active page
+        if aIsActive or bIsActive then
+            set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
+            if hero != null then
+                // Unequip items leaving the active page first
+                if aIsActive and not bIsActive then
+                    // i was in A (active) → now in B (non-active): unequip from A's inv slot
+                    if i != null then
+                        call UnequipFromHero(hero, PageSlotToInvSlot(indexA))
+                    endif
+                elseif bIsActive and not aIsActive then
+                    // i2 was in B (active) → now in A (non-active): unequip from B's inv slot
+                    if i2 != null then
+                        call UnequipFromHero(hero, PageSlotToInvSlot(indexB))
+                    endif
+                elseif aIsActive and bIsActive then
+                    // Both on active page: unequip both first, then re-equip both swapped
+                    if i != null then
+                        call UnequipFromHero(hero, PageSlotToInvSlot(indexA))
+                    endif
+                    if i2 != null then
+                        call UnequipFromHero(hero, PageSlotToInvSlot(indexB))
+                    endif
+                endif
+                // Equip items entering the active page
+                if bIsActive and i != null then
+                    // i moved to B (active page) → equip at B's inv slot
+                    call EquipToHeroSlot(hero, i, PageSlotToInvSlot(indexB), b)
+                endif
+                if aIsActive and i2 != null then
+                    // i2 moved to A (active page) → equip at A's inv slot
+                    call EquipToHeroSlot(hero, i2, PageSlotToInvSlot(indexA), a)
+                endif
+            endif
+            set hero = null
+        endif
+
         set i = null
         set i2 = null
         call RequestUIUpdate()
@@ -1106,6 +1239,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set i = udg_P_Items[arrIndex]
         if i == null then
             return false
+        endif
+        // If removing from active page, unequip from hero first
+        if IsActivePageSlot(playerKey, index) then
+            call UnequipFromHero(u, PageSlotToInvSlot(index))
         endif
         set udg_P_Items[arrIndex] = null
         call RequestUIUpdate()
@@ -3311,10 +3448,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Page number indicators to the right of each row
         set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagPage1Indicator", panel, "", 0)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_LEFT, BlzGetFrameByName("TasItemBagSlot", PAGE1_DISPLAY_START + 5), FRAMEPOINT_RIGHT, 0.004, 0)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_LEFT, BlzGetFrameByName("TasItemBagSlot", PAGE1_DISPLAY_START + 5), FRAMEPOINT_RIGHT, 0.001, 0)
         call BlzFrameSetText(frame2, "|cffffcc001|r")
         set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagPage2Indicator", panel, "", 0)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_LEFT, BlzGetFrameByName("TasItemBagSlot", PAGE2_DISPLAY_START + 5), FRAMEPOINT_RIGHT, 0.004, 0)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_LEFT, BlzGetFrameByName("TasItemBagSlot", PAGE2_DISPLAY_START + 5), FRAMEPOINT_RIGHT, 0.001, 0)
         call BlzFrameSetText(frame2, "|cffffcc002|r")
 
         /*
