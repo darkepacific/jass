@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost
     /*  TasItemBag 1.3
     by Tasyen, expanded by Darke Pacific
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.38//0.35//0.3//0.40
+        private real PosY = 0.375//0.35//0.3//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -64,7 +64,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private abilityintegerlevelfield AbilityFieldDrop
         private abilityintegerlevelfield AbilityFieldUse
         private abilityintegerlevelfield AbilityFieldCanDrop
-        private itemintegerfield ItemFieldGoldCost
         public timer TimerUpdate
 
         // Debounced UI updates (avoid constant polling).
@@ -133,7 +132,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer SPLIT_FRAME_LEVEL = 1001
         private constant real SELL_RANGE = 525.0
         private constant real DETECT_VENDOR_RANGE = 120.0
-        private constant integer SELL_GOLD_PER_LEVEL = 25
+        private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
 
@@ -249,6 +248,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer otherPage
         local integer arrIndex
         set UIUpdateScheduled = false
+        // Clear stale suppress flag from a completed swap. When swapping to an empty
+        // (disabled) slot, CONTROL_CLICK never fires so the flag isn't consumed within
+        // the same click. Clearing here (next-frame timer) prevents it eating the next click.
+        set SuppressNextBagPopup[pId] = false
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
             set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
@@ -568,7 +571,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'u02X' // Alliance Flight Path (Gilneas)
         set VendorUnitCount = VendorUnitCount + 1
-        set VendorUnitId[VendorUnitCount] = 'u030' // Alliance Flight Path (Greenwarden's Grove)
+        set VendorUnitId[VendorUnitCount] = 'u03O' // Alliance Flight Path (Greenwarden's Grove)
         set VendorUnitCount = VendorUnitCount + 1
         set VendorUnitId[VendorUnitCount] = 'u03R' // Alliance Flight Path (Highbank)
         set VendorUnitCount = VendorUnitCount + 1
@@ -2113,11 +2116,40 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return SquareRoot(dx*dx + dy*dy) <= SELL_RANGE
     endfunction
 
+    // Prime item cost cache from the save-item list once.
+    // Uses a trailing-empty cutoff to avoid scanning unbounded array tails.
+    private function PrimeSellValueCache takes nothing returns nothing
+        local integer i = 1
+        local integer emptyRun = 0
+        local integer itemCode
+        local integer found = 0
+        if SellValueCacheReady then
+            return
+        endif
+        loop
+            exitwhen i > 2000 or emptyRun >= 200
+            set itemCode = udg_SaveItemType[i]
+            if itemCode > 0 then
+                call TasItemCaclCost(itemCode)
+                set found = found + 1
+                set emptyRun = 0
+            else
+                set emptyRun = emptyRun + 1
+            endif
+            set i = i + 1
+        endloop
+        if found > 0 then
+            set SellValueCacheReady = true
+        endif
+    endfunction
+
     private function SellBagIndexToShop takes player p, integer bagIndex, unit shop, boolean requireRange returns boolean
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
         local texttag gainTag
         local integer goldGain
+        local integer itemType
+        local integer stackCount
         local real dx
         local real dy
         local location heroLoc
@@ -2163,15 +2195,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
 
-        set goldGain = R2I(I2R(BlzGetItemIntegerField(it, ItemFieldGoldCost)) * 0.50)
-        if goldGain < 1 then
-            set goldGain = GetItemLevel(it) * SELL_GOLD_PER_LEVEL
-        endif
-        if goldGain < 1 then
-            set goldGain = 1
-        endif
-        if IsStackableType(it) and GetItemCharges(it) > 0 then
-            set goldGain = goldGain * GetItemCharges(it)
+        call PrimeSellValueCache()
+        set itemType = GetItemTypeId(it)
+        set goldGain = TasItemGetCostGold(itemType) / 2
+        if IsStackableType(it) then
+            set stackCount = GetItemCharges(it)
+            if stackCount > 0 then
+                set goldGain = goldGain * stackCount
+            endif
         endif
 
         if TasItemBagRemoveIndex(hero, bagIndex, false) then
@@ -3126,16 +3157,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         // Open banking UI when a Bank unit is selected
-        if IsBankUnit(selected) then
-            if GetLocalPlayer() == p then
-                // Update once before showing to avoid a one-frame flash of stale/null slot data
-                call UpdateUI()
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
-                // Auto-reselect the hero so their inventory is visible while banking
-                set IgnoreNextSelection[pId] = true
-                call SelectUnitForPlayerSingle(udg_Heroes[GetPlayerNumber(p)], p)
-            endif
-        endif
+        // Banks have been temporarily disabled due to low demand, but this is how it would begin to work when enabled:
+        // if IsBankUnit(selected) then
+        //     if GetLocalPlayer() == p then
+        //         // Update once before showing to avoid a one-frame flash of stale/null slot data
+        //         call UpdateUI()
+        //         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
+        //         // Auto-reselect the hero so their inventory is visible while banking
+        //         set IgnoreNextSelection[pId] = true
+        //         call SelectUnitForPlayerSingle(udg_Heroes[GetPlayerNumber(p)], p)
+        //     endif
+        // endif
         set selected = null
         set hero = null
         set p = null
@@ -3570,7 +3602,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set AbilityFieldDrop = ConvertAbilityIntegerLevelField('inv2')
         set AbilityFieldUse = ConvertAbilityIntegerLevelField('inv3')
         set AbilityFieldCanDrop = ConvertAbilityIntegerLevelField('inv5')
-        set ItemFieldGoldCost = ConvertItemIntegerField('igol')
         call InitVendorUnits()
         
         // set ItemAbilityNeed = Table.create()

@@ -303,7 +303,7 @@ public function InitFrames takes nothing returns nothing
 
     // Nudge search bar a tiny bit left
     call BlzFrameClearAllPoints(TasButtonListInputFrame[ButtonListIndex])
-    call BlzFrameSetPoint(TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, FrameParentList, FRAMEPOINT_TOPRIGHT, -0.002, 0)
+    call BlzFrameSetPoint(TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, FrameParentList, FRAMEPOINT_TOPRIGHT, -0.003, 0)
 
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, 0.001, 0.003)
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_BOTTOMLEFT, BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + buttonListRows*buttonListCols - (buttonListCols - 1)), FRAMEPOINT_BOTTOMLEFT, -0.003, -0.003)

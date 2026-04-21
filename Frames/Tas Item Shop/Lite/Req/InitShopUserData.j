@@ -57,6 +57,12 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n00N', 'I00J')
     // Iron Mace
     call TasItemShopAddShop('n00N', 'I01K')
+    // Shield of Protection
+    call TasItemShopAddShop('n00N', 'I054')
+    // The Punisher
+    call TasItemShopAddShop('n00N', 'I052')
+    // Heavy Mace
+    call TasItemShopAddShop('n00N', 'I05E')
 
     // ---- Dwarf Vendor ('n00Q') ----
     // Shiny Red Apple
@@ -81,6 +87,128 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n00Q', 'I037')
     // Iron Mace
     call TasItemShopAddShop('n00Q', 'I01K')
+
+    // ---- Undead Vendor ('n00D') ----
+    // Cooked Pumpkin
+    call TasItemShopAddShop('n00D', 'I00M')
+    // Turkey Leg
+    call TasItemShopAddShop('n00D', 'I017')
+    // Diseased Frog Legs
+    call TasItemShopAddShop('n00D', 'I04B')
+    // Frozen Haunch
+    call TasItemShopAddShop('n00D', 'I02N')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n00D', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n00D', 'I012')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n00D', 'I036')
+    // Kul Tiras Wine
+    call TasItemShopAddShop('n00D', 'I02I')
+    // Iron Mace
+    call TasItemShopAddShop('n00D', 'I01K')
+    // Burning Wand
+    call TasItemShopAddShop('n00D', 'I00K')
+    // Deathguard Buckler
+    call TasItemShopAddShop('n00D', 'I04L')
+    // Shield of Protection
+    call TasItemShopAddShop('n00D', 'I054')
+    // The Punisher
+    call TasItemShopAddShop('n00D', 'I052')
+    // Heavy Mace
+    call TasItemShopAddShop('n00D', 'I05E')
+
+    // ---- Blood Elf Vendor ('n010') ----
+    // Shiny Red Apple
+    call TasItemShopAddShop('n010', 'I00W')
+    // Dalaran Sharp
+    call TasItemShopAddShop('n010', 'I00X')
+    // Freshly Baked Bread
+    call TasItemShopAddShop('n010', 'I02Q')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n010', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n010', 'I012')
+    // Sweet Nectar
+    call TasItemShopAddShop('n010', 'I04C')
+    // Spellbook of the Sin'dorei
+    call TasItemShopAddShop('n010', 'I03J')
+    // Heavy Recurve Bow
+    call TasItemShopAddShop('n010', 'I01W')
+    // Box Shield
+    call TasItemShopAddShop('n010', 'I00L')
+    // Spellbreaker's Gauntlets
+    call TasItemShopAddShop('n010', 'I040')
+
+    // ---- Orc Vendor ('n012') ----
+    // Slimy Seaweed
+    call TasItemShopAddShop('n012', 'I01M')
+    // Turkey Leg
+    call TasItemShopAddShop('n012', 'I017')
+    // Freshly Baked Bread
+    call TasItemShopAddShop('n012', 'I02Q')
+    // Tel'Abim Banana
+    call TasItemShopAddShop('n012', 'I03Y')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n012', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n012', 'I012')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n012', 'I036')
+    // Kul Tiras Wine
+    call TasItemShopAddShop('n012', 'I02I')
+    // Aerie Ale
+    call TasItemShopAddShop('n012', 'I022')
+    // Keg of Pale Ale
+    call TasItemShopAddShop('n012', 'I037')
+    // Bandit's Boots
+    call TasItemShopAddShop('n012', 'I008')
+
+    // ---- Worgen Vendor ('n00E') ----
+    // Cooked Pumpkin
+    call TasItemShopAddShop('n00E', 'I00M')
+    // Dalaran Sharp
+    call TasItemShopAddShop('n00E', 'I00X')
+    // Apple Pie
+    call TasItemShopAddShop('n00E', 'I02M')
+    // Frozen Haunch
+    call TasItemShopAddShop('n00E', 'I02N')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('n00E', 'I00R')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n00E', 'I012')
+    // Kul Tiras Wine
+    call TasItemShopAddShop('n00E', 'I02I')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n00E', 'I036')
+    // Aerie Ale
+    call TasItemShopAddShop('n00E', 'I022')
+    // Keg of Pale Ale
+    call TasItemShopAddShop('n00E', 'I037')
+
+    // ---- Argent Vendor ('n00O') ----
+    // Dalaran Sharp
+    call TasItemShopAddShop('n00O', 'I00X')
+    // Apple Pie
+    call TasItemShopAddShop('n00O', 'I02M')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n00O', 'I012')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n00O', 'I036')
+    // Aerie Ale
+    call TasItemShopAddShop('n00O', 'I022')
+    // Keg of Pale Ale
+    call TasItemShopAddShop('n00O', 'I037')
+    // Potion of Restoration
+    call TasItemShopAddShop('n00O', 'pres')
+    // Potion of Mana
+    call TasItemShopAddShop('n00O', 'I04E')
+    // Argent Blade
+    call TasItemShopAddShop('n00O', 'I01R')
+    // Crusader's Shield
+    call TasItemShopAddShop('n00O', 'I01Q')
+    // Chalice of Holy Regeneration
+    call TasItemShopAddShop('n00O', 'I06M')
 
     // ---- Wisp Vendor ('n022') ----
     // Shiny Red Apple
@@ -107,6 +235,30 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n022', 'I04D')
     // Chalice of Holy Regeneration
     call TasItemShopAddShop('n022', 'I06M')
+
+    // ---- Traveling Worgen ('n02B') ----
+    // Cooked Pumpkin
+    call TasItemShopAddShop('n02B', 'I00M')
+    // Dalaran Sharp
+    call TasItemShopAddShop('n02B', 'I00X')
+    // Apple Pie
+    call TasItemShopAddShop('n02B', 'I02M')
+    // Frozen Haunch
+    call TasItemShopAddShop('n02B', 'I02N')
+    // Fresh Water Vial
+    call TasItemShopAddShop('n02B', 'I012')
+    // Moldy Yogurt
+    call TasItemShopAddShop('n02B', 'I036')
+    // Kul Tiras Wine
+    call TasItemShopAddShop('n02B', 'I02I')
+    // Scourge Bone Chimes
+    call TasItemShopAddShop('n02B', 'sbch')
+    // Hood of Cunning
+    call TasItemShopAddShop('n02B', 'I05F')
+    // Shaman Claws
+    call TasItemShopAddShop('n02B', 'I04Y')
+    // Aerie Ale
+    call TasItemShopAddShop('n02B', 'I022')
 
     // ---- Tuskarr Vendor ('n01V') ----
     // Tuskarr Whale Poker
