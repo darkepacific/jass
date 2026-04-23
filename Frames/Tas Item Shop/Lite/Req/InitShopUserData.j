@@ -282,6 +282,143 @@ function InitShopUserData  takes nothing returns nothing
     // Epicurean Delight
     call TasItemShopAddShop('n01V', 'I06I')
 
+    //-- Agility Vendor ('n03E') (Alliance) ----
+    // Orb of Venom
+    call TasItemShopAddShop('n03E', 'oven')
+    // Fine Shortbow
+    call TasItemShopAddShop('n03E', 'I00O')
+    // Bandit's Boots
+    call TasItemShopAddShop('n03E', 'I008')
+    // Marksman's Bow
+    call TasItemShopAddShop('n03E', 'I04G')
+    // Talisman of Evasion
+    call TasItemShopAddShop('n03E', 'I0AF')
+    // Ranger's Agony
+    call TasItemShopAddShop('n03E', 'I053')
+    // Shaman Claws
+    call TasItemShopAddShop('n03E', 'I04Y')
+    // Heavy Recurve Bow
+    call TasItemShopAddShop('n03E', 'I01W')
+    // Hood of Cunning
+    call TasItemShopAddShop('n03E', 'I05F')
+    // Spider Ring
+    call TasItemShopAddShop('n03E', 'sprn')
+
+    //-- Agility Vendor ('n036') (Horde) ----
+    // Orb of Venom
+    call TasItemShopAddShop('n036', 'oven')
+    // Fine Shortbow
+    call TasItemShopAddShop('n036', 'I00O')
+    // Bandit's Boots
+    call TasItemShopAddShop('n036', 'I008')
+    // Marksman's Bow
+    call TasItemShopAddShop('n036', 'I04G')
+    // Talisman of Evasion
+    call TasItemShopAddShop('n036', 'I0AF')
+    // Ranger's Agony
+    call TasItemShopAddShop('n036', 'I053')
+    // Shaman Claws
+    call TasItemShopAddShop('n036', 'I04Y')
+    // Heavy Recurve Bow
+    call TasItemShopAddShop('n036', 'I01W')
+    // Hood of Cunning
+    call TasItemShopAddShop('n036', 'I05F')
+    // Spider Ring
+    call TasItemShopAddShop('n036', 'sprn')
+
+    //-- Intelligence Vendor ('n01W') (Alliance) ----
+    // Orb of Slow
+    call TasItemShopAddShop('n01W', 'oslo')
+    // Orb of Darkness
+    call TasItemShopAddShop('n01W', 'I05H')
+    // The Punisher
+    call TasItemShopAddShop('n01W', 'I052')
+    // Wizard's Hat
+    call TasItemShopAddShop('n01W', 'I05Z')
+    // Wand of the Twisted Root
+    call TasItemShopAddShop('n01W', 'I04F')
+    // Scepter of Spirt
+    call TasItemShopAddShop('n01W', 'I03U')
+    // Burning Wand
+    call TasItemShopAddShop('n01W', 'I00K')
+    // Cinder Wand
+    call TasItemShopAddShop('n01W', 'I00J')
+    // Moldy Tome
+    call TasItemShopAddShop('n01W', 'I02U')
+    // Sobi Mask of Regeneration
+    call TasItemShopAddShop('n01W', 'I04P')
+    // Sturdy Quarterstaff
+    call TasItemShopAddShop('n01W', 'I05I')
+
+    //-- Intelligence Vendor ('n016') (Horde) ----
+    // Orb of Slow
+    call TasItemShopAddShop('n016', 'oslo')
+    // Orb of Darkness
+    call TasItemShopAddShop('n016', 'I05H')
+    // The Punisher
+    call TasItemShopAddShop('n016', 'I052')
+    // Wizard's Hat
+    call TasItemShopAddShop('n016', 'I05Z')
+    // Wand of the Twisted Root
+    call TasItemShopAddShop('n016', 'I04F')
+    // Scepter of Spirt
+    call TasItemShopAddShop('n016', 'I03U')
+    // Burning Wand
+    call TasItemShopAddShop('n016', 'I00K')
+    // Cinder Wand
+    call TasItemShopAddShop('n016', 'I00J')
+    // Moldy Tome
+    call TasItemShopAddShop('n016', 'I02U')
+    // Sobi Mask of Regeneration
+    call TasItemShopAddShop('n016', 'I04P')
+    // Sturdy Quarterstaff
+    call TasItemShopAddShop('n016', 'I05I')
+
+    //-- Strength Vendor ('n029') (Alliance) ----
+    // Orb of Slow
+    call TasItemShopAddShop('n029', 'oslo')
+    // Bladed Steelboots
+    call TasItemShopAddShop('n029', 'I06L')
+    // Shield of Protection
+    call TasItemShopAddShop('n029', 'I054')
+    // Iron Cleaver
+    call TasItemShopAddShop('n029', 'I071')
+    // Heavy Mace
+    call TasItemShopAddShop('n029', 'I05E')
+    // Hammer of Berserk
+    call TasItemShopAddShop('n029', 'I04U')
+    // Box Shield
+    call TasItemShopAddShop('n029', 'I00L')
+    // Mana Controllers
+    call TasItemShopAddShop('n029', 'I04S')
+    // Periapt of Vitality
+    call TasItemShopAddShop('n029', 'I04W')
+    // Mithril Dagger
+    call TasItemShopAddShop('n029', 'I07F')
+
+    //-- Strength Vendor ('n02A') (Horde) ----
+    // Orb of Slow
+    call TasItemShopAddShop('n02A', 'oslo')
+    // Bladed Steelboots
+    call TasItemShopAddShop('n02A', 'I06L')
+    // Shield of Protection
+    call TasItemShopAddShop('n02A', 'I054')
+    // Iron Cleaver
+    call TasItemShopAddShop('n02A', 'I071')
+    // Heavy Mace
+    call TasItemShopAddShop('n02A', 'I05E')
+    // Hammer of Berserk
+    call TasItemShopAddShop('n02A', 'I04U')
+    // Box Shield
+    call TasItemShopAddShop('n02A', 'I00L')
+    // Mana Controllers
+    call TasItemShopAddShop('n02A', 'I04S')
+    // Periapt of Vitality
+    call TasItemShopAddShop('n02A', 'I04W')
+    // Mithril Dagger
+    call TasItemShopAddShop('n02A', 'I07F')
+
+
     // --- Mailbox Active ('n026') ----
     // Hearthstone
     call TasItemShopAddShop('n026', 'I02O')

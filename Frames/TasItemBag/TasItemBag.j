@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.375//0.35//0.3//0.40
+        private real PosY = 0.38//0.375//0.35//0.3//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -72,6 +72,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerESC
         public trigger TriggerUIXKey
         public trigger TriggerItemGain
+        public trigger TriggerItemLose
         public trigger TriggerItemUse
         public trigger TriggerUnitDeath
         public trigger TriggerUIOpen
@@ -132,9 +133,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer SPLIT_FRAME_LEVEL = 1001
         private constant real SELL_RANGE = 525.0
         private constant real DETECT_VENDOR_RANGE = 120.0
+        private constant integer HEARTSEEKER_ITEM_ID = 'I06X'
+        private constant integer HEARTSEEKER_BASE_STACKS = 15
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
+        private sound SwapSelectSound
+        private sound SwapConfirmSound
 
         private unit array ItemGainTimerUnit
         private timer ItemGainTimer
@@ -404,6 +409,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     //Public facing one for other libraries/triggers to call
     function TasItemBag_RequestUIUpdate takes nothing returns nothing
         call RequestUIUpdate()
+    endfunction
+
+    private function PlaySwapConfirmSound takes player p returns nothing
+        if SwapConfirmSound != null then
+            call PlayLocalSound(SwapConfirmSound, p)
+        endif
+    endfunction
+
+    private function PlaySwapSelectSound takes player p returns nothing
+        if SwapSelectSound != null then
+            call PlayLocalSound(SwapSelectSound, p)
+        endif
     endfunction
 
     private function RestoreBagSlotOverlay takes integer pId, integer rawSlotIndex returns nothing
@@ -1101,6 +1118,66 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
+    // Rebuild the currently active hero inventory page from udg_P_Items.
+    // This keeps page display and native inventory in sync after swaps involving
+    // active page slots, while preserving the map's compacting page-load behavior.
+    private function SyncCurrentPageInventory takes player p returns nothing
+        local integer playerNum = GetPlayerNumber(p)
+        local unit hero = udg_Heroes[playerNum]
+        local integer currentPage = udg_Bag_Page[playerNum]
+        local integer pageIndex
+        local integer slot = 1
+        local integer slotActuallyAddedTo = 1
+        local item currentItem
+        local item pageItem
+        local location itemIsland
+        if hero == null then
+            return
+        endif
+
+        set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
+        call DisableTrigger(gg_trg_Lose_Item)
+        call DisableTrigger(gg_trg_Firestone_Dropped)
+        call DisableTrigger(gg_trg_Firestone_Acquired)
+
+        loop
+            exitwhen slot > 6
+            set currentItem = UnitRemoveItemFromSlot(hero, slot - 1)
+            if currentItem != null then
+                call SetItemPositionLoc(currentItem, itemIsland)
+                call SetItemVisible(currentItem, false)
+                call SetItemUserData(currentItem, 1)
+            endif
+            set slot = slot + 1
+        endloop
+
+        set slot = 1
+        loop
+            exitwhen slot > 6
+            set pageIndex = GetPItemsIndex(p, currentPage, slot)
+            set pageItem = udg_P_Items[pageIndex]
+            set udg_P_Items[pageIndex] = null
+            if pageItem != null then
+                set udg_dontDepositIntoBag = true
+                call UnitAddItem(hero, pageItem)
+                if GetItemTypeId(pageItem) != 0 then
+                    set udg_P_Items[GetPItemsIndex(p, currentPage, slotActuallyAddedTo)] = pageItem
+                    set slotActuallyAddedTo = slotActuallyAddedTo + 1
+                endif
+            endif
+            set slot = slot + 1
+        endloop
+
+        call EnableTrigger(gg_trg_Firestone_Dropped)
+        call EnableTrigger(gg_trg_Firestone_Acquired)
+        call EnableTrigger(gg_trg_Lose_Item)
+        call RemoveLocation(itemIsland)
+        set itemIsland = null
+        set currentItem = null
+        set pageItem = null
+        set hero = null
+    endfunction
+
     function TasItemBagSwap takes unit u, integer indexA, integer indexB returns boolean
         local integer playerKey = GetPlayerId(GetOwningPlayer(u))
         local integer a
@@ -1139,19 +1216,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 elseif chargesA + chargesB <= DEFAULT_MAX_CHARGES then
                     // Fully absorb: merge all into destination, remove source
                     call SetItemCharges(i2, chargesA + chargesB)
-                    // If source was on active page, unequip it first
-                    if aIsActive then
-                        call UnequipFromHero(u, PageSlotToInvSlot(indexA))
-                    endif
                     call RemoveItem(i)
                     set udg_P_Items[a] = null
-                    // If destination is on active page, sync the equipped item's charges
-                    if bIsActive then
-                        set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
-                        if hero != null then
-                            call SetItemCharges(UnitItemInSlot(hero, PageSlotToInvSlot(indexB)), chargesA + chargesB)
-                        endif
-                        set hero = null
+                    if aIsActive or bIsActive then
+                        call SyncCurrentPageInventory(GetOwningPlayer(u))
                     endif
                     set i = null
                     set i2 = null
@@ -1164,21 +1232,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call SetItemCharges(i2, DEFAULT_MAX_CHARGES)
                         call SetItemCharges(i, chargesA - space)
                     endif
-                    // If either side is on active page, sync hero inventory charges
-                    if aIsActive then
-                        set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
-                        if hero != null then
-                            call SetItemCharges(UnitItemInSlot(hero, PageSlotToInvSlot(indexA)), GetItemCharges(i))
-                        endif
-                        set hero = null
-                    endif
-                    if bIsActive then
-                        set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
-                        if hero != null then
-                            call SetItemCharges(UnitItemInSlot(hero, PageSlotToInvSlot(indexB)), GetItemCharges(i2))
-                        endif
-                        set hero = null
-                    endif
                     // Still do the positional swap so the topped-up stack ends where player intended
                 endif
             endif
@@ -1187,41 +1240,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set udg_P_Items[a] = i2
         set udg_P_Items[b] = i
 
-        // Sync hero inventory when items move in/out of the active page
         if aIsActive or bIsActive then
-            set hero = udg_Heroes[GetPlayerNumber(GetOwningPlayer(u))]
-            if hero != null then
-                // Unequip items leaving the active page first
-                if aIsActive and not bIsActive then
-                    // i was in A (active) → now in B (non-active): unequip from A's inv slot
-                    if i != null then
-                        call UnequipFromHero(hero, PageSlotToInvSlot(indexA))
-                    endif
-                elseif bIsActive and not aIsActive then
-                    // i2 was in B (active) → now in A (non-active): unequip from B's inv slot
-                    if i2 != null then
-                        call UnequipFromHero(hero, PageSlotToInvSlot(indexB))
-                    endif
-                elseif aIsActive and bIsActive then
-                    // Both on active page: unequip both first, then re-equip both swapped
-                    if i != null then
-                        call UnequipFromHero(hero, PageSlotToInvSlot(indexA))
-                    endif
-                    if i2 != null then
-                        call UnequipFromHero(hero, PageSlotToInvSlot(indexB))
-                    endif
-                endif
-                // Equip items entering the active page
-                if bIsActive and i != null then
-                    // i moved to B (active page) → equip at B's inv slot
-                    call EquipToHeroSlot(hero, i, PageSlotToInvSlot(indexB), b)
-                endif
-                if aIsActive and i2 != null then
-                    // i2 moved to A (active page) → equip at A's inv slot
-                    call EquipToHeroSlot(hero, i2, PageSlotToInvSlot(indexA), a)
-                endif
-            endif
-            set hero = null
+            call SyncCurrentPageInventory(GetOwningPlayer(u))
         endif
 
         set i = null
@@ -1884,15 +1904,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local integer bagSlot = SwapIndex[pId]
+        local integer targetSlot
         local item bagItem
-        local item invItem
-        local item newInvItem
-        local integer arrIndex
-        local location itemIsland
-        local integer firstOpen
-        local integer bagTypeId
-        local integer bagCharges
-        local integer foundBagSlot
 
         if hero == null or bagSlot <= 0 then
             return false
@@ -1900,6 +1913,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if invSlot < 0 or invSlot >= bj_MAX_INVENTORY then
             return false
         endif
+
+        set targetSlot = GetActivePageDisplayStart(pId)
+        if targetSlot <= 0 then
+            return false
+        endif
+        set targetSlot = targetSlot + invSlot
 
         set bagItem = TasItemBagGetItem(hero, bagSlot)
         if bagItem == null then
@@ -1910,98 +1929,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
 
-        // Remove target inventory item first (if any), so there is guaranteed space.
-        set invItem = UnitItemInSlot(hero, invSlot)
-        if invItem != null then
-            set invItem = UnitRemoveItemFromSlot(hero, invSlot)
-        endif
-
-        set firstOpen = FirstOpenInventorySlot(hero)
-
-        // If the target slot is the first open one, preserve the original item handle path.
-        if firstOpen == invSlot then
-            // Ensure ItemBag2Equip knows the correct source slot (page display slots included).
-            set TransferIndex[pId] = bagSlot
-            call ItemBag2Equip(p, bagItem)
-
-            // If equip failed, put removed inventory item back and abort.
-            if BagFindItemSlot(pId, bagItem) > 0 then
-                if invItem != null then
-                    call UnitAddItem(hero, invItem)
-                endif
-                set bagItem = null
-                set invItem = null
-                set hero = null
-                return false
-            endif
-        else
-            // Force exact target slot by spawning item directly into invSlot and removing bag instance.
-            set bagTypeId = GetItemTypeId(bagItem)
-            set bagCharges = GetItemCharges(bagItem)
-            set udg_dontDepositIntoBag = true
-            if not UnitAddItemToSlotById(hero, bagTypeId, invSlot) then
-                set udg_dontDepositIntoBag = false
-                if invItem != null then
-                    call UnitAddItem(hero, invItem)
-                endif
-                set bagItem = null
-                set invItem = null
-                set hero = null
-                return false
-            endif
-
-            set newInvItem = UnitItemInSlot(hero, invSlot)
-            if newInvItem == null then
-                if invItem != null then
-                    call UnitAddItem(hero, invItem)
-                endif
-                set bagItem = null
-                set invItem = null
-                set hero = null
-                return false
-            endif
-
-            if bagCharges > 0 then
-                call SetItemCharges(newInvItem, bagCharges)
-            endif
-
-            // Consume the bag item instance and clear bag slot.
-            set arrIndex = SlotToArrayIndex(pId, bagSlot)
-            if udg_P_Items[arrIndex] == bagItem then
-                set udg_P_Items[arrIndex] = null
-            else
-                set foundBagSlot = BagFindItemSlot(pId, bagItem)
-                if foundBagSlot > 0 then
-                    set arrIndex = SlotToArrayIndex(pId, foundBagSlot)
-                    set udg_P_Items[arrIndex] = null
-                endif
-            endif
-            call RemoveItem(bagItem)
-            call RequestUIUpdate()
-        endif
-
-        // Put removed inventory item into the original bag slot (or any free slot fallback).
-        if invItem != null then
-            set arrIndex = SlotToArrayIndex(pId, bagSlot)
-            if udg_P_Items[arrIndex] == null then
-                set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
-                call SetItemPositionLoc(invItem, itemIsland)
-                call SetItemVisible(invItem, false)
-                call SetItemUserData(invItem, 1)
-                call RemoveLocation(itemIsland)
-                set itemIsland = null
-                set udg_P_Items[arrIndex] = invItem
-                call RequestUIUpdate()
-            else
-                call TasItemBagAddItem(hero, invItem, true)
-            endif
+        if bagSlot == targetSlot then
+            set bagItem = null
+            set hero = null
+            return true
         endif
 
         set bagItem = null
-        set invItem = null
-        set newInvItem = null
         set hero = null
-        return true
+        return TasItemBagSwap(udg_Heroes[GetPlayerNumber(p)], bagSlot, targetSlot)
     endfunction
 
     private function BagPopupActionDrop takes nothing returns nothing
@@ -2041,6 +1977,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         set SwapIndex[pId] = TransferIndex[pId]
         call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
+        call PlaySwapSelectSound(p)
         call FrameLoseFocus()
     endfunction
 
@@ -2114,6 +2051,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set dy = GetUnitY(hero) - GetUnitY(shop)
         set hero = null
         return SquareRoot(dx*dx + dy*dy) <= SELL_RANGE
+    endfunction
+
+    private function ItemLoseRefreshAction takes nothing returns nothing
+        local unit hero = GetTriggerUnit()
+        if hero == null then
+            return
+        endif
+        if IsPlayerHero(hero) and GetItemType(GetManipulatedItem()) != ITEM_TYPE_POWERUP then
+            call RequestUIUpdate()
+        endif
+        set hero = null
     endfunction
 
     // Prime item cost cache from the save-item list once.
@@ -2202,6 +2150,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set stackCount = GetItemCharges(it)
             if stackCount > 0 then
                 set goldGain = goldGain * stackCount
+            endif
+        elseif itemType == HEARTSEEKER_ITEM_ID then
+            set stackCount = GetItemCharges(it)
+            if stackCount > HEARTSEEKER_BASE_STACKS then
+                set goldGain = goldGain + ((goldGain * (stackCount - HEARTSEEKER_BASE_STACKS)) / HEARTSEEKER_BASE_STACKS)
             endif
         endif
 
@@ -2507,6 +2460,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if SwapBagSlotToInventorySlot(p, invSlot) then
+            call PlaySwapConfirmSound(p)
             set SwapIndex[pId] = 0
             call SwapHighlightHide(pId)
             if GetLocalPlayer() == p then
@@ -2674,6 +2628,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             else
                 call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
                 if TasItemBagSwap(hero, SwapIndex[pId], bagIndex) then
+                    call PlaySwapConfirmSound(p)
                     set SwapIndex[pId] = 0
                     set SuppressNextBagPopup[pId] = true
                     call SwapHighlightHide(pId)
@@ -2926,6 +2881,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call Debug("Select arm (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
                         set SwapIndex[pId] = bagIndex
                         call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
+                        call PlaySwapSelectSound(p)
                         if GetLocalPlayer() == p then
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -2949,6 +2905,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Finalize armed bag swap onto an inventory slot (supports empty slots).
             if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 if SwapBagSlotToInventorySlot(p, invIndex) then
+                    call PlaySwapConfirmSound(p)
                     set SwapIndex[pId] = 0
                     call SwapHighlightHide(pId)
                     if GetLocalPlayer() == p then
@@ -2983,6 +2940,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call FrameLoseFocus()
                         return
                     elseif TasItemBagSwap(udg_Heroes[GetPlayerNumber(p)], SwapIndex[pId], bagIndex) then
+                        call PlaySwapConfirmSound(p)
                         set SwapIndex[pId] = 0
                         set SuppressNextBagPopup[pId] = true
                         call SwapHighlightHide(pId)
@@ -3602,6 +3560,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set AbilityFieldDrop = ConvertAbilityIntegerLevelField('inv2')
         set AbilityFieldUse = ConvertAbilityIntegerLevelField('inv3')
         set AbilityFieldCanDrop = ConvertAbilityIntegerLevelField('inv5')
+        set SwapSelectSound = CreateSound("Sound\\Interface\\MouseClick1.wav", false, false, false, 10, 10, "")
+        call SetSoundParamsFromLabel(SwapSelectSound, "InterfaceClick")
+        call SetSoundDuration(SwapSelectSound, 239)
+        set SwapConfirmSound = CreateSound("Sound\\Interface\\MouseClick1.wav", false, false, false, 10, 10, "")
+        call SetSoundParamsFromLabel(SwapConfirmSound, "InterfaceClick")
+        call SetSoundDuration(SwapConfirmSound, 239)
         call InitVendorUnits()
         
         // set ItemAbilityNeed = Table.create()
@@ -3638,6 +3602,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerItemGain = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(TriggerItemGain, EVENT_PLAYER_UNIT_PICKUP_ITEM)
         call TriggerAddAction(TriggerItemGain, function ItemGainAction)
+
+        set TriggerItemLose = CreateTrigger()
+        call TriggerRegisterAnyUnitEventBJ(TriggerItemLose, EVENT_PLAYER_UNIT_DROP_ITEM)
+        call TriggerRegisterAnyUnitEventBJ(TriggerItemLose, EVENT_PLAYER_UNIT_PAWN_ITEM)
+        call TriggerAddAction(TriggerItemLose, function ItemLoseRefreshAction)
 
         set TriggerUnitOrder = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(TriggerUnitOrder, EVENT_PLAYER_UNIT_ISSUED_ORDER)
