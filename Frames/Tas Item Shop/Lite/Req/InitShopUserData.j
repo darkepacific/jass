@@ -327,8 +327,6 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n036', 'sprn')
 
     //-- Intelligence Vendor ('n01W') (Alliance) ----
-    // Orb of Slow
-    call TasItemShopAddShop('n01W', 'oslo')
     // Orb of Darkness
     call TasItemShopAddShop('n01W', 'I05H')
     // The Punisher
@@ -351,8 +349,6 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n01W', 'I05I')
 
     //-- Intelligence Vendor ('n016') (Horde) ----
-    // Orb of Slow
-    call TasItemShopAddShop('n016', 'oslo')
     // Orb of Darkness
     call TasItemShopAddShop('n016', 'I05H')
     // The Punisher
