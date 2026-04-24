@@ -3485,23 +3485,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame = BlzCreateFrameByType("BUTTON", "TasItemBagPopUpPanel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
         call BlzFrameSetLevel(frame, POPUP_FRAME_LEVEL)
         // SELECT + SELL + SPLIT
-        call BlzFrameSetSize(frame, 0.1, 0.09)
+        call BlzFrameSetSize(frame, 0.1, 0.082)
         set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSelect", frame, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame2, 0.1, 0.03)
+        call BlzFrameSetSize(frame2, 0.1, 0.028)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0, 0)
         call BlzFrameSetText(frame2, "SELECT")
         call BlzTriggerRegisterFrameEvent(TriggerUISwap, frame2, FRAMEEVENT_CONTROL_CLICK)
 
         set frame3 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSell", frame, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame3, 0.1, 0.03)
-        call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0)
+        call BlzFrameSetSize(frame3, 0.1, 0.028)
+        call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0.001)
         call BlzFrameSetText(frame3, "SELL")
         call BlzTriggerRegisterFrameEvent(TriggerUISell, frame3, FRAMEEVENT_CONTROL_CLICK)
 
         // 5th popup button: Split (conditionally shown)
         set frame2 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSplit", frame, "ScriptDialogButton", 0)
-        call BlzFrameSetSize(frame2, 0.1, 0.03)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_BOTTOMLEFT, 0, 0)
+        call BlzFrameSetSize(frame2, 0.1, 0.028)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_BOTTOMLEFT, 0, 0.001)
         call BlzFrameSetText(frame2, "SPLIT")
         call BlzTriggerRegisterFrameEvent(TriggerUISplit, frame2, FRAMEEVENT_CONTROL_CLICK)
         call BlzFrameSetVisible(frame2, false)
@@ -3512,7 +3512,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetLevel(frame2, SPLIT_FRAME_LEVEL)
         call BlzFrameSetSize(frame2, 0.17, 0.13)
         // Place the split panel clearly to the LEFT of the bag panel.
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.04, 0.0)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPRIGHT, panel, FRAMEPOINT_TOPLEFT, -0.075, 0.0)
 
         set frame3 = BlzCreateFrameByType("TEXT", "TasItemBagSplitInfo", frame2, "", 0)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOP, frame2, FRAMEPOINT_TOP, 0.0, -0.02)
