@@ -179,10 +179,8 @@ public function Show takes player p, unit shop returns nothing
         endif
         if GetLocalPlayer() == p then
             call BlzFrameSetText(FrameTitelText, GetUnitName(shop))
-            
-            if isNewShop then
-                call TasButtonListSearch(ButtonListIndex, null)
-            endif
+            call BlzFrameSetText(TasButtonListInputFrame[ButtonListIndex], "")
+            call TasButtonListSearch(ButtonListIndex, "")
         endif
         call UpdateTasButtonList(ButtonListIndex)
     else

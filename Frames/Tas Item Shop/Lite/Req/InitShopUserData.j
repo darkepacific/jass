@@ -303,6 +303,16 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n03E', 'I05F')
     // Spider Ring
     call TasItemShopAddShop('n03E', 'sprn')
+    // Arcanite Reaper
+    call TasItemShopAddShop('n035', 'I086')
+    // Jin'do's Hexxer Mace
+    call TasItemShopAddShop('n035', 'I06W')
+    // Spellfire Blade
+    call TasItemShopAddShop('n035', 'I0AD')
+    // Death's Sting
+    call TasItemShopAddShop('n035', 'I06R')
+    // Elune's Veil
+    call TasItemShopAddShop('n035', 'I06Z')
 
     //-- Agility Vendor ('n036') (Horde) ----
     // Orb of Venom
@@ -325,6 +335,16 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n036', 'I05F')
     // Spider Ring
     call TasItemShopAddShop('n036', 'sprn')
+    // Arcanite Reaper
+    call TasItemShopAddShop('n035', 'I086')
+    // Jin'do's Hexxer Mace
+    call TasItemShopAddShop('n035', 'I06W')
+    // Spellfire Blade
+    call TasItemShopAddShop('n035', 'I0AD')
+    // Death's Sting
+    call TasItemShopAddShop('n035', 'I06R')
+    // Elune's Veil
+    call TasItemShopAddShop('n035', 'I06Z')
 
     //-- Intelligence Vendor ('n01W') (Alliance) ----
     // Orb of Darkness
@@ -347,6 +367,16 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n01W', 'I04P')
     // Sturdy Quarterstaff
     call TasItemShopAddShop('n01W', 'I05I')
+    // Seer Staff
+    call TasItemShopAddShop('n035', 'I06U')
+    // Firelord's Crown
+    call TasItemShopAddShop('n035', 'I07R')
+    // Chronoboom Displacer
+    call TasItemShopAddShop('n035', 'I084')
+    // Arcane Scepter
+    call TasItemShopAddShop('n035', 'I078')
+    // Dread Magic Cap
+    call TasItemShopAddShop('n035', 'I06Y')
 
     //-- Intelligence Vendor ('n016') (Horde) ----
     // Orb of Darkness
@@ -369,6 +399,16 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n016', 'I04P')
     // Sturdy Quarterstaff
     call TasItemShopAddShop('n016', 'I05I')
+    // Seer Staff
+    call TasItemShopAddShop('n035', 'I06U')
+    // Firelord's Crown
+    call TasItemShopAddShop('n035', 'I07R')
+    // Chronoboom Displacer
+    call TasItemShopAddShop('n035', 'I084')
+    // Arcane Scepter
+    call TasItemShopAddShop('n035', 'I078')
+    // Dread Magic Cap
+    call TasItemShopAddShop('n035', 'I06Y')
 
     //-- Strength Vendor ('n029') (Alliance) ----
     // Orb of Slow
@@ -391,6 +431,16 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n029', 'I04W')
     // Mithril Dagger
     call TasItemShopAddShop('n029', 'I07F')
+    // Azure Crystal Hammer
+    call TasItemShopAddShop('n035', 'I06V')
+    // Blademail
+    call TasItemShopAddShop('n035', 'I06S')
+    // Sea Heavy Armor
+    call TasItemShopAddShop('n035', 'I06P')
+    // Heartseeker
+    call TasItemShopAddShop('n035', 'I06X')
+    // Flamewalker's Mantle
+    call TasItemShopAddShop('n035', 'I06T')
 
     //-- Strength Vendor ('n02A') (Horde) ----
     // Orb of Slow
@@ -413,6 +463,16 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n02A', 'I04W')
     // Mithril Dagger
     call TasItemShopAddShop('n02A', 'I07F')
+    // Azure Crystal Hammer
+    call TasItemShopAddShop('n035', 'I06V')
+    // Blademail
+    call TasItemShopAddShop('n035', 'I06S')
+    // Sea Heavy Armor
+    call TasItemShopAddShop('n035', 'I06P')
+    // Heartseeker
+    call TasItemShopAddShop('n035', 'I06X')
+    // Flamewalker's Mantle
+    call TasItemShopAddShop('n035', 'I06T')
 
 
     // --- Mailbox Active ('n026') ----
