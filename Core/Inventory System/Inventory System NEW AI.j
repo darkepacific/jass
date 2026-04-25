@@ -190,6 +190,7 @@ library MultiPageInventorySystem
             set toSlot = toSlot + 1 // Adjust to 1-based index
             set udg_P_Items[GetPItemsCurrentIndex(p, slot)] = item2
             set udg_P_Items[GetPItemsCurrentIndex(p, toSlot)] = item1
+            call TriggerExecute(PageChangedTrigger)
         endif 
 
         set u = null
