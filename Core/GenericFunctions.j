@@ -392,21 +392,20 @@ library GenericFunctions
         set f = null
     endfunction
 
+    function PlayLocalSound takes sound s, player whichPlayer returns nothing
+        if GetLocalPlayer() == whichPlayer then
+            call StopSound(s, false, false)
+            call StartSound(s)
+        endif
+    endfunction
 
     function ErrorMessage takes string error, player whichPlayer returns nothing
         set error = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n|cffffcc00" + error + "|r"
         if GetLocalPlayer() == whichPlayer then
             call ClearTextMessages()
             call DisplayTimedTextToPlayer(whichPlayer, 0.52, 0.96, 2, error)
-            call StartSound(gg_snd_Error)
+            call PlayLocalSound(gg_snd_Error, whichPlayer)
         endif  
-    endfunction
-
-    function PlayLocalSound takes sound s, player whichPlayer returns nothing
-        if GetLocalPlayer() == whichPlayer then
-            call StopSound(s, false, false)
-            call StartSound(s)
-        endif
     endfunction
 
     function PlayerEntersLocation takes player whichPlayer, string zone, integer affiliation returns nothing

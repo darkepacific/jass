@@ -135,6 +135,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant real DETECT_VENDOR_RANGE = 120.0
         private constant integer HEARTSEEKER_ITEM_ID = 'I06X'
         private constant integer HEARTSEEKER_BASE_STACKS = 15
+        private constant string TOOLTIP_SELL_VALUE_PREFIX = "|cffffcc00Sell Value:|r "
+        private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f________________________________|r"
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -241,12 +243,87 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return BagSlotArrayIndex(playerKey, slotIndex)
     endfunction
 
+        // Prime item cost cache from the save-item list once.
+    // Uses a trailing-empty cutoff to avoid scanning unbounded array tails.
+    private function PrimeSellValueCache takes nothing returns nothing
+        local integer i = 1
+        local integer emptyRun = 0
+        local integer itemCode
+        local integer found = 0
+        if SellValueCacheReady then
+            return
+        endif
+        loop
+            exitwhen i > 2000 or emptyRun >= 200
+            set itemCode = udg_SaveItemType[i]
+            if itemCode > 0 then
+                call TasItemCaclCost(itemCode)
+                set found = found + 1
+                set emptyRun = 0
+            else
+                set emptyRun = emptyRun + 1
+            endif
+            set i = i + 1
+        endloop
+        if found > 0 then
+            set SellValueCacheReady = true
+        endif
+    endfunction
+
+    private function GetTooltipSellValue takes item it returns integer
+        local integer itemType
+        local integer goldGain
+        local integer stackCount
+
+        if it == null or not IsItemPawnable(it) then
+            return 0
+        endif
+
+        call PrimeSellValueCache()
+        set itemType = GetItemTypeId(it)
+        set goldGain = TasItemGetCostGold(itemType) / 2
+
+        if itemType == HEARTSEEKER_ITEM_ID then
+            set stackCount = GetItemCharges(it)
+            if stackCount > HEARTSEEKER_BASE_STACKS then
+                set goldGain = goldGain + ((goldGain * (stackCount - HEARTSEEKER_BASE_STACKS)) / HEARTSEEKER_BASE_STACKS)
+            endif
+        endif
+
+        return goldGain
+    endfunction
+
+    private function BuildBagItemTooltip takes item it, boolean includeNeedText returns string
+        local string tooltipText
+        local string extraText = ""
+        local integer sellValue
+
+        if it == null then
+            return ""
+        endif
+
+        if includeNeedText then
+            set extraText = "|nNEED " + GetLocalizedString("REQUIREDLEVELTOOLTIP") + " " + I2S(GetItemLevel(it))
+        endif
+
+        set tooltipText = GetItemName(it)
+        if IsItemPawnable(it) then
+            set sellValue = GetTooltipSellValue(it)
+            set tooltipText = tooltipText + "|n" + TOOLTIP_SELL_VALUE_PREFIX + I2S(sellValue) + "g"
+        endif
+        set tooltipText = tooltipText + "|n" + TOOLTIP_SEPARATOR_TEXT + "|n" + BlzGetItemExtendedTooltip(it)
+
+        if extraText != "" then
+            set tooltipText = tooltipText + "|n|n" + extraText
+        endif
+
+        return tooltipText
+    endfunction
+
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
         local integer itemCount = 0
-        local integer itemCode
         local item it
-        local string text = ""
         local integer i
         local integer maxSlots
         local integer currentPage
@@ -305,19 +382,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     set it = null
                 endif
                 call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), it != null)
-                set text = ""
                 if it != null then
-                    set itemCode = GetItemTypeId(it)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetItemIconPath(it), 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetItemIconPath(it), 0, true)
-                    if AddNeedText then
-                        set text = "|nNEED " + GetLocalizedString("REQUIREDLEVELTOOLTIP") + " " + I2S(GetItemLevel(it))
-                        // if ItemAbilityNeed[itemCode] > 0 then
-                        //     set text = text + "|nNEED " + GetObjectName(ItemAbilityNeed[itemCode])
-                        // endif
-                    endif
-
-                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), GetItemName(it) + "|n" + BlzGetItemExtendedTooltip(it) + "|n|n" + text)
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), BuildBagItemTooltip(it, AddNeedText))
                 
                     if GetItemCharges(it) > 0 then
                         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), I2S(GetItemCharges(it)))
@@ -374,7 +442,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", otherPage + i - 1), BlzGetItemIconPath(it), 0, true)
                         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), BlzGetItemIconPath(it), 0, true)
                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), true)
-                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", otherPage + i - 1), GetItemName(it) + "|n" + BlzGetItemExtendedTooltip(it))
+                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", otherPage + i - 1), BuildBagItemTooltip(it, false))
                         if GetItemCharges(it) > 0 then
                             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", otherPage + i - 1), I2S(GetItemCharges(it)))
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", otherPage + i - 1), true)
@@ -2062,33 +2130,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call RequestUIUpdate()
         endif
         set hero = null
-    endfunction
-
-    // Prime item cost cache from the save-item list once.
-    // Uses a trailing-empty cutoff to avoid scanning unbounded array tails.
-    private function PrimeSellValueCache takes nothing returns nothing
-        local integer i = 1
-        local integer emptyRun = 0
-        local integer itemCode
-        local integer found = 0
-        if SellValueCacheReady then
-            return
-        endif
-        loop
-            exitwhen i > 2000 or emptyRun >= 200
-            set itemCode = udg_SaveItemType[i]
-            if itemCode > 0 then
-                call TasItemCaclCost(itemCode)
-                set found = found + 1
-                set emptyRun = 0
-            else
-                set emptyRun = emptyRun + 1
-            endif
-            set i = i + 1
-        endloop
-        if found > 0 then
-            set SellValueCacheReady = true
-        endif
     endfunction
 
     private function SellBagIndexToShop takes player p, integer bagIndex, unit shop, boolean requireRange returns boolean
