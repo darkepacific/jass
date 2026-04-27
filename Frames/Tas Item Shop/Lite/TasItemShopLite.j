@@ -148,6 +148,9 @@ public function Show takes player p, unit shop returns nothing
     local boolean isNewShop
     local integer i = 1
     local integer dataKey = 0
+    if flag and IsPlayerEnemy(GetOwningPlayer(shop), p) then
+        set flag = false
+    endif
     if flag and not HaveSavedInteger(Items, shopCode, 0) and not HaveSavedInteger(Items, shopHandle, 0) then
         set flag = false
     endif
@@ -199,6 +202,13 @@ public function BuyItem takes player p, integer itemCode returns nothing
     local real dy
 
     if hero == null or shop == null then
+        set hero = null
+        set shop = null
+        return
+    endif
+    if IsPlayerEnemy(GetOwningPlayer(shop), p) then
+        set CurrentShop[playerIndex] = null
+        call Show(p, null)
         set hero = null
         set shop = null
         return

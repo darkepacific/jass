@@ -20,7 +20,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     */
     globals
         private real PosX = 0.4//0.64//0.4
-        private real PosY = 0.38//0.375//0.35//0.3//0.40
+        private real PosY = 0.375//0.38//0.40
         private framepointtype Pos = FRAMEPOINT_TOP
         private integer Cols = 6
         private integer Rows = 4
@@ -135,7 +135,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant real DETECT_VENDOR_RANGE = 120.0
         private constant integer HEARTSEEKER_ITEM_ID = 'I06X'
         private constant integer HEARTSEEKER_BASE_STACKS = 15
-        private constant string TOOLTIP_SELL_VALUE_PREFIX = "|cffffcc00Sell Value:|r "
+        private constant string TOOLTIP_SELL_VALUE_PREFIX = "|TUI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp:0|t "
         private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f________________________________|r"
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
@@ -196,7 +196,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Option D placeholder: race-aware full feedback hook.
         // Keep behavior identical for now (same ErrorMessage) until custom sounds are imported.
+        private constant string BAG_FULL_MESSAGE = "Bag is full."
+        private constant string INVENTORY_PAGES_FULL_MESSAGE = "Inventory pages are full."
         private constant string INVENTORY_FULL_MESSAGE = "Inventory is full."
+        private constant string PAGES_FULL_WARNING_MESSAGE = "Warning! Auto-pickup will not work when both pages are full."
+        private boolean array PagesFullWarningArmed
 
         // ================================================================
         // P_Items Layout (single source of truth = udg_BAG_SIZE)
@@ -309,7 +313,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set tooltipText = GetItemName(it)
         if IsItemPawnable(it) then
             set sellValue = GetTooltipSellValue(it)
-            set tooltipText = tooltipText + "|n" + TOOLTIP_SELL_VALUE_PREFIX + I2S(sellValue) + "g"
+            set tooltipText = tooltipText + "|n" + TOOLTIP_SELL_VALUE_PREFIX + "|cffffcc00" + I2S(sellValue) + "|r"
         endif
         set tooltipText = tooltipText + "|n" + TOOLTIP_SEPARATOR_TEXT + "|n" + BlzGetItemExtendedTooltip(it)
 
@@ -320,8 +324,51 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return tooltipText
     endfunction
 
+    private function AreAllPageSlotsFilled takes player p returns boolean
+        local integer page = 1
+        local integer slot
+        if p == null then
+            return false
+        endif
+
+        loop
+            exitwhen page > 2
+            set slot = 1
+            loop
+                exitwhen slot > 6
+                if udg_P_Items[GetPItemsIndex(p, page, slot)] == null then
+                    return false
+                endif
+                set slot = slot + 1
+            endloop
+            set page = page + 1
+        endloop
+
+        return true
+    endfunction
+
+    private function WarnWhenPagesBecomeFull takes player p returns nothing
+        local integer pId
+        local boolean pagesFull
+        if p == null then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set pagesFull = AreAllPageSlotsFilled(p)
+        if pagesFull then
+            if not PagesFullWarningArmed[pId] then
+                set PagesFullWarningArmed[pId] = true
+                call ErrorMessage(PAGES_FULL_WARNING_MESSAGE, p)
+            endif
+        else
+            set PagesFullWarningArmed[pId] = false
+        endif
+    endfunction
+
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
+        local player p = Player(pId)
         local integer itemCount = 0
         local item it
         local integer i
@@ -344,6 +391,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowButtonAlwaysVisible or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
+        call WarnWhenPagesBecomeFull(p)
 
         // Count items for the little overlay on the show-button.
         set maxSlots = PITEMS_EXTRA_SLOTS
@@ -464,6 +512,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endloop
         endif
         set it = null
+        set p = null
     endfunction
 
     // Schedules a UI refresh once (debounced). Safe to call many times.
@@ -1100,7 +1149,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Need a free slot if the item still exists after any merge
         set emptySlot = BagNextEmptySlot(playerKey)
         if emptySlot <= 0 then
-            call ErrorMessage("Bag is full.", GetOwningPlayer(u))
+            call ErrorMessage(BAG_FULL_MESSAGE, GetOwningPlayer(u))
             return
         endif
 
@@ -1572,7 +1621,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 and not BagHasMergeSpace(playerKey, it) then
-            call ErrorMessage("Bag is full.", p)
+            call ErrorMessage(BAG_FULL_MESSAGE, p)
             set it = null
             return
         endif
@@ -1599,6 +1648,50 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentProcessed[pId] = false
         set PickupIntentOriginalPage[pId] = 0
         set PickupIntentSwitchPage[pId] = 0
+    endfunction
+
+    private function CanPickupAbsorbIntoLiveInventory takes unit hero, item targetItem returns boolean
+        local integer slot = 0
+        local integer maxSlots
+        local integer itemType
+        local item invItem
+
+        if hero == null or targetItem == null then
+            return false
+        endif
+        if IsItemPowerup(targetItem) and TasItemBagUnitCanUseItems(hero) then
+            return true
+        endif
+        if not IsStackableType(targetItem) or GetItemCharges(targetItem) <= 0 then
+            return false
+        endif
+
+        set itemType = GetItemTypeId(targetItem)
+        set maxSlots = UnitInventorySize(hero)
+        loop
+            exitwhen slot >= maxSlots
+            set invItem = UnitItemInSlot(hero, slot)
+            if invItem != null and IsStackableType(invItem) and GetItemTypeId(invItem) == itemType and GetItemCharges(invItem) < DEFAULT_MAX_CHARGES then
+                set invItem = null
+                return true
+            endif
+            set slot = slot + 1
+        endloop
+
+        set invItem = null
+        return false
+    endfunction
+
+    private function HandleBlockedPickupIntent takes player p, unit hero, item targetItem returns boolean
+        local integer pId = GetPlayerId(p)
+        if CanPickupAbsorbIntoLiveInventory(hero, targetItem) then
+            call ClearPickupIntent(pId)
+            return false
+        endif
+
+        call ErrorMessage(INVENTORY_PAGES_FULL_MESSAGE, p)
+        call ClearPickupIntent(pId)
+        return true
     endfunction
 
     private function StartPickupWarningSuppression takes integer pId, real duration returns nothing
@@ -1642,6 +1735,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call ClearPickupIntent(pId)
             return
         endif
+        if CanPickupAbsorbIntoLiveInventory(hero, targetItem) then
+            call ClearPickupIntent(pId)
+            return
+        endif
 
         // No need to assist when inventory still has space.
         if UnitInventoryCount(hero) < UnitInventorySize(hero) then
@@ -1662,6 +1759,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     set PickupIntentProcessed[pId] = true
                     set PickupIntentSwitchPage[pId] = reliefPage
                     call Debug("Pickup intent refreshed relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
+                elseif reliefPage <= 0 then
+                    if HandleBlockedPickupIntent(p, hero, targetItem) then
+                        return
+                    endif
                 endif
             elseif PickupIntentProcessed[pId] then
                 call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
@@ -1686,6 +1787,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set PickupIntentProcessed[pId] = true
             set PickupIntentSwitchPage[pId] = reliefPage
             call Debug("Pickup intent immediate relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
+        elseif PickupIntentUseImmediateRelief and reliefPage <= 0 then
+            call HandleBlockedPickupIntent(p, hero, targetItem)
         endif
     endfunction
 
@@ -1741,7 +1844,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                                 set PickupIntentSwitchPage[pId] = reliefPage
                                 call Debug("Pickup intent relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
                             elseif reliefPage <= 0 then
-                                call Debug("Pickup intent: no relief page available for player=" + I2S(pId))
+                                call HandleBlockedPickupIntent(p, hero, targetItem)
                             endif
                         endif
                     endif
@@ -2352,7 +2455,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Ensure bag has room for a new item.
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 then
-            call ErrorMessage("Bag is full.", p)
+            call ErrorMessage(BAG_FULL_MESSAGE, p)
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
