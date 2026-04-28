@@ -1,5 +1,5 @@
 
-library TasItemShopLite initializer init_function requires TasButtonList, TasItemBag, optional FrameLoader
+library TasItemShopLite initializer init_function requires TasButtonList, TasItemBag, optional FrameLoader, optional NeatMessages
 /*    TasItemShopLite by Tasyen
 An custom ui to buy items from a big pool and with a search bar, selecting a shop shows the ui.
 
@@ -65,6 +65,23 @@ public function TooltipPos takes framehandle tooltip, framehandle buttonFrame re
     //call BlzFrameSetPoint(tooltip, FRAMEPOINT_TOPRIGHT, buttonFrame, FRAMEPOINT_BOTTOMRIGHT, 0, -0.052)
     call BlzFrameSetPoint(tooltip, FRAMEPOINT_TOPRIGHT, FrameBox, FRAMEPOINT_TOPLEFT, 0, -0.052)
     //call BlzFrameSetAbsPoint(tooltip, FRAMEPOINT_TOPRIGHT, 0, -0.052)
+endfunction
+
+private function ShopErrorMessage takes string message, player whichPlayer returns nothing
+    static if LIBRARY_NeatMessages then
+        call ClearNeatMessagesForPlayer(whichPlayer)
+        call NeatMessageToPlayerTimed(whichPlayer, 2.00, "|cffffcc00" + message + "|r")
+    else
+        set message = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n|cffffcc00" + message + "|r"
+        if GetLocalPlayer() == whichPlayer then
+            call ClearTextMessages()
+            call DisplayTimedTextToPlayer(whichPlayer, 0.52, 0.96, 2, message)
+        endif
+    endif
+    if GetLocalPlayer() == whichPlayer then
+        call StopSound(gg_snd_Error, false, false)
+        call StartSound(gg_snd_Error)
+    endif
 endfunction
 // config ende
 
@@ -218,7 +235,7 @@ public function BuyItem takes player p, integer itemCode returns nothing
     set dx = GetUnitX(hero) - GetUnitX(shop)
     set dy = GetUnitY(hero) - GetUnitY(shop)
     if SquareRoot(dx*dx + dy*dy) > BuyRange then
-        call ErrorMessage("Move closer to the shop.", p)
+        call ShopErrorMessage("Move closer to the shop.", p)
         set hero = null
         set shop = null
         return

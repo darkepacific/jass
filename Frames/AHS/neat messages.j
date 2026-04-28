@@ -138,11 +138,12 @@ globals
    
     //Default text window parameters.
     constant real TEXT_MESSAGE_X_POSITION                            = 0.225                    //0 = left, 1 = right (bottom-left corner)
-    constant real TEXT_MESSAGE_Y_POSITION                             = 0.16                    //0 = bottom, 0.6 = top (bottom-left corner)
+    constant real TEXT_MESSAGE_Y_POSITION                             = 0.12                    //0 = bottom, 0.6 = top (bottom-left corner)
     constant real TEXT_MESSAGE_BLOCK_MAX_HEIGHT                     = 0.2                    //Maximum height of the entire text message block. Messages pushed out of that area will be removed.
     constant real TEXT_MESSAGE_BLOCK_WIDTH                            = 0.35
-    constant integer MAX_TEXT_MESSAGES                                = 5                        //Maximum number of messages on the screen at the same time. If you want a non-scrolling window, simply set this number to 1.
+    constant integer MAX_TEXT_MESSAGES                                = 1                        //Maximum number of messages on the screen at the same time. If you want a non-scrolling window, simply set this number to 1.
     constant boolean MESSAGE_ORDER_TOP_TO_BOTTOM                    = false                    //Set true if new messages should appear above old messages.
+    private constant integer TEXT_MESSAGE_FRAME_LEVEL                 = 1000
    
     //Config
     private constant boolean INCLUDE_FDF                            = true                    //NeatMessage.fdf has been imported?
@@ -207,6 +208,13 @@ private function GetAdjustedStringLength takes string whichString returns intege
     return adjustedLength
 endfunction
 
+private function GetNextMessageSpacing takes NeatWindow w, integer whichFrame returns real
+    if whichFrame >= w.maxTextMessages - 1 or w.messageFormat[whichFrame + 1] == 0 then
+        return w.messageFormat[whichFrame].spacing
+    endif
+    return w.messageFormat[whichFrame + 1].spacing
+endfunction
+
 private function ChangeTextFormatting takes NeatWindow w, integer whichFrame, NeatFormat whichFormat returns nothing
     if whichFormat == 0 then
         return
@@ -247,7 +255,7 @@ private function ChangeText takes NeatWindow w, integer whichFrame, string which
 				call BlzFrameSetPoint( w.textMessageBox[whichFrame] , FRAMEPOINT_BOTTOMLEFT , w.textMessageFrame[whichFrame] , FRAMEPOINT_BOTTOMLEFT , 0 , -0.0007*(w.messageFormat[whichFrame].fontSize-13) )
 				call BlzFrameSetPoint( w.textMessageBox[whichFrame] , FRAMEPOINT_TOPRIGHT , w.textMessageFrame[whichFrame] , FRAMEPOINT_TOPRIGHT , 0 , 0 )
 			endif
-			set w.textHeight[whichFrame] = BlzFrameGetHeight(w.textMessageFrame[whichFrame]) + RMaxBJ(w.messageFormat[whichFrame].spacing , w.messageFormat[whichFrame+1].spacing)
+            set w.textHeight[whichFrame] = BlzFrameGetHeight(w.textMessageFrame[whichFrame]) + RMaxBJ(w.messageFormat[whichFrame].spacing , GetNextMessageSpacing(w, whichFrame))
 		endif
     endif
 
@@ -433,7 +441,7 @@ private function AddTextMessage takes string whichText, real forcedDuration, Nea
 
     call ChangeTextFormatting(w, 0, whichFormat)
     call ChangeText(w, 0, whichText)
-    set w.textHeight[0] = BlzFrameGetHeight(w.textMessageFrame[0]) + RMaxBJ(whichFormat.spacing , w.messageFormat[1].spacing)
+    set w.textHeight[0] = BlzFrameGetHeight(w.textMessageFrame[0]) + RMaxBJ(whichFormat.spacing , GetNextMessageSpacing(w, 0))
     static if INCLUDE_FDF then
         call BlzFrameSetVisible( w.textMessageBox[0], whichFormat.isBoxed )
     endif
@@ -577,7 +585,7 @@ struct NeatWindow
         loop
         exitwhen i > maxTextMessages - 1
             static if INCLUDE_FDF then
-                set .textMessageFrame[i] = BlzCreateFrame("TextMessage", BlzGetOriginFrame(ORIGIN_FRAME_WORLD_FRAME, 0), 0, 0)
+                set .textMessageFrame[i] = BlzCreateFrame("TextMessage", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 0)
                 set .textMessageText[i] = BlzFrameGetChild( .textMessageFrame[i],0)
                 set .textMessageBox[i] = BlzFrameGetChild( .textMessageFrame[i],1)
                 call BlzFrameSetSize(.textMessageText[i], width/(TEXT_MESSAGE_FONT_SIZE/10.), 0)
@@ -587,26 +595,30 @@ struct NeatWindow
                 call BlzFrameSetVisible( .textMessageFrame[i] , false )
                 call BlzFrameSetEnable(.textMessageFrame[i],false)
                 call BlzFrameSetEnable(.textMessageText[i],false)
-                call BlzFrameSetLevel(.textMessageText[i],1)
-                call BlzFrameSetLevel(.textMessageBox[i],0)
+                call BlzFrameSetLevel(.textMessageFrame[i], TEXT_MESSAGE_FRAME_LEVEL)
+                call BlzFrameSetLevel(.textMessageText[i], TEXT_MESSAGE_FRAME_LEVEL + 2)
+                call BlzFrameSetLevel(.textMessageBox[i], TEXT_MESSAGE_FRAME_LEVEL + 1)
                 set .textCarryingFrame[i] = .textMessageText[i]
-                set .textMessageIcon[i] = BlzCreateFrameByType("BACKDROP", "textMessageIcon" + I2S(i) , BlzGetFrameByName("ConsoleUIBackdrop",0), "", 0)
+                set .textMessageIcon[i] = BlzCreateFrameByType("BACKDROP", "textMessageIcon" + I2S(i) , BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
                 call BlzFrameSetEnable(.textMessageIcon[i],false)
                 call BlzFrameSetVisible(.textMessageIcon[i],false)
+                call BlzFrameSetLevel(.textMessageIcon[i], TEXT_MESSAGE_FRAME_LEVEL + 3)
                 set .messageFormat[i] = DEFAULT_NEAT_FORMAT
 				call ChangeTextFormatting(this, i, DEFAULT_NEAT_FORMAT)
                 call ChangeText(this, i, "")
             else
-                set .textMessageFrame[i] = BlzCreateFrame("TextMessage", BlzGetOriginFrame(ORIGIN_FRAME_WORLD_FRAME, 0), 0, 0)
+                set .textMessageFrame[i] = BlzCreateFrame("TextMessage", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 0)
                 call BlzFrameSetScale(.textMessageFrame[i], TEXT_MESSAGE_FONT_SIZE/10.)
                 call BlzFrameSetTextAlignment(.textMessageFrame[i] , VERTICAL_ALIGNMENT , HORIZONTAL_ALIGNMENT)
                 call BlzFrameSetAbsPoint(.textMessageFrame[i], FRAMEPOINT_BOTTOMLEFT, xPosition, yPosition)
                 call BlzFrameSetVisible( .textMessageFrame[i] , false )
                 call BlzFrameSetEnable(.textMessageFrame[i],false)
+                call BlzFrameSetLevel(.textMessageFrame[i], TEXT_MESSAGE_FRAME_LEVEL)
                 set .textCarryingFrame[i] = .textMessageFrame[i]
-                set .textMessageIcon[i] = BlzCreateFrameByType("BACKDROP", "textMessageIcon" + I2S(i) , BlzGetFrameByName("ConsoleUIBackdrop",0), "", 0)
+                set .textMessageIcon[i] = BlzCreateFrameByType("BACKDROP", "textMessageIcon" + I2S(i) , BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
                 call BlzFrameSetEnable(.textMessageIcon[i],false)
                 call BlzFrameSetVisible(.textMessageIcon[i],false)
+                call BlzFrameSetLevel(.textMessageIcon[i], TEXT_MESSAGE_FRAME_LEVEL + 1)
                 set .messageFormat[i] = DEFAULT_NEAT_FORMAT
 				call ChangeTextFormatting(this, i, DEFAULT_NEAT_FORMAT)
                 call ChangeText(this, i, "")
@@ -782,7 +794,7 @@ function EditNeatMessage takes integer messagePointer, string newText returns no
     endif
 
     call ChangeText(whichWindow, whichFrame, newText)
-    set whichWindow.textHeight[whichFrame] = BlzFrameGetHeight(whichWindow.textMessageFrame[whichFrame]) + RMaxBJ(whichWindow.messageFormat[whichFrame].spacing , whichWindow.messageFormat[whichFrame+1].spacing)
+    set whichWindow.textHeight[whichFrame] = BlzFrameGetHeight(whichWindow.textMessageFrame[whichFrame]) + RMaxBJ(whichWindow.messageFormat[whichFrame].spacing , GetNextMessageSpacing(whichWindow, whichFrame))
 
     call RepositionAllMessages(whichWindow)
 endfunction
@@ -868,7 +880,7 @@ function NeatMessageAddIcon takes integer messagePointer, real width, real heigh
             call BlzFrameSetPoint( whichWindow.textMessageBox[whichFrame] , FRAMEPOINT_BOTTOMLEFT , whichWindow.textMessageFrame[whichFrame] , FRAMEPOINT_BOTTOMLEFT , 0 , -0.0007*(whichWindow.messageFormat[whichFrame].fontSize-13) )
             call BlzFrameSetPoint( whichWindow.textMessageBox[whichFrame] , FRAMEPOINT_TOPRIGHT , whichWindow.textMessageFrame[whichFrame] , FRAMEPOINT_TOPRIGHT , 0 , 0 )
         endif
-        set whichWindow.textHeight[whichFrame] = BlzFrameGetHeight(whichWindow.textMessageFrame[whichFrame]) + RMaxBJ(whichWindow.messageFormat[whichFrame].spacing , whichWindow.messageFormat[whichFrame+1].spacing)
+        set whichWindow.textHeight[whichFrame] = BlzFrameGetHeight(whichWindow.textMessageFrame[whichFrame]) + RMaxBJ(whichWindow.messageFormat[whichFrame].spacing , GetNextMessageSpacing(whichWindow, whichFrame))
         call RepositionAllMessages(whichWindow)
     endif
 endfunction

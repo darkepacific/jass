@@ -479,4 +479,135 @@ function InitShopUserData  takes nothing returns nothing
     // Hearthstone
     call TasItemShopAddShop('n026', 'I02O')
 
+    /*
+        Flight Paths
+    */
+
+    // --- Alliance Flight Path (Aerie Peak) ('u01B') ----
+    // Fly to Stormfeather Outpost  
+    call TasItemShopAddShop('u01B', 'I065')
+    // Fly to Stromgarde
+    call TasItemShopAddShop('u01B', 'I011')
+    // Fly to Southshore
+    call TasItemShopAddShop('u01B', 'I060')
+
+    // --- Alliance Flight Path (Chillwind) ('u007') ----
+    // Fly to Light's Hope
+    call TasItemShopAddShop('u007', 'I05W')
+    // Fly to Stromgarde
+    call TasItemShopAddShop('u007', 'I011')
+    // Fly to Southshore
+    call TasItemShopAddShop('u007', 'I060')
+    // Fly to Hearthglen
+    call TasItemShopAddShop('u007', 'I080')
+
+    // --- Alliance Flight Path (Gilneas) ('u02X') ----
+    // Fly to Southshore
+    call TasItemShopAddShop('u02X', 'I060')
+
+    // --- Alliance Flight Path (Greenwarden's Grove) ('u03O') ----
+    // Fly to Menethil Harbor
+    call TasItemShopAddShop('u03O', 'I08G')
+    // Fly to Ironforge
+    call TasItemShopAddShop('u03O', 'I066')
+    // Fly to Highbank
+    call TasItemShopAddShop('u03O', 'I08U')
+
+    // --- Alliance Flight Path (Highbank) ('u03R') ----
+    // Fly to the Greenwarden's Grove
+    call TasItemShopAddShop('u03R', 'I08R')
+    // Fly to the Vermillion Redoubt
+    call TasItemShopAddShop('u03R', 'I08W')
+
+    // --- Alliance Flight Path (Iron Forge) ('u01E') ----
+    // Fly to Menethil Harbor
+    call TasItemShopAddShop('u01E', 'I08G')
+    // Fly to the Greenwarden's Grove
+    call TasItemShopAddShop('u01E', 'I08R')
+    // Fly to Stormfeather Outpost
+    call TasItemShopAddShop('u01E', 'I065')
+
+    // --- Alliance Flight Path (LH) ('u01D') ----
+    // Fly to Chillwind Camp
+    call TasItemShopAddShop('u01D', 'I015')
+    // Fly to Stormfeather Outpost
+    call TasItemShopAddShop('u01D', 'I065')
+    // Fly to Hearthglen
+    call TasItemShopAddShop('u01D', 'I080')
+
+    // --- Alliance Flight Path (Menethil Harbor) ('u03I') ----
+    // Fly to the Greenwarden's Grove
+    call TasItemShopAddShop('u03I', 'I08R')
+    // Fly to Southshore
+    call TasItemShopAddShop('u03I', 'I060')
+    // Fly to Ironforge
+    call TasItemShopAddShop('u03I', 'I066')
+
+    // --- Alliance Flight Path (Northrend) ('u02U') ----
+    // Fly to Wyrmrest Temple
+    call TasItemShopAddShop('u02U', 'I08X')
+    // Fly to Stromgarde
+    call TasItemShopAddShop('u02U', 'I011')
+
+    // --- Alliance Flight Path (Southshore) ('u019') ----
+    // Fly to Aerie Peak
+    call TasItemShopAddShop('u019', 'I062')
+    // Fly to Stromgarde
+    call TasItemShopAddShop('u019', 'I011')
+    // Fly to Chillwind Camp
+    call TasItemShopAddShop('u019', 'I015')
+    // Fly to Gilneas
+    call TasItemShopAddShop('u019', 'I089')
+
+    // --- Alliance Flight Path (Stormfeather) ('u01C') ----
+    // Fly to Aerie Peak
+    call TasItemShopAddShop('u01C', 'I062')
+    // Fly to Light's Hope
+    call TasItemShopAddShop('u01C', 'I05W')
+    // Fly to Ironforge
+    call TasItemShopAddShop('u01C', 'I066')
+
+    // --- Alliance Flight Path (Stromgarde) ('u018') ----
+    // Fly to Southshore
+    call TasItemShopAddShop('u018', 'I060')
+    // Fly to Aerie Peak
+    call TasItemShopAddShop('u018', 'I062')
+    // Fly to Chillwind Camp
+    call TasItemShopAddShop('u018', 'I015')
+    // Fly to Northrend
+    call TasItemShopAddShop('u018', 'I088')
+
+    // --- Forsaken Flight Path (Gilneas) ('u02Y') ----
+
+    // --- Forsaken Flight Path (Northrend) ('u02V') ----
+
+    // --- Forsaken Flight Path (Tarren Mill) ('u012') ----
+
+    // --- Forsaken Flight Path (The Bulwark) ('u014') ----
+
+    // --- Forsaken Flight Path (The Sepulcher) ('u011') ----
+
+    // --- Forsaken Flight Path (Undercity) ('u006') ----
+
+    // --- Forsaken Flight Path (Gargoyle Spire) ('u009') ----
+
+    // --- Horde Flight Path ('u002') ----
+
+    // --- Horde Flight Path (Dragonmaw Port) ('u03S') ----
+
+    // --- Horde Flight Path (LH) ('u017') ----
+
+    // --- Horde Flight Path (Revantusk) ('u016') ----
+
+    // --- Horde Flight Path (Silvermoon) ('u015') ----
+
+    // --- Horde Flight Path (Tranquillion) ('u03M') ----
+
+    // --- Neutral Flight Path (Northrend) ('u02W') ----
+
+    // --- Neutral Flight Path (Val'sharah) ('u041') ----
+
+    // --- Neutral Flight Path (Vermillion Redoubt) ('u03T') ----
+
+
 endfunction

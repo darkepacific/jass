@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost, optional NeatMessages
     /*  TasItemBag 1.3
     by Tasyen, expanded by Darke Pacific
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -135,8 +135,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant real DETECT_VENDOR_RANGE = 120.0
         private constant integer HEARTSEEKER_ITEM_ID = 'I06X'
         private constant integer HEARTSEEKER_BASE_STACKS = 15
-        private constant string TOOLTIP_SELL_VALUE_PREFIX = "|TUI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp:0|t "
-        private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f________________________________|r"
+        private constant string TOOLTIP_SELL_ICON_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp"
+        private constant real TOOLTIP_SELL_ICON_SIZE = 0.010
+        private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f---------------------------------|r"
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -227,6 +228,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer MAX_INTERACTIVE_SLOT = PAGE_DISPLAY_START + PAGE_DISPLAY_COUNT - 1
     endglobals
 
+    private function BagErrorMessage takes string message, player whichPlayer returns nothing
+        static if LIBRARY_NeatMessages then
+            call ClearNeatMessagesForPlayer(whichPlayer)
+            call NeatMessageToPlayerTimed(whichPlayer, 2.00, "|cffffcc00" + message + "|r")
+        else
+            set message = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n|cffffcc00" + message + "|r"
+            if GetLocalPlayer() == whichPlayer then
+                call ClearTextMessages()
+                call DisplayTimedTextToPlayer(whichPlayer, 0.52, 0.96, 2, message)
+            endif
+        endif
+        if GetLocalPlayer() == whichPlayer then
+            call StopSound(gg_snd_Error, false, false)
+            call StartSound(gg_snd_Error)
+        endif
+    endfunction
+
     // Maps a 1-based EXTRA-bag slot to the owning player's udg_P_Items index.
     // Page slots are 1..12; extra-bag slots are 13..36.
     private function BagSlotArrayIndex takes integer playerKey, integer bagSlot returns integer
@@ -300,7 +318,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BuildBagItemTooltip takes item it, boolean includeNeedText returns string
         local string tooltipText
         local string extraText = ""
-        local integer sellValue
 
         if it == null then
             return ""
@@ -312,8 +329,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set tooltipText = GetItemName(it)
         if IsItemPawnable(it) then
-            set sellValue = GetTooltipSellValue(it)
-            set tooltipText = tooltipText + "|n" + TOOLTIP_SELL_VALUE_PREFIX + "|cffffcc00" + I2S(sellValue) + "|r"
+            // Reserve one line for the dedicated sell icon + value frames.
+            set tooltipText = tooltipText + "|n "
         endif
         set tooltipText = tooltipText + "|n" + TOOLTIP_SEPARATOR_TEXT + "|n" + BlzGetItemExtendedTooltip(it)
 
@@ -322,6 +339,32 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         return tooltipText
+    endfunction
+
+    private function UpdateTooltipSellDisplay takes integer createContext, item it returns nothing
+        local framehandle sellIcon = BlzGetFrameByName("TasItemBagTooltipSellIcon", createContext)
+        local framehandle sellText = BlzGetFrameByName("TasItemBagTooltipSellText", createContext)
+        local integer sellValue
+
+        if sellIcon == null or sellText == null then
+            set sellIcon = null
+            set sellText = null
+            return
+        endif
+
+        if it != null and IsItemPawnable(it) then
+            set sellValue = GetTooltipSellValue(it)
+            call BlzFrameSetText(sellText, "|cffffcc00" + I2S(sellValue) + "|r")
+            call BlzFrameSetVisible(sellIcon, true)
+            call BlzFrameSetVisible(sellText, true)
+        else
+            call BlzFrameSetText(sellText, "")
+            call BlzFrameSetVisible(sellIcon, false)
+            call BlzFrameSetVisible(sellText, false)
+        endif
+
+        set sellIcon = null
+        set sellText = null
     endfunction
 
     private function AreAllPageSlotsFilled takes player p returns boolean
@@ -359,7 +402,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if pagesFull then
             if not PagesFullWarningArmed[pId] then
                 set PagesFullWarningArmed[pId] = true
-                call ErrorMessage(PAGES_FULL_WARNING_MESSAGE, p)
+                call BagErrorMessage(PAGES_FULL_WARNING_MESSAGE, p)
             endif
         else
             set PagesFullWarningArmed[pId] = false
@@ -434,6 +477,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetItemIconPath(it), 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetItemIconPath(it), 0, true)
                     call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), BuildBagItemTooltip(it, AddNeedText))
+                    call UpdateTooltipSellDisplay(i, it)
                 
                     if GetItemCharges(it) > 0 then
                         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), I2S(GetItemCharges(it)))
@@ -445,6 +489,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
                     call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), "")
                     call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), "")
+                    call UpdateTooltipSellDisplay(i, null)
                     // Ensure empty slots don't show stale textures for a frame
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), "", 0, true)
                     call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), "", 0, true)
@@ -491,6 +536,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), BlzGetItemIconPath(it), 0, true)
                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), true)
                         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", otherPage + i - 1), BuildBagItemTooltip(it, false))
+                        call UpdateTooltipSellDisplay(otherPage + i - 1, it)
                         if GetItemCharges(it) > 0 then
                             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", otherPage + i - 1), I2S(GetItemCharges(it)))
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", otherPage + i - 1), true)
@@ -505,6 +551,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), false)
                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", otherPage + i - 1), false)
                         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", otherPage + i - 1), "")
+                        call UpdateTooltipSellDisplay(otherPage + i - 1, null)
                     endif
                     set i = i + 1
                 endloop
@@ -791,15 +838,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Placeholder branch map by race (future race-specific sounds).
         if heroRace == RACE_HUMAN then
-            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_ORC then
-            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_UNDEAD then
-            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_NIGHTELF then
-            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         else
-            call ErrorMessage(INVENTORY_FULL_MESSAGE, p)
+            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         endif
 
         set heroRace = null
@@ -1149,7 +1196,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Need a free slot if the item still exists after any merge
         set emptySlot = BagNextEmptySlot(playerKey)
         if emptySlot <= 0 then
-            call ErrorMessage(BAG_FULL_MESSAGE, GetOwningPlayer(u))
+            call BagErrorMessage(BAG_FULL_MESSAGE, GetOwningPlayer(u))
             return
         endif
 
@@ -1621,7 +1668,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 and not BagHasMergeSpace(playerKey, it) then
-            call ErrorMessage(BAG_FULL_MESSAGE, p)
+            call BagErrorMessage(BAG_FULL_MESSAGE, p)
             set it = null
             return
         endif
@@ -1689,7 +1736,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
 
-        call ErrorMessage(INVENTORY_PAGES_FULL_MESSAGE, p)
+        call BagErrorMessage(INVENTORY_PAGES_FULL_MESSAGE, p)
         call ClearPickupIntent(pId)
         return true
     endfunction
@@ -2261,14 +2308,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if not IsItemPawnable(it) then
-            call ErrorMessage("This item cannot be sold.", p)
+            call BagErrorMessage("This item cannot be sold.", p)
             set hero = null
             set it = null
             return false
         endif
 
         if shop == null or not IsVendorUnit(shop) then
-            call ErrorMessage("No shop in range.", p)
+            call BagErrorMessage("No shop in range.", p)
             set hero = null
             set it = null
             set shop = null
@@ -2279,7 +2326,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set dx = GetUnitX(hero) - GetUnitX(shop)
             set dy = GetUnitY(hero) - GetUnitY(shop)
             if SquareRoot(dx*dx + dy*dy) > SELL_RANGE then
-                call ErrorMessage("No shop in range.", p)
+                call BagErrorMessage("No shop in range.", p)
                 set hero = null
                 set it = null
                 set shop = null
@@ -2455,7 +2502,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Ensure bag has room for a new item.
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 then
-            call ErrorMessage(BAG_FULL_MESSAGE, p)
+            call BagErrorMessage(BAG_FULL_MESSAGE, p)
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
@@ -3122,7 +3169,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                                 call FrameLoseFocus()
                             endif
                         else
-                            call ErrorMessage("Move closer to the shop.", p)
+                            call BagErrorMessage("Move closer to the shop.", p)
                         endif
                         set clickShop = null
                     else
@@ -3250,7 +3297,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                 endif
             else
-                call ErrorMessage("Move closer to the shop.", p)
+                call BagErrorMessage("Move closer to the shop.", p)
             endif
             set selected = null
             set hero = null
@@ -3410,6 +3457,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle toolTipParent = BlzCreateFrameByType("FRAME", "", BlzGetFrameByName("TasItemBagTooltipPanel", 0), "", 0)
         local framehandle toolTipBox = BlzCreateFrame("TasToolTipBox", toolTipParent, 0, 0)
         local framehandle toolTip = BlzCreateFrameByType("TEXT", wantedframeName, toolTipBox, "TasTooltipText", wantedCreateContext)
+        local framehandle sellIcon = BlzCreateFrameByType("BACKDROP", "TasItemBagTooltipSellIcon", toolTipBox, "", wantedCreateContext)
+        local framehandle sellText = BlzCreateFrameByType("TEXT", "TasItemBagTooltipSellText", toolTipBox, "TasTooltipText", wantedCreateContext)
 
         if TooltipFixedPosition then 
             call BlzFrameSetAbsPoint(toolTip, TooltipFixedPositionPoint, TooltipFixedPositionX, TooltipFixedPositionY)
@@ -3420,12 +3469,25 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetPoint(toolTipBox, FRAMEPOINT_TOPLEFT, toolTip, FRAMEPOINT_TOPLEFT, - 0.008, 0.008)
         call BlzFrameSetPoint(toolTipBox, FRAMEPOINT_BOTTOMRIGHT, toolTip, FRAMEPOINT_BOTTOMRIGHT, 0.008, - 0.008)
         call BlzFrameSetText(toolTip, text)
+        call BlzFrameSetTexture(sellIcon, TOOLTIP_SELL_ICON_TEXTURE, 0, true)
+        call BlzFrameSetSize(sellIcon, TOOLTIP_SELL_ICON_SIZE, TOOLTIP_SELL_ICON_SIZE)
+        call BlzFrameSetPoint(sellIcon, FRAMEPOINT_TOPLEFT, toolTip, FRAMEPOINT_TOPLEFT, 0.0015, -0.0145)
+        call BlzFrameSetPoint(sellText, FRAMEPOINT_LEFT, sellIcon, FRAMEPOINT_RIGHT, 0.0025, 0.0)
+        call BlzFrameSetSize(sellText, TooltipWidth - 0.02, 0.012)
+        call BlzFrameSetTextAlignment(sellText, TEXT_JUSTIFY_MIDDLE, TEXT_JUSTIFY_LEFT)
+        call BlzFrameSetText(sellText, "")
+        call BlzFrameSetVisible(sellIcon, false)
+        call BlzFrameSetVisible(sellText, false)
         call BlzFrameSetTooltip(frame, toolTipParent)
         call BlzFrameSetSize(toolTip, TooltipWidth, 0)
         // Important: tooltip frames must not capture mouse, otherwise hover can flicker.
         call BlzFrameSetEnable(toolTipParent, false)
         call BlzFrameSetEnable(toolTipBox, false)
         call BlzFrameSetEnable(toolTip, false)
+        call BlzFrameSetEnable(sellIcon, false)
+        call BlzFrameSetEnable(sellText, false)
+        set sellIcon = null
+        set sellText = null
         return toolTip
     endfunction
 
