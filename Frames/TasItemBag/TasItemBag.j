@@ -323,7 +323,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return ""
         endif
 
-        if includeNeedText then
+        if includeNeedText and ItemLevelRestriction then
             set extraText = "|nNEED " + GetLocalizedString("REQUIREDLEVELTOOLTIP") + " " + I2S(GetItemLevel(it))
         endif
 
@@ -412,6 +412,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function UpdateUI takes nothing returns nothing
         local integer pId = GetPlayerId(GetLocalPlayer())
         local player p = Player(pId)
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local integer itemCount = 0
         local item it
         local integer i
@@ -522,11 +523,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set i = 1
                 loop
                     exitwhen i > 6
-                    set arrIndex = GetPItemsIndex(Player(pId), currentPage, i)
-                    set it = udg_P_Items[arrIndex]
+                    if hero != null and currentPage == udg_Bag_Page[GetPlayerNumber(p)] then
+                        set it = UnitItemInSlot(hero, i - 1)
+                    else
+                        set arrIndex = GetPItemsIndex(Player(pId), currentPage, i)
+                        set it = udg_P_Items[arrIndex]
+                    endif
                     // Detect dead handles (item destroyed externally)
                     if it != null and GetItemTypeId(it) == 0 then
-                        set udg_P_Items[arrIndex] = null
+                        if hero == null or currentPage != udg_Bag_Page[GetPlayerNumber(p)] then
+                            set udg_P_Items[arrIndex] = null
+                        endif
                         set it = null
                     endif
                     if it != null then
@@ -560,6 +567,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         set it = null
         set p = null
+        set hero = null
     endfunction
 
     // Schedules a UI refresh once (debounced). Safe to call many times.

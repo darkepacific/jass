@@ -480,7 +480,7 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('n026', 'I02O')
 
     /*
-        Flight Paths
+    Flight Paths
     */
 
     // --- Alliance Flight Path (Aerie Peak) ('u01B') ----
@@ -578,36 +578,102 @@ function InitShopUserData  takes nothing returns nothing
     call TasItemShopAddShop('u018', 'I088')
 
     // --- Forsaken Flight Path (Gilneas) ('u02Y') ----
+    // Fly to the Sepulcher
+    call TasItemShopAddShop('u02Y', 'I00B')
 
     // --- Forsaken Flight Path (Northrend) ('u02V') ----
+    // Fly to Wyrmrest Temple
+    call TasItemShopAddShop('u02V', 'I08X')
+    // Fly to the Undercity
+    call TasItemShopAddShop('u02V', 'I00N')
 
     // --- Forsaken Flight Path (Tarren Mill) ('u012') ----
+    // Fly to the Undercity
+    call TasItemShopAddShop('u012', 'I00N')
+    // Fly to the Sepulcher
+    call TasItemShopAddShop('u012', 'I00B')
+    // Fly to the Bulwark
+    call TasItemShopAddShop('u012', 'I061')
 
     // --- Forsaken Flight Path (The Bulwark) ('u014') ----
+    // Fly to the Undercity
+    call TasItemShopAddShop('u014', 'I00N')
+    // Fly to Tarren Mill
+    call TasItemShopAddShop('u014', 'I00S')
+    // Fly to Light's Hope
+    call TasItemShopAddShop('u014', 'I05W')
+    // Fly to Hearthglen
+    call TasItemShopAddShop('u014', 'I080')
+
 
     // --- Forsaken Flight Path (The Sepulcher) ('u011') ----
+    // Fly to the Undercity
+    call TasItemShopAddShop('u011', 'I00N')
+    // Fly to Tarren Mill
+    call TasItemShopAddShop('u011', 'I00S')
+    // Fly to Gilneas
+    call TasItemShopAddShop('u011', 'I089')
+
 
     // --- Forsaken Flight Path (Undercity) ('u006') ----
-
-    // --- Forsaken Flight Path (Gargoyle Spire) ('u009') ----
-
-    // --- Horde Flight Path ('u002') ----
+    // Fly to the Bulwark
+    call TasItemShopAddShop('u006', 'I061')
+    // Fly to the Sepulcher
+    call TasItemShopAddShop('u006', 'I00B')
+    // Fly to Tarren Mill
+    call TasItemShopAddShop('u006', 'I00S')
+    // Fly to the Northrend
+    call TasItemShopAddShop('u006', 'I088')
 
     // --- Horde Flight Path (Dragonmaw Port) ('u03S') ----
+    // Fly to Revantusk Village
+    call TasItemShopAddShop('u03S', 'I064')
+    // Fly to the Vermillion Redoubt
+    call TasItemShopAddShop('u03S', 'I08W')
 
     // --- Horde Flight Path (LH) ('u017') ----
+    // Fly to the Bulwark
+    call TasItemShopAddShop('u017', 'I061')
+    // Fly to Tranquillen
+    call TasItemShopAddShop('u017', 'I08N')
+    // Fly to Revantusk Village
+    call TasItemShopAddShop('u017', 'I064')
+    // Fly to Hearthglen
+    call TasItemShopAddShop('u017', 'I080')
 
     // --- Horde Flight Path (Revantusk) ('u016') ----
+    // Fly to Light's Hope
+    call TasItemShopAddShop('u016', 'I05W')
+    // Fly to Dragonmaw Port
+    call TasItemShopAddShop('u016', 'I08T')
 
     // --- Horde Flight Path (Silvermoon) ('u015') ----
+    // Fly to Tranquillen
+    call TasItemShopAddShop('u015', 'I08N')
+    // Fly to Light's Hope
+    call TasItemShopAddShop('u015', 'I05W')
 
     // --- Horde Flight Path (Tranquillion) ('u03M') ----
+    // Fly to Silvermoon
+    call TasItemShopAddShop('u03M', 'I063')
+    // Fly to Light's Hope
+    call TasItemShopAddShop('u03M', 'I05W')
 
     // --- Neutral Flight Path (Northrend) ('u02W') ----
+    // Fly to Stormfeather Outpost
+    call TasItemShopAddShop('u02W', 'I065')
+    // Fly to Stromgarde
+    call TasItemShopAddShop('u02W', 'I011')
+    // Fly to Southshore
+    call TasItemShopAddShop('u02W', 'I060')
 
     // --- Neutral Flight Path (Val'sharah) ('u041') ----
 
+
     // --- Neutral Flight Path (Vermillion Redoubt) ('u03T') ----
+    // Fly to the Obsidian Forest
+    call TasItemShopAddShop('u03T', 'I08Y')
+
 
 
 endfunction
