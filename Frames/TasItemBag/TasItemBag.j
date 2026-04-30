@@ -3040,7 +3040,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         else
             set panelStr = "false"
         endif
-        call Debug("Global MOUSE_UP: invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
+        // call Debug("Global MOUSE_UP: invIndex=" + I2S(invIndex) + ", LastHoveredIndex=" + I2S(LastHoveredIndex[pId]) + ", PanelHover=" + panelStr)
 
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
             // WoW-like: right-click cancels an armed swap without side-effects

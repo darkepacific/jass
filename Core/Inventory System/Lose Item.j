@@ -21,6 +21,8 @@ function Trig_Lose_Item_Actions takes nothing returns nothing
     local boolean hasItem = false
     
     local integer i = 0
+
+    call Debug("Losing Item: " + GetItemName(it) + " from player: " + I2S(playerNum) )
         
     // Find which slot the item was dropped from and clear it in P_Items
     set i = 1

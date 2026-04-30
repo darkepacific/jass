@@ -479,6 +479,14 @@ function InitShopUserData  takes nothing returns nothing
     // Hearthstone
     call TasItemShopAddShop('n026', 'I02O')
 
+    // ---- Goblin Explosives Shop ('n05K') ----
+    // Explosive Sheep
+    call TasItemShopAddShop('n05K', 'n053')
+    // Potion of Greater Healing
+    call TasItemShopAddShop('n05K', 'pghe')
+    // Potion of Greater Mana
+    call TasItemShopAddShop('n05K', 'pgma')
+
     /*
     Flight Paths
     */
@@ -672,7 +680,7 @@ function InitShopUserData  takes nothing returns nothing
 
     // --- Neutral Flight Path (Vermillion Redoubt) ('u03T') ----
     // Fly to the Obsidian Forest
-    call TasItemShopAddShop('u03T', 'I08Y')
+    call TasItemShopAddShop('u03T', 'I08V')
 
 
 

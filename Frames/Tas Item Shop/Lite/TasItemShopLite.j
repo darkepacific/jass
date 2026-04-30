@@ -244,7 +244,10 @@ public function BuyItem takes player p, integer itemCode returns nothing
     if GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) >= gold then
         if GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) >= lumber then
             set newItem = CreateItem(itemCode, GetUnitX(hero), GetUnitY(hero))
-            if GetItemType(newItem) == ITEM_TYPE_POWERUP then
+            if newItem == null then
+                // Unit purchase — shop has this unit in stock; native order handles cost deduction
+                call IssueNeutralImmediateOrderById(p, shop, itemCode)
+            elseif GetItemType(newItem) == ITEM_TYPE_POWERUP then
                 // Route through native shop sale so EVENT_PLAYER_UNIT_SELL_ITEM fires
                 call RemoveItem(newItem)
                 call AddItemToStock(shop, itemCode, 1, 1)

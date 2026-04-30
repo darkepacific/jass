@@ -76,9 +76,14 @@ library TasItemCost
                 call RemoveItem(i)
                 set TestCount = TestCount + 1
                 set Test[TestCount] = itemCode
+            else
+                // Not an item — cache costs from unit object data
+                call SaveInteger(TasItemHash, itemCode, HASH_GOLD, GetUnitGoldCost(itemCode))
+                call SaveInteger(TasItemHash, itemCode, HASH_LUMBER, GetUnitWoodCost(itemCode))
+                call SaveInteger(TasItemHash, itemCode, HASH_CHARGE, 0)
             endif
             if TestCount > 0 then
-                call Start() 
+                call Start()
             endif
             set i = null
         endif
