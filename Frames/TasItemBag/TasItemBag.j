@@ -1409,6 +1409,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
 
+        // Drop items leaving the active inventory while still in native inventory — fires gg_trg_Lose_Item naturally
+        if aIsActive and not bIsActive and i != null then
+            if GetItemType(i) != ITEM_TYPE_POWERUP and GetItemTypeId(i) != 'I07W' then
+                call DisableTrigger(gg_trg_Acquire_Item)
+                call UnitDropItemPoint(u, i, GetUnitX(u), GetUnitY(u))
+                call SetItemPosition(i, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+                call SetItemUserData(i, 1)
+                call SetItemVisible(i, false)
+                call EnableTrigger(gg_trg_Acquire_Item)
+            endif
+        endif
+        if bIsActive and not aIsActive and i2 != null then
+            if GetItemType(i2) != ITEM_TYPE_POWERUP and GetItemTypeId(i2) != 'I07W' then
+                call DisableTrigger(gg_trg_Acquire_Item)
+                call UnitDropItemPoint(u, i2, GetUnitX(u), GetUnitY(u))
+                call SetItemPosition(i2, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+                call SetItemUserData(i2, 1)
+                call SetItemVisible(i2, false)
+                call EnableTrigger(gg_trg_Acquire_Item)
+            endif
+        endif
+
         set udg_P_Items[a] = i2
         set udg_P_Items[b] = i
 
@@ -1435,9 +1457,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if i == null then
             return false
         endif
-        // If removing from active page, unequip from hero first
+        // If removing from active page: fire the native drop event (triggers gg_trg_Lose_Item naturally),
+        // then park item on island so TasItemBag state stays consistent.
+        // ITEM_TYPE_POWERUP and 'I07W' are excluded (same gates as the original trigger condition).
         if IsActivePageSlot(playerKey, index) then
-            call UnequipFromHero(u, PageSlotToInvSlot(index))
+            if GetItemType(i) != ITEM_TYPE_POWERUP and GetItemTypeId(i) != 'I07W' then
+                call DisableTrigger(gg_trg_Acquire_Item)
+                call UnitDropItemPoint(u, i, GetUnitX(u), GetUnitY(u))
+                call SetItemPosition(i, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+                call SetItemUserData(i, 1)
+                call SetItemVisible(i, false)
+                call EnableTrigger(gg_trg_Acquire_Item)
+            else
+                call UnequipFromHero(u, PageSlotToInvSlot(index))
+            endif
         endif
         set udg_P_Items[arrIndex] = null
         call RequestUIUpdate()
