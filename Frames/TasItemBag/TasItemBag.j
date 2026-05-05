@@ -265,7 +265,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return BagSlotArrayIndex(playerKey, slotIndex)
     endfunction
 
-        // Prime item cost cache from the save-item list once.
+    // Prime item cost cache from the save-item list once.
     // Uses a trailing-empty cutoff to avoid scanning unbounded array tails.
     private function PrimeSellValueCache takes nothing returns nothing
         local integer i = 1
@@ -1210,7 +1210,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
         call SetItemPositionLoc(i, itemIsland)
-        call SetItemVisible(i, false)
+        // call SetItemVisible(i, false)
         call SetItemUserData(i, 1)
         call RemoveLocation(itemIsland)
 
@@ -1256,17 +1256,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function UnequipFromHero takes unit hero, integer invSlot returns nothing
         local item removed
         local location itemIsland
-        call DisableTrigger(gg_trg_Lose_Item)
+        // call DisableTrigger(gg_trg_Lose_Item)
         set removed = UnitRemoveItemFromSlot(hero, invSlot)
         if removed != null then
             set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
             call SetItemPositionLoc(removed, itemIsland)
             call SetItemUserData(removed, 1)
-            call SetItemVisible(removed, false)
+            // call SetItemVisible(removed, false)
             call RemoveLocation(itemIsland)
             set itemIsland = null
         endif
-        call EnableTrigger(gg_trg_Lose_Item)
+        // call EnableTrigger(gg_trg_Lose_Item)
         set removed = null
     endfunction
 
@@ -1299,25 +1299,34 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer currentPage = udg_Bag_Page[playerNum]
         local integer pageIndex
         local integer slot = 1
-        local integer slotActuallyAddedTo = 1
         local item currentItem
-        local item pageItem
         local location itemIsland
+        local item array Temp_Items
+
         if hero == null then
             return
         endif
 
         set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
-        call DisableTrigger(gg_trg_Lose_Item)
+        // call DisableTrigger(gg_trg_Acquire_Item)
+        // call DisableTrigger(gg_trg_Lose_Item)
         call DisableTrigger(gg_trg_Firestone_Dropped)
         call DisableTrigger(gg_trg_Firestone_Acquired)
 
         loop
             exitwhen slot > 6
+            set pageIndex = GetPItemsIndex(p, currentPage, slot)
+            set Temp_Items[slot] = udg_P_Items[pageIndex]
+            set slot = slot + 1
+        endloop
+
+        set slot = 1
+        loop
+            exitwhen slot > 6
             set currentItem = UnitRemoveItemFromSlot(hero, slot - 1)
             if currentItem != null then
                 call SetItemPositionLoc(currentItem, itemIsland)
-                call SetItemVisible(currentItem, false)
+                // call SetItemVisible(currentItem, false)
                 call SetItemUserData(currentItem, 1)
             endif
             set slot = slot + 1
@@ -1326,27 +1335,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set slot = 1
         loop
             exitwhen slot > 6
-            set pageIndex = GetPItemsIndex(p, currentPage, slot)
-            set pageItem = udg_P_Items[pageIndex]
-            set udg_P_Items[pageIndex] = null
-            if pageItem != null then
+            set currentItem = Temp_Items[slot]
+            if currentItem != null then
                 set udg_dontDepositIntoBag = true
-                call UnitAddItem(hero, pageItem)
-                if GetItemTypeId(pageItem) != 0 then
-                    set udg_P_Items[GetPItemsIndex(p, currentPage, slotActuallyAddedTo)] = pageItem
-                    set slotActuallyAddedTo = slotActuallyAddedTo + 1
-                endif
+                call UnitAddItem(hero, currentItem)
             endif
             set slot = slot + 1
         endloop
 
         call EnableTrigger(gg_trg_Firestone_Dropped)
         call EnableTrigger(gg_trg_Firestone_Acquired)
-        call EnableTrigger(gg_trg_Lose_Item)
+        // call EnableTrigger(gg_trg_Lose_Item)
+        // call EnableTrigger(gg_trg_Acquire_Item)
         call RemoveLocation(itemIsland)
         set itemIsland = null
         set currentItem = null
-        set pageItem = null
         set hero = null
     endfunction
 
@@ -1412,22 +1415,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Drop items leaving the active inventory while still in native inventory — fires gg_trg_Lose_Item naturally
         if aIsActive and not bIsActive and i != null then
             if GetItemType(i) != ITEM_TYPE_POWERUP and GetItemTypeId(i) != 'I07W' then
-                call DisableTrigger(gg_trg_Acquire_Item)
+                // call DisableTrigger(gg_trg_Acquire_Item)
                 call UnitDropItemPoint(u, i, GetUnitX(u), GetUnitY(u))
                 call SetItemPosition(i, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
                 call SetItemUserData(i, 1)
-                call SetItemVisible(i, false)
-                call EnableTrigger(gg_trg_Acquire_Item)
+                // call SetItemVisible(i, false)
+                // call EnableTrigger(gg_trg_Acquire_Item)
             endif
         endif
         if bIsActive and not aIsActive and i2 != null then
             if GetItemType(i2) != ITEM_TYPE_POWERUP and GetItemTypeId(i2) != 'I07W' then
-                call DisableTrigger(gg_trg_Acquire_Item)
+                // call DisableTrigger(gg_trg_Acquire_Item)
                 call UnitDropItemPoint(u, i2, GetUnitX(u), GetUnitY(u))
                 call SetItemPosition(i2, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
                 call SetItemUserData(i2, 1)
-                call SetItemVisible(i2, false)
-                call EnableTrigger(gg_trg_Acquire_Item)
+                // call SetItemVisible(i2, false)
+                // call EnableTrigger(gg_trg_Acquire_Item)
             endif
         endif
 
@@ -1462,12 +1465,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // ITEM_TYPE_POWERUP and 'I07W' are excluded (same gates as the original trigger condition).
         if IsActivePageSlot(playerKey, index) then
             if GetItemType(i) != ITEM_TYPE_POWERUP and GetItemTypeId(i) != 'I07W' then
-                call DisableTrigger(gg_trg_Acquire_Item)
+                // call DisableTrigger(gg_trg_Acquire_Item)
                 call UnitDropItemPoint(u, i, GetUnitX(u), GetUnitY(u))
                 call SetItemPosition(i, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
                 call SetItemUserData(i, 1)
-                call SetItemVisible(i, false)
-                call EnableTrigger(gg_trg_Acquire_Item)
+                // call SetItemVisible(i, false)
+                // call EnableTrigger(gg_trg_Acquire_Item)
             else
                 call UnequipFromHero(u, PageSlotToInvSlot(index))
             endif
@@ -1479,7 +1482,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set dropSpot = GetUnitLoc(u)
             call SetItemPositionLoc(i, dropSpot)
             call SetItemUserData(i, 0)
-            call SetItemVisible(i, true)
+            // call SetItemVisible(i, true)
             call RemoveLocation(dropSpot)
             set dropSpot = null
             set i = null
@@ -1655,7 +1658,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     else
                         // Partially absorbed; keep the bank item with remaining charges.
                         call SetItemCharges(i, incomingCharges)
-                        call SetItemVisible(i, false)
+                        // call SetItemVisible(i, false)
                     endif
                     call RequestUIUpdate()
                     set invItem = null
@@ -1676,7 +1679,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
      
         // Make the item visible and place it at the hero before equipping
-        call SetItemVisible(i, true)
+        // call SetItemVisible(i, true)
         call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
         call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
 
@@ -2078,7 +2081,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             if TasItemBagRemoveIndex(hero, WorldDropBagIndex[pId], false) then
                                 call SetItemPosition(it, WorldDropX[pId], WorldDropY[pId])
                                 call SetItemUserData(it, 0)
-                                call SetItemVisible(it, true)
+                                // call SetItemVisible(it, true)
                             endif
                             call ClearWorldDropQueue(pId)
                         endif
@@ -3232,18 +3235,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
     endfunction
-    
-    // private function WheelAction takes nothing returns nothing
-    //     // Slider disabled (fixed bag size fits on screen).
-    //     local boolean upwards = BlzGetTriggerFrameValue() > 0
-    //     if GetLocalPlayer() == GetTriggerPlayer() then
-    //         if upwards then 
-    //             call BlzFrameSetValue(BlzGetFrameByName("TasItemBagSlider", 0), BlzFrameGetValue(BlzGetFrameByName("TasItemBagSlider", 0)) + 1)
-    //         else
-    //             call BlzFrameSetValue(BlzGetFrameByName("TasItemBagSlider", 0), BlzFrameGetValue(BlzGetFrameByName("TasItemBagSlider", 0)) - 1)
-    //         endif
-    //     endif
-    // endfunction
 
     private function CloseButtonAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
@@ -3691,23 +3682,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetPoint(frame2, FRAMEPOINT_LEFT, BlzGetFrameByName("TasItemBagSlot", PAGE2_DISPLAY_START + 5), FRAMEPOINT_RIGHT, 0.001, 0)
         call BlzFrameSetText(frame2, "|cffffcc002|r")
 
-        /*
-        // Slider disabled (fixed bag size fits on screen).
-        set frame = BlzCreateFrameByType("SLIDER", "TasItemBagSlider", panel, "QuestMainListScrollBar", 0)
-        call BlzFrameClearAllPoints(frame)
-        call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMRIGHT, panel, FRAMEPOINT_BOTTOMRIGHT, - 0.004, 0.008)
-        call BlzFrameSetSize(frame, BlzFrameGetWidth(frame), BlzFrameGetHeight(panel) - 0.02)
-        //BlzFrameSetStepSize(frame, Cols)
-        set backup = TooltipFixedPosition
-        set TooltipFixedPosition = false
-        call CreateTextTooltip(frame, "TasItemBagSliderTooltip", 0, "")
-        call BlzFrameSetSize(BlzGetFrameByName("TasItemBagSliderTooltip", 0), 0, 0)
-        set TooltipFixedPosition = backup
-        call BlzTriggerRegisterFrameEvent(TriggerUIWheel, frame, FRAMEEVENT_MOUSE_WHEEL)
-        call BlzTriggerRegisterFrameEvent(TriggerUISlider, frame, FRAMEEVENT_SLIDER_VALUE_CHANGED)
-        */
-
-
         // show Buttons
         set frame = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 0)
         call BlzFrameSetAbsPoint(frame, ShowButtonPos, ShowButtonPosX, ShowButtonPosY)
@@ -3870,15 +3844,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUIBagButton = CreateTrigger()
         call TriggerAddAction(TriggerUIBagButton, function BagButtonAction)
 
-        /*
-        // Slider disabled (fixed bag size fits on screen).
-        set TriggerUISlider = CreateTrigger()
-        call TriggerAddAction(TriggerUISlider, function SliderAction)
-
-        set TriggerUIWheel = CreateTrigger()
-        call TriggerAddAction(TriggerUIWheel, function WheelAction)
-        */
-
         // Legacy popup triggers (events registered in InitFrames after frames are created)
         set TriggerUIEquip = CreateTrigger()
         call TriggerAddAction(TriggerUIEquip, function BagPopupActionEquip)
@@ -3950,8 +3915,5 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TimerStart(WorldDropTimer, 0.03, true, function WorldDropTimerAction)
         call TimerStart(PickupIntentTimer, 0.03, true, function PickupIntentTimerAction)
         call TimerStart(ItemGainTimer, 0, false, function InitBagAt0s)  
-        
-        // set udg_BAG_SIZE = 13 + PITEMS_EXTRA_SLOTS
-
     endfunction
 endlibrary
