@@ -95,6 +95,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIInventoryButton
         private framehandle array InventoryHitbox
         private integer array InventoryHoverSlot
+        private real array InventoryHoverGraceTimeLeft
         public trigger TriggerUnitOrder
         public integer array LastHoveredIndex
         // Drag tracking: origin type 0:none, 1:inventory slot, 2:bag slot
@@ -138,6 +139,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string TOOLTIP_SELL_ICON_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp"
         private constant real TOOLTIP_SELL_ICON_SIZE = 0.010
         private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f---------------------------------|r"
+        private constant real INVENTORY_HOVER_GRACE_WINDOW = 0.12
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -846,12 +848,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Placeholder branch map by race (future race-specific sounds).
         if heroRace == RACE_HUMAN then
+            if GetLocalPlayer() == p then
+                call StopSound(gg_snd_HumanMale_err_inventoryfull01, false, false)
+                call ClearTextMessages()
+            endif
             call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_ORC then
+            if GetLocalPlayer() == p then
+                call StopSound(gg_snd_OrcMale_err_inventoryfull01, false, false)
+                call ClearTextMessages()
+            endif
             call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_UNDEAD then
+            if GetLocalPlayer() == p then
+                call StopSound(gg_snd_UndeadMale_err_inventoryfull01, false, false)
+                call ClearTextMessages()
+            endif
             call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_NIGHTELF then
+            if GetLocalPlayer() == p then
+                call StopSound(gg_snd_NightElfFemale_err_inventoryfull01, false, false)
+                call ClearTextMessages()
+            endif
             call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         else
             call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
@@ -1897,6 +1915,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         loop
             exitwhen pId >= bj_MAX_PLAYERS
+            if InventoryHoverGraceTimeLeft[pId] > 0.0 then
+                set InventoryHoverGraceTimeLeft[pId] = InventoryHoverGraceTimeLeft[pId] - 0.03
+                if InventoryHoverGraceTimeLeft[pId] <= 0.0 then
+                    set InventoryHoverGraceTimeLeft[pId] = 0.0
+                    set InventoryHoverSlot[pId] = 0
+                endif
+            endif
             if LastSmartPickupTimeLeft[pId] > 0.0 then
                 set LastSmartPickupTimeLeft[pId] = LastSmartPickupTimeLeft[pId] - 0.03
                 if LastSmartPickupTimeLeft[pId] <= 0.0 then
@@ -2008,11 +2033,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set p = null
     endfunction
 
+    private function PlayDropConfirmationEffect takes player p, real x, real y returns nothing
+        local effect arrow = AddSpecialEffect("UI\\Feedback\\Confirmation\\Confirmation.mdl", x, y)
+        call BlzSetSpecialEffectColor(arrow, 0, 255, 0)
+        if GetLocalPlayer() != p then
+            call BlzSetSpecialEffectAlpha(arrow, 0)
+        endif
+        call DestroyEffect(arrow)
+        set arrow = null
+    endfunction
+
     private function StartWorldDropFromSelection takes player p, integer bagIndex, real x, real y returns boolean
         local integer pId = GetPlayerId(p)
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
-        local effect arrow
         if hero == null then
             return false
         endif
@@ -2035,14 +2069,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set IgnoreNextWorldDropOrder[pId] = true
         call IssuePointOrder(hero, "move", x, y)
 
-        set arrow = AddSpecialEffect("UI\\Feedback\\Confirmation\\Confirmation.mdl", x, y)
-        call BlzSetSpecialEffectColor(arrow, 0, 255, 0)
-        if GetLocalPlayer() != p then
-            call BlzSetSpecialEffectAlpha(arrow, 0)
-        endif
-        call DestroyEffect(arrow)
-
-        set arrow = null
+        call PlayDropConfirmationEffect(p, x, y)
         set hero = null
         set it = null
         return true
@@ -2213,7 +2240,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Always operate on the triggering player's own bag/hero.
         if hero != null then
-            call TasItemBagRemoveIndex(hero, TransferIndex[pId], true)
+            if TasItemBagRemoveIndex(hero, TransferIndex[pId], true) then
+                call PlayDropConfirmationEffect(p, GetUnitX(hero), GetUnitY(hero))
+            endif
         endif
         set hero = null
         call FrameLoseFocus()
@@ -2677,10 +2706,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Track currently hovered inventory slot from native buttons + hitboxes (no grace window).
         if evt == FRAMEEVENT_MOUSE_ENTER then
             set InventoryHoverSlot[pId] = invSlot + 1
+            set InventoryHoverGraceTimeLeft[pId] = 0.0
             return
         elseif evt == FRAMEEVENT_MOUSE_LEAVE then
             if InventoryHoverSlot[pId] == invSlot + 1 then
-                set InventoryHoverSlot[pId] = 0
+                set InventoryHoverGraceTimeLeft[pId] = INVENTORY_HOVER_GRACE_WINDOW
             endif
             return
         endif
@@ -3044,7 +3074,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
         local integer targetIndex = LastHoveredIndex[pId]
-        local integer invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
+        local integer invIndex = -1
         local integer rawIdx
         local integer bagIndex
         local item bi
@@ -3064,11 +3094,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set PanelHover[pId] = true
         endif
 
-        // HoverOriginButton can miss thin separators; use live inventory hover fallback.
-        if invIndex < 0 or invIndex >= bj_MAX_INVENTORY then
-            if InventoryHoverSlot[pId] > 0 and InventoryHoverSlot[pId] <= bj_MAX_INVENTORY then
-                set invIndex = InventoryHoverSlot[pId] - 1
-            endif
+        // Prefer direct frame-hover tracking for inventory slots.
+        // HoverOriginButton is tooltip-polled and can lag on very fast clicks.
+        if InventoryHoverSlot[pId] > 0 and InventoryHoverSlot[pId] <= bj_MAX_INVENTORY then
+            set invIndex = InventoryHoverSlot[pId] - 1
+        else
+            set invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
         endif
 
         if PanelHover[pId] then
@@ -3102,28 +3133,43 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             //     call DepositInventorySlot(p, invIndex)
             //     set didSomething = true
             // else
-            if PanelHover[pId] then
-                set rawIdx = ResolveBagIndexFromMouse()
-                if rawIdx <= 0 and targetIndex > 0 then
-                    set bagIndex = targetIndex
-                    set rawIdx = bagIndex
-                else
-                    set bagIndex = rawIdx
+            if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
+                if GetLocalPlayer() == p then
+                    // Update once before showing to avoid a one-frame flash of stale/null slot data
+                    call UpdateUI()
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    call UpdateUI()
                 endif
-                if rawIdx > 0 and rawIdx <= MAX_INTERACTIVE_SLOT then
-                    set bi = udg_P_Items[SlotToArrayIndex(pId, bagIndex)]
-                    if bi != null then
-                        call Debug("Select arm (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                        set SwapIndex[pId] = bagIndex
-                        call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
-                        call PlaySwapSelectSound(p)
-                        if GetLocalPlayer() == p then
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                        endif
-                        set didSomething = true
+                set SwapIndex[GetPlayerId(p)] = 0
+                call SwapHighlightHide(GetPlayerId(p))
+                call FrameLoseFocus()
+                set didSomething = true
+            else
+                if PanelHover[pId] then
+                    set rawIdx = ResolveBagIndexFromMouse()
+                    if rawIdx <= 0 and targetIndex > 0 then
+                        set bagIndex = targetIndex
+                        set rawIdx = bagIndex
                     else
-                        call Debug("Select suppressed: empty at bagIndex=" + I2S(bagIndex))
+                        set bagIndex = rawIdx
+                    endif
+                    if rawIdx > 0 and rawIdx <= MAX_INTERACTIVE_SLOT then
+                        set bi = udg_P_Items[SlotToArrayIndex(pId, bagIndex)]
+                        if bi != null then
+                            call Debug("Select arm (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                            set SwapIndex[pId] = bagIndex
+                            call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
+                            call PlaySwapSelectSound(p)
+                            if GetLocalPlayer() == p then
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                            endif
+                            set didSomething = true
+                        else
+                            call Debug("Select suppressed: empty at bagIndex=" + I2S(bagIndex))
+                        endif
                     endif
                 endif
             endif
