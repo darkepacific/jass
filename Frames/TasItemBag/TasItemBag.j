@@ -201,7 +201,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Keep behavior identical for now (same ErrorMessage) until custom sounds are imported.
         private constant string BAG_FULL_MESSAGE = "Bag is full."
         private constant string INVENTORY_PAGES_FULL_MESSAGE = "Inventory pages are full."
-        private constant string INVENTORY_FULL_MESSAGE = "Inventory is full."
+        // private constant string INVENTORY_FULL_MESSAGE = "Inventory is full."
         private constant string PAGES_FULL_WARNING_MESSAGE = "Warning! Auto-pickup will not work when both pages are full."
         private boolean array PagesFullWarningArmed
 
@@ -850,29 +850,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if heroRace == RACE_HUMAN then
             if GetLocalPlayer() == p then
                 call StopSound(gg_snd_HumanMale_err_inventoryfull01, false, false)
-                call ClearTextMessages()
+                call StartSound(gg_snd_HumanMale_err_inventoryfull01)
             endif
-            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_ORC then
             if GetLocalPlayer() == p then
                 call StopSound(gg_snd_OrcMale_err_inventoryfull01, false, false)
-                call ClearTextMessages()
+                call StartSound(gg_snd_OrcMale_err_inventoryfull01)
             endif
-            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_UNDEAD then
             if GetLocalPlayer() == p then
                 call StopSound(gg_snd_UndeadMale_err_inventoryfull01, false, false)
-                call ClearTextMessages()
+                call StartSound(gg_snd_UndeadMale_err_inventoryfull01)
             endif
-            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         elseif heroRace == RACE_NIGHTELF then
             if GetLocalPlayer() == p then
                 call StopSound(gg_snd_NightElfFemale_err_inventoryfull01, false, false)
-                call ClearTextMessages()
+                call StartSound(gg_snd_NightElfFemale_err_inventoryfull01)
             endif
-            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
-        else
-            call BagErrorMessage(INVENTORY_FULL_MESSAGE, p)
         endif
 
         set heroRace = null
@@ -1222,7 +1216,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Need a free slot if the item still exists after any merge
         set emptySlot = BagNextEmptySlot(playerKey)
         if emptySlot <= 0 then
+            call PlayInventoryFullRaceSoundPlaceholder(GetOwningPlayer(u), u)
             call BagErrorMessage(BAG_FULL_MESSAGE, GetOwningPlayer(u))
+            call RequestUIUpdate()
             return
         endif
 
@@ -1730,7 +1726,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 and not BagHasMergeSpace(playerKey, it) then
+            call PlayInventoryFullRaceSoundPlaceholder(p, hero)
             call BagErrorMessage(BAG_FULL_MESSAGE, p)
+            call RequestUIUpdate()
             set it = null
             return
         endif
@@ -1798,6 +1796,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
 
+        call PlayInventoryFullRaceSoundPlaceholder(p, hero)
         call BagErrorMessage(INVENTORY_PAGES_FULL_MESSAGE, p)
         call ClearPickupIntent(pId)
         return true
@@ -2575,7 +2574,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Ensure bag has room for a new item.
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 then
+            call PlayInventoryFullRaceSoundPlaceholder(p, udg_Heroes[GetPlayerNumber(p)])
             call BagErrorMessage(BAG_FULL_MESSAGE, p)
+            call RequestUIUpdate()
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif

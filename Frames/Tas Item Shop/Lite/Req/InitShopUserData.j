@@ -487,6 +487,24 @@ function InitShopUserData  takes nothing returns nothing
     // Potion of Greater Mana
     call TasItemShopAddShop('n05K', 'pgma')
 
+    // ---- Goblin Merchant ('ngme') ----
+    // Slimy Seaweed
+    call TasItemShopAddShop('ngme', 'I01M')
+    // Tel'Abim Banana
+    call TasItemShopAddShop('ngme', 'I03Y')
+    // Refreshing Spring Water
+    call TasItemShopAddShop('ngme', 'I00R')
+    // Moldy Yogurt
+    call TasItemShopAddShop('ngme', 'I036')
+    // Circlet of Nobility
+    call TasItemShopAddShop('ngme', 'cnob')
+    // Bandit's Boots
+    call TasItemShopAddShop('ngme', 'I008')
+    // Potion of Greater Healing
+    call TasItemShopAddShop('ngme', 'pghe')
+    // Potion of Greater Mana
+    call TasItemShopAddShop('ngme', 'pgma')
+
     /*
     Flight Paths
     */
