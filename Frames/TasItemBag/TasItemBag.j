@@ -95,7 +95,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIInventoryButton
         private framehandle array InventoryHitbox
         private integer array InventoryHoverSlot
-        private real array InventoryHoverGraceTimeLeft
         public trigger TriggerUnitOrder
         public integer array LastHoveredIndex
         // Drag tracking: origin type 0:none, 1:inventory slot, 2:bag slot
@@ -139,7 +138,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string TOOLTIP_SELL_ICON_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp"
         private constant real TOOLTIP_SELL_ICON_SIZE = 0.010
         private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f---------------------------------|r"
-        private constant real INVENTORY_HOVER_GRACE_WINDOW = 0.12
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -847,28 +845,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         // Placeholder branch map by race (future race-specific sounds).
-        if heroRace == RACE_HUMAN then
-            if GetLocalPlayer() == p then
-                call StopSound(gg_snd_HumanMale_err_inventoryfull01, false, false)
-                call StartSound(gg_snd_HumanMale_err_inventoryfull01)
-            endif
-        elseif heroRace == RACE_ORC then
-            if GetLocalPlayer() == p then
-                call StopSound(gg_snd_OrcMale_err_inventoryfull01, false, false)
-                call StartSound(gg_snd_OrcMale_err_inventoryfull01)
-            endif
-        elseif heroRace == RACE_UNDEAD then
-            if GetLocalPlayer() == p then
-                call StopSound(gg_snd_UndeadMale_err_inventoryfull01, false, false)
-                call StartSound(gg_snd_UndeadMale_err_inventoryfull01)
-            endif
-        elseif heroRace == RACE_NIGHTELF then
-            if GetLocalPlayer() == p then
-                call StopSound(gg_snd_NightElfFemale_err_inventoryfull01, false, false)
-                call StartSound(gg_snd_NightElfFemale_err_inventoryfull01)
-            endif
-        endif
-
+        call PlayRaceSpecificInventoryFullSound(hero, p)
+        
         set heroRace = null
         set hero = null
     endfunction
@@ -1914,13 +1892,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         loop
             exitwhen pId >= bj_MAX_PLAYERS
-            if InventoryHoverGraceTimeLeft[pId] > 0.0 then
-                set InventoryHoverGraceTimeLeft[pId] = InventoryHoverGraceTimeLeft[pId] - 0.03
-                if InventoryHoverGraceTimeLeft[pId] <= 0.0 then
-                    set InventoryHoverGraceTimeLeft[pId] = 0.0
-                    set InventoryHoverSlot[pId] = 0
-                endif
-            endif
             if LastSmartPickupTimeLeft[pId] > 0.0 then
                 set LastSmartPickupTimeLeft[pId] = LastSmartPickupTimeLeft[pId] - 0.03
                 if LastSmartPickupTimeLeft[pId] <= 0.0 then
@@ -2707,11 +2678,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Track currently hovered inventory slot from native buttons + hitboxes (no grace window).
         if evt == FRAMEEVENT_MOUSE_ENTER then
             set InventoryHoverSlot[pId] = invSlot + 1
-            set InventoryHoverGraceTimeLeft[pId] = 0.0
             return
         elseif evt == FRAMEEVENT_MOUSE_LEAVE then
             if InventoryHoverSlot[pId] == invSlot + 1 then
-                set InventoryHoverGraceTimeLeft[pId] = INVENTORY_HOVER_GRACE_WINDOW
+                set InventoryHoverSlot[pId] = 0
             endif
             return
         endif

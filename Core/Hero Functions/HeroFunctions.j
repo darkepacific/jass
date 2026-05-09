@@ -724,19 +724,19 @@ library HeroFunctions
         elseif unitId == 'U03A' or unitId == 'U036' then
             return 112 // Unholy DK
 
-        // Demon Hunter (base 120)
+            // Demon Hunter (base 120)
         elseif unitId == 'E02C' or unitId == 'E02E' then
             return 120 // Havoc DH
-        // elseif unitId == 'E02E' then
-        //     return 121 // Vengeance DH
+            // elseif unitId == 'E02E' then
+            //     return 121 // Vengeance DH
 
-        // Druid (base 130)
+            // Druid (base 130)
         elseif unitId == 'E00Z' or unitId == 'E00C' then
             return 130 // Balance & Resto Druid
         elseif unitId == 'E00F' or unitId == 'E02I' then
             return 131 // Feral & Guardian Druid
 
-        // Hunter (base 140)
+            // Hunter (base 140)
         elseif unitId == 'H00L' or unitId == 'H003' then
             return 140 // Beastmaster Hunter
         elseif unitId == 'H02V' or unitId == 'H01I' then
@@ -744,7 +744,7 @@ library HeroFunctions
         elseif unitId == 'E03K' or unitId == 'E03Y' then
             return 142 // Marksman Hunter
 
-        // Mage (base 150)
+            // Mage (base 150)
         elseif unitId == 'H02Q' or unitId == 'H02T' then
             return 150 // Arcane Mage
         elseif unitId == 'H009' or unitId == 'H023' then
@@ -752,11 +752,11 @@ library HeroFunctions
         elseif unitId == 'H00A' or unitId == 'U001' then
             return 152 // Frost Mage
 
-        // Monk (base 160)
+            // Monk (base 160)
         elseif unitId == 'N041' then
             return 160 // Brewmaster Monk
 
-        // Paladin (base 170)
+            // Paladin (base 170)
         elseif unitId == 'H00M' or unitId == 'H031' then
             return 170 // Holy Paladin
         elseif unitId == 'H033' or unitId == 'H032' then
@@ -764,7 +764,7 @@ library HeroFunctions
         elseif unitId == 'H00K' or unitId == 'H00R' then
             return 172 // Retribution Paladin
 
-        // Priest (base 180)
+            // Priest (base 180)
         elseif unitId == 'H03J' or unitId == 'H03I' then
             return 180 // Discipline Priest
         elseif unitId == 'H02U' or unitId == 'H02W' then
@@ -772,7 +772,7 @@ library HeroFunctions
         elseif unitId == 'H00T' or unitId == 'H00Q' then
             return 182 // Shadow Priest
 
-        // Rogue (base 190)
+            // Rogue (base 190)
         elseif unitId == 'E001' or unitId == 'E03W' then
             return 190 // Assassination Rogue
         elseif unitId == 'E01O' or unitId == 'E035' then
@@ -780,7 +780,7 @@ library HeroFunctions
         elseif unitId == 'E00E' or unitId == 'E007' then
             return 192 // Subtlety Rogue
 
-        // Shaman (base 200)
+            // Shaman (base 200)
         elseif unitId == 'O00R' or unitId == 'O006' then
             return 200 // Elemental Shaman
         elseif unitId == 'O00P' or unitId == 'O00J' then
@@ -788,13 +788,13 @@ library HeroFunctions
         elseif unitId == 'O00G' or unitId == 'O00N' then
             return 202 // Restoration Shaman
 
-        // Warlock (base 210)
+            // Warlock (base 210)
         elseif unitId == 'E02V' or unitId == 'E000' then
             return 211 // Demonology Warlock
         elseif unitId == 'E04A' or unitId == 'E02Z' then
             return 212 // Destruction Warlock
 
-        // Warrior (base 220)
+            // Warrior (base 220)
         elseif unitId == 'H01J' or unitId == 'H028' then
             return 220 // Arms Warrior
         elseif unitId == 'H03D' or unitId == 'H03E' then
@@ -816,7 +816,7 @@ library HeroFunctions
         elseif (u == udg_yA_Unholy_DK or u == udg_yH_Unholy_DK) then
             return 112
     
-        // Demon Hunter (base 120)
+            // Demon Hunter (base 120)
         elseif (u == udg_yA_Demon_Hunt or u == udg_yH_Demon_Hunt) then
             return 120
         elseif (u == udg_yA_Havoc_DH or u == udg_yH_Havoc_DH) then
@@ -824,13 +824,13 @@ library HeroFunctions
         elseif (u == udg_yA_Veng_DH or u == udg_yH_Veng_DH) then
             return 122
     
-        // Druid (base 130)
+            // Druid (base 130)
         elseif (u == udg_yA_Bal_Druid or u == udg_yH_Bal_Druid) then
             return 130
         elseif (u == udg_yA_Feral_Druid or u == udg_yH_Feral_Druid) then
             return 131
     
-        // Hunter (base 140)
+            // Hunter (base 140)
         elseif (u == udg_yA_Beast_Hunter or u == udg_yH_Beast_Hunter) then
             return 140
         elseif (u == udg_yA_Dark_Ranger or u == udg_yH_Dark_Ranger) then
@@ -840,7 +840,7 @@ library HeroFunctions
         elseif (u == udg_yA_Surv_Hunter or u == udg_yH_Surv_Hunter) then
             return 143
     
-        // Mage (base 150)
+            // Mage (base 150)
         elseif (u == udg_yA_Arcane_Mage or u == udg_yH_Arcane_Mage) then
             return 150
         elseif (u == udg_yA_Fire_Mage or u == udg_yH_Fire_Mage) then
@@ -848,15 +848,15 @@ library HeroFunctions
         elseif (u == udg_yA_Frost_Mage or u == udg_yH_Frost_Mage) then
             return 152
     
-        // Monk (base 160)
+            // Monk (base 160)
         elseif (u == udg_yA_Brew_Monk or u == udg_yH_Brew_Monk) then
             return 160
-        // elseif (u == udg_yA_Mist_Monk or u == udg_yH_Mist_Monk) then
-        //     return 161
-        // elseif (u == udg_yA_Wind_Monk or u == udg_yH_Wind_Monk) then
-        //     return 162
+            // elseif (u == udg_yA_Mist_Monk or u == udg_yH_Mist_Monk) then
+            //     return 161
+            // elseif (u == udg_yA_Wind_Monk or u == udg_yH_Wind_Monk) then
+            //     return 162
     
-        // Paladin (base 170)
+            // Paladin (base 170)
         elseif (u == udg_yA_Holy_Pally or u == udg_yH_Holy_Pally) then
             return 170
         elseif (u == udg_yA_Prot_Pally or u == udg_yH_Prot_Pally) then
@@ -864,7 +864,7 @@ library HeroFunctions
         elseif (u == udg_yA_Ret_Pally or u == udg_yH_Ret_Pally) then
             return 172
     
-        // Priest (base 180)
+            // Priest (base 180)
         elseif (u == udg_yA_Disc_Priest or u == udg_yH_Disc_Priest) then
             return 180
         elseif (u == udg_yA_Holy_Priest or u == udg_yH_Holy_Priest) then
@@ -872,7 +872,7 @@ library HeroFunctions
         elseif (u == udg_yA_Shadow_Priest or u == udg_yH_Shadow_Priest) then
             return 182
     
-        // Rogue (base 190)
+            // Rogue (base 190)
         elseif (u == udg_yA_Ass_Rogue or u == udg_yH_Ass_Rogue) then
             return 190
         elseif (u == udg_yA_Combat_Rogue or u == udg_yH_Combat_Rogue) then
@@ -880,16 +880,16 @@ library HeroFunctions
         elseif (u == udg_yA_Subtle_Rogue or u == udg_yH_Subtle_Rogue) then
             return 192
     
-        // Shaman (base 200)
+            // Shaman (base 200)
         elseif (u == udg_yA_Ele_Sham or u == udg_yH_Ele_Sham) then
             return 200
         elseif (u == udg_yA_Enhance_Shaman or u == udg_yH_Enhance_Shaman) then
             return 201
         elseif (u == udg_yA_Resto_Sham or u == udg_yH_Resto_Sham) then
             return 202
-        //Earth Warden
+            //Earth Warden
     
-        // Warlock (base 210)
+            // Warlock (base 210)
         elseif (u == udg_yA_Afflic_Warlock or u == udg_yH_Afflic_Warlock) then
             return 210    
         elseif (u == udg_yA_Demon_Warlock or u == udg_yH_Demon_Warlock) then
@@ -897,7 +897,7 @@ library HeroFunctions
         elseif (u == udg_yA_Destro_Warlock or u == udg_yH_Destro_Warlock) then
             return 212
 
-        // Warrior (base 220)
+            // Warrior (base 220)
         elseif (u == udg_yA_Arms_Warr or u == udg_yH_Arms_Warr) then
             return 220
         elseif (u == udg_yA_Fury_Warr or u == udg_yH_Fury_Warr) then
@@ -909,6 +909,191 @@ library HeroFunctions
         return 0
     endfunction    
 
+    function PlayRaceSpecificInventoryFullSound takes unit u, player p returns nothing
+
+        // Death Knight 
+        if u == udg_yA_Blood_DK then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Frost_DK then
+            call PlayLocalSound(gg_snd_WorgenMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Unholy_DK then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Blood_DK then
+            call PlayLocalSound(gg_snd_OrcMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Frost_DK then
+            call PlayLocalSound(gg_snd_BloodElfMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Unholy_DK then
+            call PlayLocalSound(gg_snd_UndeadFemale_err_inventoryfull01, p)
+
+            // Demon Hunter
+        elseif u == udg_yA_Demon_Hunt then
+            call PlayLocalSound(gg_snd_DHNightElfMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Havoc_DH then
+            return
+        elseif u == udg_yA_Veng_DH then
+            return
+            //H
+        elseif u == udg_yH_Demon_Hunt then
+            call PlayLocalSound(gg_snd_DHBloodElfMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Havoc_DH then
+            return
+        elseif u == udg_yH_Veng_DH then
+            return
+    
+            // Druid 
+        elseif u == udg_yA_Bal_Druid then
+            call PlayLocalSound(gg_snd_NightElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yA_Feral_Druid then
+            call PlayLocalSound(gg_snd_NightElfMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Bal_Druid then
+            call PlayLocalSound(gg_snd_TaurenMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Feral_Druid then
+            call PlayLocalSound(gg_snd_TaurenMale_err_inventoryfull01, p)
+
+            // Hunter
+        elseif u == udg_yA_Beast_Hunter then
+            call PlayLocalSound(gg_snd_DwarfMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Dark_Ranger then
+            call PlayLocalSound(gg_snd_WorgenFemale_err_inventoryfull01, p)
+        elseif u == udg_yA_Marksman_Hunter then
+            call PlayLocalSound(gg_snd_NightElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yA_Surv_Hunter then
+            return
+            //H
+        elseif u == udg_yH_Beast_Hunter then
+            call PlayLocalSound(gg_snd_BloodElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Dark_Ranger then
+            call PlayLocalSound(gg_snd_UndeadFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Marksman_Hunter then
+            call PlayLocalSound(gg_snd_BloodElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Surv_Hunter then
+            return
+        
+            // Mage
+        elseif u == udg_yA_Arcane_Mage then
+            call PlayLocalSound(gg_snd_NightElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yA_Fire_Mage then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Frost_Mage then
+            call PlayLocalSound(gg_snd_HumanFemale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Arcane_Mage then
+            call PlayLocalSound(gg_snd_BloodElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Fire_Mage then
+            call PlayLocalSound(gg_snd_BloodElfMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Frost_Mage then
+            call PlayLocalSound(gg_snd_UndeadFemale_err_inventoryfull01, p)
+    
+            // Monk
+        elseif u == udg_yA_Brew_Monk then
+            call PlayLocalSound(gg_snd_PandarenMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Mist_Monk then
+            return
+        elseif u == udg_yA_Wind_Monk then
+            return
+            //H
+        elseif u == udg_yH_Brew_Monk then
+            call PlayLocalSound(gg_snd_PandarenMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Mist_Monk then
+            return
+        elseif u == udg_yH_Wind_Monk then
+            return
+
+            // Paladin
+        elseif u == udg_yA_Holy_Pally then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Prot_Pally then
+            call PlayLocalSound(gg_snd_DraeneiFemale_err_inventoryfull01, p)
+        elseif u == udg_yA_Ret_Pally then
+            call PlayLocalSound(gg_snd_DwarfMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Holy_Pally then
+            call PlayLocalSound(gg_snd_BloodElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Prot_Pally then
+            call PlayLocalSound(gg_snd_BloodElfMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Ret_Pally then
+            call PlayLocalSound(gg_snd_BloodElfMale_err_inventoryfull01, p)
+
+            // Priest
+        elseif u == udg_yA_Disc_Priest then
+            call PlayLocalSound(gg_snd_DraeneiMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Holy_Priest then
+            call PlayLocalSound(gg_snd_HumanFemale_err_inventoryfull01, p)
+        elseif u == udg_yA_Shadow_Priest then
+            call PlayLocalSound(gg_snd_DwarfMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Disc_Priest then
+            call PlayLocalSound(gg_snd_TrollFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Holy_Priest then
+            call PlayLocalSound(gg_snd_BloodElfFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Shadow_Priest then
+            call PlayLocalSound(gg_snd_UndeadMale_err_inventoryfull01, p)
+        
+            // Rogue
+        elseif u == udg_yA_Ass_Rogue then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Combat_Rogue then
+            call PlayLocalSound(gg_snd_WorgenMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Subtle_Rogue then
+            call PlayLocalSound(gg_snd_NightElfFemale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Ass_Rogue then
+            call PlayLocalSound(gg_snd_UndeadFemale_err_inventoryfull01, p)
+        elseif u == udg_yH_Combat_Rogue then
+            call PlayLocalSound(gg_snd_UndeadMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Subtle_Rogue then
+            call PlayLocalSound(gg_snd_BloodElfFemale_err_inventoryfull01, p)
+
+            // Shaman
+        elseif u == udg_yA_Ele_Sham then
+            call PlayLocalSound(gg_snd_DraeneiMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Enhance_Shaman then
+            call PlayLocalSound(gg_snd_DwarfMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Resto_Sham then
+            call PlayLocalSound(gg_snd_DwarfMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Ele_Sham then
+            call PlayLocalSound(gg_snd_TrollMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Enhance_Shaman then
+            call PlayLocalSound(gg_snd_OrcMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Resto_Sham then
+            call PlayLocalSound(gg_snd_TrollMale_err_inventoryfull01, p)
+
+            // Warlock
+        elseif u == udg_yA_Afflic_Warlock then
+            return
+        elseif u == udg_yA_Demon_Warlock then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Destro_Warlock then
+            call PlayLocalSound(gg_snd_GnomeMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Afflic_Warlock then
+            return
+        elseif u == udg_yH_Demon_Warlock then
+            call PlayLocalSound(gg_snd_UndeadMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Destro_Warlock then
+            call PlayLocalSound(gg_snd_OrcMale_err_inventoryfull01, p)
+
+            // Warrior
+        elseif u == udg_yA_Arms_Warr then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Fury_Warr then
+            call PlayLocalSound(gg_snd_HumanMale_err_inventoryfull01, p)
+        elseif u == udg_yA_Prot_Warr then
+            call PlayLocalSound(gg_snd_DwarfMale_err_inventoryfull01, p)
+            //H
+        elseif u == udg_yH_Arms_Warr then
+            call PlayLocalSound(gg_snd_OrcMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Fury_Warr then
+            call PlayLocalSound(gg_snd_OrcMale_err_inventoryfull01, p)
+        elseif u == udg_yH_Prot_Warr then
+            call PlayLocalSound(gg_snd_TaurenMale_err_inventoryfull01, p)
+        endif
+        
+    endfunction
+
     function GetHeroProperNameFromSlot takes integer slot returns string
         // Death Knight (base 110)
         if slot == 110 then
@@ -918,21 +1103,21 @@ library HeroFunctions
         elseif slot == 112 then
             return "Unholy"
 
-        // Demon Hunter (base 120)
+            // Demon Hunter (base 120)
         elseif slot == 120 then
             return "Havoc"
         elseif slot == 121 then
             return "Vengeance"
 
-        // Druid (base 130)
+            // Druid (base 130)
         elseif slot == 130 then
             return "Balance & Resto"
         elseif slot == 131 then
             return "Feral & Guardian"
-        // elseif slot == 132 then
-        //     return "Flame & Fang"
+            // elseif slot == 132 then
+            //     return "Flame & Fang"
 
-        // Hunter (base 140)
+            // Hunter (base 140)
         elseif slot == 140 then
             return "Beastmaster"
         elseif slot == 141 then
@@ -942,17 +1127,17 @@ library HeroFunctions
         elseif slot == 143 then
             return "Survival"
 
-        // Mage (base 150)
+            // Mage (base 150)
         elseif slot == 150 then
             return "Arcane"
         elseif slot == 151 then
             return "Fire"
         elseif slot == 152 then
             return "Frost"
-        // elseif slot == 153 then
-        //     return "Temporal"
+            // elseif slot == 153 then
+            //     return "Temporal"
 
-        // Monk (base 160)
+            // Monk (base 160)
         elseif slot == 160 then
             return "Brewmaster"
         elseif slot == 161 then
@@ -960,17 +1145,17 @@ library HeroFunctions
         elseif slot == 162 then
             return "Windwalker"
 
-        // Paladin (base 170)
+            // Paladin (base 170)
         elseif slot == 170 then
             return "Holy"
         elseif slot == 171 then
             return "Protection"
         elseif slot == 172 then
             return "Retribution"
-        // elseif slot == 173 then
-        //     return "Vindication" //Shock Paladin
+            // elseif slot == 173 then
+            //     return "Vindication" //Shock Paladin
 
-        // Priest (base 180)
+            // Priest (base 180)
         elseif slot == 180 then
             return "Discipline"
         elseif slot == 181 then
@@ -978,16 +1163,16 @@ library HeroFunctions
         elseif slot == 182 then
             return "Shadow"
 
-        // Rogue (base 190)
+            // Rogue (base 190)
         elseif slot == 190 then
             return "Assassination"
         elseif slot == 191 then
             return "Combat"
-        //Subtle Rogue
+            //Subtle Rogue
         elseif slot == 192 then
             return "Subtlety"
 
-        // Shaman (base 200)
+            // Shaman (base 200)
         elseif slot == 200 then
             return "Elemental"
         elseif slot == 201 then
@@ -995,17 +1180,17 @@ library HeroFunctions
         elseif slot == 202 then
             return "Restoration"
 
-        // Warlock (base 210)
+            // Warlock (base 210)
         elseif slot == 210 then
             return "Affliction"
         elseif slot == 211 then
             return "Demonology"
         elseif slot == 212 then
             return "Destruction"
-        // elseif slot == 213 then
-        //     return "Hellforged" //Infernal Warlock
+            // elseif slot == 213 then
+            //     return "Hellforged" //Infernal Warlock
 
-        // Warrior (base 220)
+            // Warrior (base 220)
         elseif slot == 220 then
             return "Arms"
         elseif slot == 221 then
