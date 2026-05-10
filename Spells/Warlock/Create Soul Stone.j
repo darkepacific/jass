@@ -82,27 +82,27 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
             endloop
         endif
         // Give Item Stats
-        set reqCharges = ( GetUnitAbilityLevelSwapped('A039', caster) + 0 )
-        set reqCharges = ( reqCharges * 2 )
+        set abilityLevel = ( GetUnitAbilityLevelSwapped('A039', caster) + 0 )
+        set abilityLevel = ( abilityLevel * 2 )
         set udg_Temp_Item = GetLastCreatedItem()
-        if reqCharges == 2 then
+        if abilityLevel == 2 then
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'AIrc' )
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'AIx2' )
-        elseif reqCharges == 4 then
+        elseif abilityLevel == 4 then
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0DP' )
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'AIx4' )
-        elseif reqCharges == 6 then
+        elseif abilityLevel == 6 then
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0DQ' )
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0CO' )
-        elseif reqCharges == 8 then
+        elseif abilityLevel == 8 then
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0DR' )
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0DU' )
-        elseif reqCharges == 10 then
+        elseif abilityLevel == 10 then
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0DT' )
             call BlzItemAddAbilityBJ( udg_Temp_Item, 'A0DV' )
         endif
-        set udg_Temp_Int = 300 + ( 150 * reqCharges )
-        set udg_TempString = "+" +  I2S(reqCharges) +  " Strength "  +  I2S(reqCharges) +  " Agility "   +  I2S(reqCharges) +  " Intelligence"  + "|n|n+|cc00FFFFF" +  I2S(reqCharges) + "% Cooldown Reduction|r" 
+        set udg_Temp_Int = 300 + ( 150 * abilityLevel )
+        set udg_TempString = "+" +  I2S(abilityLevel) +  " Strength "  +  I2S(abilityLevel) +  " Agility "   +  I2S(abilityLevel) +  " Intelligence"  + "|n|n+|cc00FFFFF" +  I2S(abilityLevel) + "% Cooldown Reduction|r"
         set udg_TempString =  udg_TempString + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(udg_Temp_Int)  + " hit points when the Hero dies."
         call BlzSetItemDescription( udg_Temp_Item,  udg_TempString )
         call BlzSetItemExtendedTooltip( udg_Temp_Item,  udg_TempString )
