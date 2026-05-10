@@ -1404,25 +1404,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
 
-        // Drop items leaving the active inventory while still in native inventory — fires gg_trg_Lose_Item naturally
+        // When an item leaves the active page during a swap, preserve the native
+        // lose-side effects without turning the move into a real ground drop.
         if aIsActive and not bIsActive and i != null then
             if GetItemType(i) != ITEM_TYPE_POWERUP and GetItemTypeId(i) != 'I07W' then
-                // call DisableTrigger(gg_trg_Acquire_Item)
-                call UnitDropItemPoint(u, i, GetUnitX(u), GetUnitY(u))
-                call SetItemPosition(i, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-                call SetItemUserData(i, 1)
-                // call SetItemVisible(i, false)
-                // call EnableTrigger(gg_trg_Acquire_Item)
+                call LoseItemHandler(u, i)
+                call UnequipFromHero(u, PageSlotToInvSlot(indexA))
             endif
         endif
         if bIsActive and not aIsActive and i2 != null then
             if GetItemType(i2) != ITEM_TYPE_POWERUP and GetItemTypeId(i2) != 'I07W' then
-                // call DisableTrigger(gg_trg_Acquire_Item)
-                call UnitDropItemPoint(u, i2, GetUnitX(u), GetUnitY(u))
-                call SetItemPosition(i2, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-                call SetItemUserData(i2, 1)
-                // call SetItemVisible(i2, false)
-                // call EnableTrigger(gg_trg_Acquire_Item)
+                call LoseItemHandler(u, i2)
+                call UnequipFromHero(u, PageSlotToInvSlot(indexB))
             endif
         endif
 
