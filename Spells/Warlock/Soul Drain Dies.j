@@ -2,14 +2,15 @@
 function Trig_Soul_Drain_Dies_Actions takes nothing returns nothing
     local boolean fired = false
     local boolean hasShard = false
-    local boolean addedToMainInventory = false
     local boolean hasSpace = false
     local location pt
     local unit u = GetTriggerUnit()
     local item it
-    local integer Equipped_Page = udg_Bag_Page[GetPlayerNumber(GetOwningPlayer(u))]
+    local player p
+    local integer Equipped_Page
     local integer page
     local integer i
+    local integer arrIndex
 
     if GetTriggerUnit() == udg_SpellUnits[udg_z_WL_DEMO_A + 4] then
         set u = udg_yA_Demon_Warlock
@@ -21,15 +22,17 @@ function Trig_Soul_Drain_Dies_Actions takes nothing returns nothing
 
 
     if fired then
-        call SetBagNumber(GetOwningPlayer(u) )
+        set p = GetOwningPlayer(u)
+        set Equipped_Page = udg_Bag_Page[GetPlayerNumber(p)]
+        call SetBagNumber(p)
 
 
         // First Check if they already have one across all bags, if so increment its charge
         set i = 1
         loop
-            exitwhen i > 18
+            exitwhen i > 36
             set it = udg_P_Items[(udg_Bag_Num + i)]
-            if GetItemTypeId(it) == 'I08E' and BlzGetItemIntegerField(it, ITEM_IF_NUMBER_OF_CHARGES) < 10 then
+            if it != null and GetItemTypeId(it) == 'I08E' and BlzGetItemIntegerField(it, ITEM_IF_NUMBER_OF_CHARGES) < 20 then
                 call SetItemCharges(it, (GetItemCharges(it) + 1))
                 set hasShard = true
                 exitwhen true
@@ -39,56 +42,65 @@ function Trig_Soul_Drain_Dies_Actions takes nothing returns nothing
 
         // If not already have one, then make a new one
         if not hasShard then
-
-            // First try to add to the main inventory
+            // First try to add to the extended bag slots (P_Items 13..36)
             set i = 1
             loop
-                exitwhen i > 6
-                set it = UnitItemInSlotBJ(u, i)
-                if(it == null) then
-                    call UnitAddItemByIdSwapped('I08E', u )
-                    set it = UnitItemInSlotBJ(u, i)
-                    set udg_P_Items[(udg_Bag_Num + ((Equipped_Page - 1) * 6) + i)] = it
+                exitwhen i > 24
+                set arrIndex = udg_Bag_Num + 12 + i
+                if udg_P_Items[arrIndex] == null then
+                    set pt = GetRectCenter(gg_rct_ISLAND_ITEMS)
+                    set it = CreateItemLoc('I08E', pt)
+                    call RemoveLocation(pt)
+                    set pt = null
+                    set udg_P_Items[arrIndex] = it
                     call SetItemCharges(it, 1)
-                    set addedToMainInventory = true
+                    call SetItemUserData(it, 1)
+                    set hasSpace = true
                     exitwhen true
                 endif
                 set i = i + 1
             endloop
 
-            // But, if no space in main inventory, then try to add to another page
-            if not addedToMainInventory then
-
-                set page = 1
+            // If the extra bag is full, fall back to page 2 first, then page 1.
+            if not hasSpace then
+                set page = 2
                 loop
-                    exitwhen page > 3
-                    
-                    if page != Equipped_Page then
-                        set i = 1
-                        loop 
-                            exitwhen i > 6
-                            if udg_P_Items[(udg_Bag_Num + ((page - 1) * 6) + i)] == null then
+                    exitwhen page < 1
+
+                    set i = 1
+                    loop
+                        exitwhen i > 6
+                        set arrIndex = GetPItemsIndex(p, page, i)
+                        if udg_P_Items[arrIndex] == null then
+                            if page == Equipped_Page then
+                                call UnitAddItemByIdSwapped('I08E', u)
+                                set it = UnitItemInSlotBJ(u, UnitInventoryCount(u))
+                                if it != null then
+                                    call SetItemCharges(it, 1)
+                                    set hasSpace = true
+                                endif
+                            else
                                 set pt = GetRectCenter(gg_rct_ISLAND_ITEMS)
-                                set it = CreateItemLoc('I08E', pt )
+                                set it = CreateItemLoc('I08E', pt)
                                 call RemoveLocation(pt)
-                                set udg_P_Items[(udg_Bag_Num + ((page - 1) * 6) + i)] = it
+                                set pt = null
+                                set udg_P_Items[arrIndex] = it
                                 call SetItemCharges(it, 1)
                                 call SetItemUserData(it, 1)
                                 set hasSpace = true
-                                exitwhen true
                             endif
-                            set i = i + 1
-                        endloop
+                            exitwhen true
+                        endif
+                        set i = i + 1
+                    endloop
 
-                        exitwhen hasSpace
-                    endif
-                    
-                    set page = page + 1
+                    exitwhen hasSpace
+                    set page = page - 1
                 endloop
-            
-                //Finally, if no space in any of the bags, and no existing soul shard, create it on the ground
+
+                // Finally, if no space in the extra bag or pages, create it on the ground/current inventory fallback.
                 if not hasSpace then
-                    call UnitAddItemByIdSwapped('I08E', u )
+                    call UnitAddItemByIdSwapped('I08E', u)
                 endif
             endif
         endif
@@ -105,6 +117,7 @@ function Trig_Soul_Drain_Dies_Actions takes nothing returns nothing
 
     set pt = null
     set it = null
+    set p = null
     set u = null
 endfunction
 

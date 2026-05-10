@@ -1324,6 +1324,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set slot = slot + 1
         endloop
 
+        // Clear the active page before re-adding. UnitAddItem will compact into
+        // the next open native slot, and AcquireItemHandler will repopulate these
+        // page entries with the final compacted order.
+        set slot = 1
+        loop
+            exitwhen slot > 6
+            set pageIndex = GetPItemsIndex(p, currentPage, slot)
+            set udg_P_Items[pageIndex] = null
+            set slot = slot + 1
+        endloop
+
         set slot = 1
         loop
             exitwhen slot > 6
