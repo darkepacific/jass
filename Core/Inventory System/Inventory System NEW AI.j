@@ -62,13 +62,15 @@ library MultiPageInventorySystem
     private function UpdateHotkeyTooltipsFor takes player whichPlayer returns nothing
         local integer id = GetPlayerId(whichPlayer)
         if GetLocalPlayer() == whichPlayer then
-            call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 99), "First page (|cffffcc00" + hkMainStr[id] + "|r)\n|cffc0c0c0Click to view the first inventory page.|r")
+            // Main page button removed.
+            // call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 99), "First page (|cffffcc00" + hkMainStr[id] + "|r)\n|cffc0c0c0Click to view the first inventory page.|r")
             call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 101), "Next page (|cffffcc00" + hkRightStr[id] + "|r)\n|cffc0c0c0Click to view next inventory page.|r")
-            if hkLeftStr[id] != "" then
-                call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 100), "Previous page (|cffffcc00" + hkLeftStr[id] + "|r)\n|cffc0c0c0Click to view previous inventory page.|r")
-            else
-                call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 100), "Previous page\n|cffc0c0c0Click to view previous inventory page.|r")
-            endif
+            // Previous page button removed.
+            // if hkLeftStr[id] != "" then
+            //     call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 100), "Previous page (|cffffcc00" + hkLeftStr[id] + "|r)\n|cffc0c0c0Click to view previous inventory page.|r")
+            // else
+            //     call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 100), "Previous page\n|cffc0c0c0Click to view previous inventory page.|r")
+            // endif
             call BlzFrameSetText(BlzGetFrameByName("MyScriptDialogButtonTooltip", 102), "|cffc0c0c0Click to edit inventory button hot keys. \n(Useful if using Grid-Keys).|r")
         endif
     endfunction
@@ -130,8 +132,8 @@ library MultiPageInventorySystem
 
     function ShowInventoryButtons takes player p, boolean b returns nothing
         if GetLocalPlayer() == p then 
-            call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 99), b) 
-            call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 100), b) 
+            // call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 99), b)
+            // call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 100), b)
             call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 101), b) 
             call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 102), b) 
         endif 
@@ -351,8 +353,9 @@ library MultiPageInventorySystem
         local integer playerNum = GetPlayerHeroNumber(p)
 
         if IsAbleToChangePage(udg_Heroes[playerNum]) then
-            call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 99), false) 
-            call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 99), true) 
+            // Main button removed.
+            // call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 99), false)
+            // call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 99), true)
             call DropInventoryToP_Items(p) 
             set udg_Bag_Page[playerNum] = 1 
             set PlayerIntendedPage[GetPlayerId(p)] = 1
@@ -372,8 +375,9 @@ library MultiPageInventorySystem
         local integer playerNum = GetPlayerHeroNumber(p)
 
         if IsAbleToChangePage(udg_Heroes[playerNum]) then
-            call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 100), false) 
-            call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 100), true) 
+            // Previous button removed.
+            // call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 100), false)
+            // call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 100), true)
             call DropInventoryToP_Items(p) 
             call Debug("[LEFT] PAGE BEFORE CHANGE: " + I2S(udg_Bag_Page[playerNum])) 
             if(udg_Bag_Page[playerNum] <= 1) then 
@@ -847,12 +851,12 @@ library MultiPageInventorySystem
 
     function CreateInventoryButtons takes nothing returns nothing 
         local integer i = 0 
-        local framehandle invButtonMain = BlzCreateFrame("ScriptDialogButton", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 99) 
-        local framehandle invButtonMainTooltipBackground = BlzCreateFrame("QuestButtonBaseTemplate", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 99) 
-        local framehandle invButtonMainTooltipText = BlzCreateFrameByType("TEXT", "MyScriptDialogButtonTooltip", invButtonMainTooltipBackground, "", 99) 
-        local framehandle invButtonLeft = BlzCreateFrame("ScriptDialogButton", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 100) 
-        local framehandle invButtonLeftTooltipBackground = BlzCreateFrame("QuestButtonBaseTemplate", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 100) 
-        local framehandle invButtonLeftTooltipText = BlzCreateFrameByType("TEXT", "MyScriptDialogButtonTooltip", invButtonLeftTooltipBackground, "", 100) 
+        // local framehandle invButtonMain = BlzCreateFrame("ScriptDialogButton", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 99)
+        // local framehandle invButtonMainTooltipBackground = BlzCreateFrame("QuestButtonBaseTemplate", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 99)
+        // local framehandle invButtonMainTooltipText = BlzCreateFrameByType("TEXT", "MyScriptDialogButtonTooltip", invButtonMainTooltipBackground, "", 99)
+        // local framehandle invButtonLeft = BlzCreateFrame("ScriptDialogButton", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 100)
+        // local framehandle invButtonLeftTooltipBackground = BlzCreateFrame("QuestButtonBaseTemplate", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 100)
+        // local framehandle invButtonLeftTooltipText = BlzCreateFrameByType("TEXT", "MyScriptDialogButtonTooltip", invButtonLeftTooltipBackground, "", 100)
         local framehandle invButtonRight = BlzCreateFrame("ScriptDialogButton", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 101) 
         local framehandle invButtonRightTooltipBackground = BlzCreateFrame("QuestButtonBaseTemplate", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, 101) 
         local framehandle invButtonRightTooltipText = BlzCreateFrameByType("TEXT", "MyScriptDialogButtonTooltip", invButtonRightTooltipBackground, "", 101) 
@@ -864,54 +868,54 @@ library MultiPageInventorySystem
         call InitDefaultHotkeys()
         call RegisterAllOSKeys()
 
-        call BlzFrameSetSize(invButtonMain, 0.033, 0.025) 
-        call BlzFrameSetSize(invButtonLeft, 0.033, 0.025) 
+        // call BlzFrameSetSize(invButtonMain, 0.033, 0.025)
+        // call BlzFrameSetSize(invButtonLeft, 0.033, 0.025)
         call BlzFrameSetSize(invButtonRight, 0.033, 0.025) 
         call BlzFrameSetSize(invButtonPage, 0.04, 0.025) 
-        call BlzFrameSetSize(invButtonMainTooltipText, 0, 0) 
-        call BlzFrameSetSize(invButtonLeftTooltipText, 0, 0) 
+        // call BlzFrameSetSize(invButtonMainTooltipText, 0, 0)
+        // call BlzFrameSetSize(invButtonLeftTooltipText, 0, 0)
         call BlzFrameSetSize(invButtonRightTooltipText, 0, 0) 
         call BlzFrameSetSize(invButtonPageTooltipText, 0, 0) 
 
         call BlzFrameSetAbsPoint(invButtonPage, FRAMEPOINT_CENTER, 0.5513, 0.1425) 
         call BlzFrameSetAbsPoint(invButtonRight, FRAMEPOINT_CENTER, 0.60, 0.0575) 
-        call BlzFrameSetPoint(invButtonLeft, FRAMEPOINT_CENTER, invButtonRight, FRAMEPOINT_CENTER, 0, - 0.020) 
-        call BlzFrameSetPoint(invButtonMain, FRAMEPOINT_CENTER, invButtonRight, FRAMEPOINT_CENTER, 0, 0.020) 
+        // call BlzFrameSetPoint(invButtonLeft, FRAMEPOINT_CENTER, invButtonRight, FRAMEPOINT_CENTER, 0, - 0.020)
+        // call BlzFrameSetPoint(invButtonMain, FRAMEPOINT_CENTER, invButtonRight, FRAMEPOINT_CENTER, 0, 0.020)
 
-        call BlzFrameSetPoint(invButtonMainTooltipBackground, FRAMEPOINT_BOTTOMLEFT, invButtonMainTooltipText, FRAMEPOINT_BOTTOMLEFT, - 0.01, - 0.01) 
-        call BlzFrameSetPoint(invButtonMainTooltipBackground, FRAMEPOINT_TOPRIGHT, invButtonMainTooltipText, FRAMEPOINT_TOPRIGHT, 0.01, 0.01) 
+        // call BlzFrameSetPoint(invButtonMainTooltipBackground, FRAMEPOINT_BOTTOMLEFT, invButtonMainTooltipText, FRAMEPOINT_BOTTOMLEFT, - 0.01, - 0.01)
+        // call BlzFrameSetPoint(invButtonMainTooltipBackground, FRAMEPOINT_TOPRIGHT, invButtonMainTooltipText, FRAMEPOINT_TOPRIGHT, 0.01, 0.01)
         call BlzFrameSetPoint(invButtonRightTooltipBackground, FRAMEPOINT_BOTTOMLEFT, invButtonRightTooltipText, FRAMEPOINT_BOTTOMLEFT, - 0.01, - 0.01) 
         call BlzFrameSetPoint(invButtonRightTooltipBackground, FRAMEPOINT_TOPRIGHT, invButtonRightTooltipText, FRAMEPOINT_TOPRIGHT, 0.01, 0.01) 
-        call BlzFrameSetPoint(invButtonLeftTooltipBackground, FRAMEPOINT_BOTTOMLEFT, invButtonLeftTooltipText, FRAMEPOINT_BOTTOMLEFT, - 0.01, - 0.01) 
-        call BlzFrameSetPoint(invButtonLeftTooltipBackground, FRAMEPOINT_TOPRIGHT, invButtonLeftTooltipText, FRAMEPOINT_TOPRIGHT, 0.01, 0.01) 
+        // call BlzFrameSetPoint(invButtonLeftTooltipBackground, FRAMEPOINT_BOTTOMLEFT, invButtonLeftTooltipText, FRAMEPOINT_BOTTOMLEFT, - 0.01, - 0.01)
+        // call BlzFrameSetPoint(invButtonLeftTooltipBackground, FRAMEPOINT_TOPRIGHT, invButtonLeftTooltipText, FRAMEPOINT_TOPRIGHT, 0.01, 0.01)
         call BlzFrameSetPoint(invButtonPageTooltipBackground, FRAMEPOINT_BOTTOMLEFT, invButtonPageTooltipText, FRAMEPOINT_BOTTOMLEFT, - 0.01, - 0.01) 
         call BlzFrameSetPoint(invButtonPageTooltipBackground, FRAMEPOINT_TOPRIGHT, invButtonPageTooltipText, FRAMEPOINT_TOPRIGHT, 0.01, 0.01) 
 
-        call BlzFrameSetTooltip(invButtonMain, invButtonMainTooltipBackground) 
+        // call BlzFrameSetTooltip(invButtonMain, invButtonMainTooltipBackground)
         call BlzFrameSetTooltip(invButtonRight, invButtonRightTooltipBackground) 
-        call BlzFrameSetTooltip(invButtonLeft, invButtonLeftTooltipBackground) 
+        // call BlzFrameSetTooltip(invButtonLeft, invButtonLeftTooltipBackground)
         call BlzFrameSetTooltip(invButtonPage, invButtonPageTooltipBackground) 
 
-        call BlzFrameSetPoint(invButtonMainTooltipText, FRAMEPOINT_BOTTOM, invButtonMain, FRAMEPOINT_TOP, 0, 0.005) 
+        // call BlzFrameSetPoint(invButtonMainTooltipText, FRAMEPOINT_BOTTOM, invButtonMain, FRAMEPOINT_TOP, 0, 0.005)
         call BlzFrameSetPoint(invButtonRightTooltipText, FRAMEPOINT_BOTTOM, invButtonRight, FRAMEPOINT_TOP, 0, 0.005) 
-        call BlzFrameSetPoint(invButtonLeftTooltipText, FRAMEPOINT_BOTTOM, invButtonLeft, FRAMEPOINT_TOP, 0, 0.005) 
+        // call BlzFrameSetPoint(invButtonLeftTooltipText, FRAMEPOINT_BOTTOM, invButtonLeft, FRAMEPOINT_TOP, 0, 0.005)
         call BlzFrameSetPoint(invButtonPageTooltipText, FRAMEPOINT_BOTTOM, invButtonPage, FRAMEPOINT_TOP, 0, 0.005) 
 
-        call BlzFrameSetAlpha(invButtonMainTooltipBackground, 25) 
-        call BlzFrameSetAlpha(invButtonLeftTooltipBackground, 25) 
+        // call BlzFrameSetAlpha(invButtonMainTooltipBackground, 25)
+        // call BlzFrameSetAlpha(invButtonLeftTooltipBackground, 25)
         call BlzFrameSetAlpha(invButtonRightTooltipBackground, 25) 
         call BlzFrameSetAlpha(invButtonPageTooltipBackground, 25) 
 
-        call BlzFrameSetEnable(invButtonMainTooltipText, false) 
+        // call BlzFrameSetEnable(invButtonMainTooltipText, false)
         call BlzFrameSetEnable(invButtonRightTooltipText, false) 
-        call BlzFrameSetEnable(invButtonLeftTooltipText, false) 
+        // call BlzFrameSetEnable(invButtonLeftTooltipText, false)
         call BlzFrameSetEnable(invButtonPageTooltipText, false) 
 
         call UpdateHotkeyTooltipsFor(GetLocalPlayer())
 
-        call BlzFrameSetText(invButtonMain, "1") 
+        // call BlzFrameSetText(invButtonMain, "1")
         call BlzFrameSetText(invButtonRight, "->") 
-        call BlzFrameSetText(invButtonLeft, "<-") 
+        // call BlzFrameSetText(invButtonLeft, "<-")
         call BlzFrameSetText(invButtonPage, "|cffffffff1/" + I2S(maxPages) + "|r")
 
         // IMPORTANT: make 102 clickable/visible so it opens the config
@@ -919,13 +923,13 @@ library MultiPageInventorySystem
         // call BlzFrameSetVisible(BlzGetFrameByName("ScriptDialogButton", 102), true) 
         
         // Register button events
-        call BlzTriggerRegisterFrameEvent(trigInvMain, invButtonMain, FRAMEEVENT_CONTROL_CLICK) 
-        call BlzTriggerRegisterFrameEvent(trigInvLeft, invButtonLeft, FRAMEEVENT_CONTROL_CLICK) 
+        // call BlzTriggerRegisterFrameEvent(trigInvMain, invButtonMain, FRAMEEVENT_CONTROL_CLICK)
+        // call BlzTriggerRegisterFrameEvent(trigInvLeft, invButtonLeft, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigInvRight, invButtonRight, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigInvConfig, invButtonPage, FRAMEEVENT_CONTROL_CLICK)
  
-        call TriggerAddAction(trigInvMain, function InventoryButtonClickMain) 
-        call TriggerAddAction(trigInvLeft, function InventoryButtonClickLeft) 
+        // call TriggerAddAction(trigInvMain, function InventoryButtonClickMain)
+        // call TriggerAddAction(trigInvLeft, function InventoryButtonClickLeft)
         call TriggerAddAction(trigInvRight, function InventoryButtonClickRight) 
         call TriggerAddAction(trigInvConfig, function InventoryButtonClickConfig)
 
