@@ -72,6 +72,7 @@ function Trig_REROLL_Actions takes nothing returns nothing
             
             //Reset Inventory
             call ResetInventory(p)
+            call TasItemBagToggleForPlayer(p, true)
 
             //Make sure Enemies are enemies again if they rerolled in sanctuary or duel
             call ResetEnemyForces(p)

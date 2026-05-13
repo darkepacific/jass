@@ -70,7 +70,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private boolean UIUpdateScheduled = false
         public trigger Trigger
         public trigger TriggerESC
-        public trigger TriggerUIXKey
         public trigger TriggerItemGain
         public trigger TriggerItemLose
         public trigger TriggerItemUse
@@ -227,6 +226,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Highest interactive slot index (bag 1-24 + page display 25-36)
         private constant integer MAX_INTERACTIVE_SLOT = PAGE_DISPLAY_START + PAGE_DISPLAY_COUNT - 1
     endglobals
+
+    // Bag system is enabled only for these fixed 1-based player numbers.
+    private function BagEnabledForPlayer takes player p returns boolean
+        local integer playerNum
+        if p == null then
+            return false
+        endif
+        set playerNum = GetPlayerNumber(p)
+        return playerNum == 2 or playerNum == 4 or playerNum == 5 or playerNum == 6 or playerNum == 7 or playerNum == 8 or playerNum == 9 or playerNum == 10 or playerNum == 12 or playerNum == 13
+    endfunction
+
+    private function BagEnabledForUnit takes unit u returns boolean
+        if u == null then
+            return false
+        endif
+        return BagEnabledForPlayer(GetOwningPlayer(u))
+    endfunction
 
     private function BagErrorMessage takes string message, player whichPlayer returns nothing
         static if LIBRARY_NeatMessages then
@@ -425,6 +441,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // (disabled) slot, CONTROL_CLICK never fires so the flag isn't consumed within
         // the same click. Clearing here (next-frame timer) prevents it eating the next click.
         set SuppressNextBagPopup[pId] = false
+        if not BagEnabledForPlayer(p) then
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            set p = null
+            set hero = null
+            return
+        endif
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
             set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
@@ -1044,6 +1069,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer page
 
         if i == null then
+            return
+        endif
+        if not BagEnabledForUnit(u) then
             return
         endif
 
@@ -3060,6 +3088,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local itemtype itemType
         local boolean mouseInPanel = IsMouseInsideBagPanel()
 
+        if not BagEnabledForPlayer(p) then
+            return
+        endif
+
         // Ignore any clicks when bank panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
@@ -3271,30 +3303,53 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call FrameLoseFocus()
     endfunction
 
-    // Toggle the bag panel on OSKEY_X press
-    private function XKeyToggleAction takes nothing returns nothing
-        local player p = GetTriggerPlayer()
+    function TasItemBagToggleForPlayer takes player p, boolean forceClose returns nothing
+        local integer pId = 0
+        if p == null then
+            return
+        endif
+        if not BagEnabledForPlayer(p) then
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            return
+        endif
+
+        set pId = GetPlayerId(p)
         if GetLocalPlayer() == p then
-            // Update once before showing to avoid a one-frame flash of stale/null slot data
+            // Update once before showing to avoid a one-frame flash of stale/null slot data.
             call UpdateUI()
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false and not forceClose)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             call UpdateUI()
         endif
-        set SwapIndex[GetPlayerId(p)] = 0
-        call SwapHighlightHide(GetPlayerId(p))
+        set SwapIndex[pId] = 0
+        call SwapHighlightHide(pId)
         call FrameLoseFocus()
     endfunction
 
+    // Toggle the bag panel on OSKEY_X press
+    // private function XKeyToggleAction takes nothing returns nothing
+    //     call TasItemBagToggleForPlayer(GetTriggerPlayer(), false)
+    // endfunction
+
     private function ShowButtonAction takes nothing returns nothing
-        local integer pId = GetPlayerId(GetTriggerPlayer())
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
         local integer s
+        if not BagEnabledForPlayer(p) then
+            set p = null
+            return
+        endif
         set SwapIndex[pId] = 0
         call SwapHighlightHide(pId)
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
-        if GetLocalPlayer() == GetTriggerPlayer() then
+        if GetLocalPlayer() == p then
             // Update once before showing to avoid a one-frame flash of stale/null slot data
             call UpdateUI()
             //Close/Open Bag Panel
@@ -3308,6 +3363,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call UpdateUI()
         endif
         call FrameLoseFocus()
+        set p = null
     endfunction
 
     private function SliderAction takes nothing returns nothing
@@ -3320,6 +3376,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local unit selected = GetTriggerUnit()
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
+
+        if not BagEnabledForPlayer(p) then
+            set selected = null
+            set hero = null
+            set p = null
+            return
+        endif
 
         if IgnoreNextSelection[pId] then
             set IgnoreNextSelection[pId] = false
@@ -3376,9 +3439,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function ESCAction takes nothing returns nothing
-        local integer pId = GetPlayerId(GetTriggerPlayer())
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        if not BagEnabledForPlayer(p) then
+            set p = null
+            return
+        endif
         // WoW-like: ESC cancels swap first, then closes UI on subsequent ESC
-        if GetLocalPlayer() == GetTriggerPlayer() then
+        if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
@@ -3387,9 +3455,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call SwapHighlightHide(pId)
             return
         endif
-        if GetLocalPlayer() == GetTriggerPlayer() then
+        if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
         endif
+        set p = null
     endfunction
 
     // Process delayed item gains: move picked-up items into the bag after a short delay
@@ -3405,6 +3474,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set u = ItemGainTimerUnit[ItemGainTimerCount]
             set it = ItemGainTimerItem[ItemGainTimerCount]
             set pId = GetPlayerId(GetOwningPlayer(u))
+
+            if not BagEnabledForUnit(u) then
+                set u = null
+                set it = null
+                set ItemGainTimerCount = ItemGainTimerCount - 1
+            else
 
             // Check whether current page differs from the player's intended page
             // BEFORE processing the item, so we know this was a relief-switch pickup.
@@ -3428,6 +3503,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set u = null
             set it = null
             set ItemGainTimerCount = ItemGainTimerCount - 1
+            endif
         endloop
     endfunction
 
@@ -3439,6 +3515,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local item queuedItem
         local item intentItem
         set owner = GetOwningPlayer(triggerUnit)
+        if not BagEnabledForPlayer(owner) then
+            set triggerUnit = null
+            set manipulated = null
+            set owner = null
+            return
+        endif
         set pId = GetPlayerId(owner)
         set queuedItem = manipulated
         set intentItem = PickupIntentItem[pId]
@@ -3830,15 +3912,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Listen for page changes from MultiPageInventorySystem
         call TriggerAddAction(PageChangedTrigger, function PageChangedAction)
 
-        // Bind OSKEY_X to toggle the bag UI open/close
-        set TriggerUIXKey = CreateTrigger()
-        set i = 0
-        loop
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIXKey, Player(i), OSKEY_X, 0, true)
-            set i = i + 1
-            exitwhen i >= bj_MAX_PLAYERS
-        endloop
-        call TriggerAddAction(TriggerUIXKey, function XKeyToggleAction)
+        // Bag hotkey routing is owned by SampleDialogSystem.
 
         
         set TriggerItemGain = CreateTrigger()
