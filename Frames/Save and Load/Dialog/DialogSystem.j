@@ -328,6 +328,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
 
         call ClearListenState(pid)
         call MPInventorySetNextPageHotkeyLabel(whichPlayer, PageHotkeyLabel[pid])
+        call TasItemBagSetToggleHotkeyLabel(whichPlayer, BagHotkeyLabel[pid])
         call TasItemBagSetSellHotkeyLabel(whichPlayer, SellHotkeyLabel[pid])
         call ToggleHotkeyConfig(whichPlayer, true)
     endfunction
@@ -504,6 +505,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set BagHotkeyLabel[i] = "X"
             set SellHotkey[i] = OSKEY_G
             set SellHotkeyLabel[i] = "G"
+            call TasItemBagSetToggleHotkeyLabel(Player(i), BagHotkeyLabel[i])
             call TasItemBagSetSellHotkeyLabel(Player(i), SellHotkeyLabel[i])
             set ConfigOpen[i] = false
             set MenuOpen[i] = false

@@ -107,6 +107,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array TransferIndex
         public integer array SwapIndex
         public integer array Offset
+        private string array BagToggleHotkeyText
         private string array SellHotkeyText
         private boolean array SellHotkeyArmed
         private boolean array ShowBagButtonForPlayer
@@ -271,12 +272,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return "SELL (|cffffffff" + SellHotkeyText[pId] + "|r)"
     endfunction
 
+    private function GetBagToggleHintText takes integer pId returns string
+        if BagToggleHotkeyText[pId] == "" then
+            return "|cffc0c0c0Toggle Bag:|r |cffff8080Unbound|r"
+        endif
+        return "|cffc0c0c0Toggle Bag:|r |cffffffff" + BagToggleHotkeyText[pId] + "|r"
+    endfunction
+
     private function UpdateSellPopupButtonText takes player p returns nothing
         if p == null then
             return
         endif
         if GetLocalPlayer() == p then
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagPopUpButtonSell", 0), GetSellButtonCaption(GetPlayerId(p)))
+        endif
+    endfunction
+
+    private function UpdateBagToggleHintText takes player p returns nothing
+        if p == null then
+            return
+        endif
+        if GetLocalPlayer() == p then
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagHintText", 0), GetBagToggleHintText(GetPlayerId(p)))
         endif
     endfunction
 
@@ -288,6 +305,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set pId = GetPlayerId(p)
         set SellHotkeyText[pId] = label
         call UpdateSellPopupButtonText(p)
+    endfunction
+
+    function TasItemBagSetToggleHotkeyLabel takes player p, string label returns nothing
+        local integer pId
+        if p == null then
+            return
+        endif
+        set pId = GetPlayerId(p)
+        set BagToggleHotkeyText[pId] = label
+        call UpdateBagToggleHintText(p)
     endfunction
 
     private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
@@ -3875,6 +3902,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetPoint(frame, FRAMEPOINT_CENTER, BlzFrameGetParent(frame), FRAMEPOINT_TOPRIGHT, - 0.002, - 0.002)
         call BlzTriggerRegisterFrameEvent(TriggerUIClose, frame, FRAMEEVENT_CONTROL_CLICK)
         // BlzFrameClick(BlzGetFrameByName("TasItemBagCloseButton", 0))
+
+        set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagHintText", panel, "", 0)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, panel, FRAMEPOINT_TOPLEFT, 0.008, -0.008)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_RIGHT, frame, FRAMEPOINT_LEFT, -0.006, 0)
+        call BlzFrameSetText(frame2, GetBagToggleHintText(GetPlayerId(GetLocalPlayer())))
+        call BlzFrameSetTextAlignment(frame2, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_MIDDLE)
 
         call BlzFrameSetLevel(BlzGetFrameByName("TasItemBagTooltipPanel", 0), 8)
         // Bag Popup (programmatic, original style)

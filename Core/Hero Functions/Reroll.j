@@ -75,6 +75,16 @@ function Trig_REROLL_Actions takes nothing returns nothing
             call MPInventorySetInterfaceVisible(p, false)
             call TasItemBagSetShowButtonVisible(p, false)
             call TasItemBagToggleForPlayer(p, true)
+            // Hide Item Shop if open
+            call TasItemShopUIShow(p, null, null, null)
+            if GetLocalPlayer() == p then
+                if BlzGetFrameByName("TasItemShopUIBox", 0) != null then
+                    call BlzFrameSetVisible(BlzFrameGetParent(BlzGetFrameByName("TasItemShopUIBox", 0)), false)
+                endif
+                call BlzFrameSetVisible(BlzGetFrameByName("TalentGridParent", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TalentGridShowButton", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TalentGridShowButtonSprite", 0), false)
+            endif
 
             //Make sure Enemies are enemies again if they rerolled in sanctuary or duel
             call ResetEnemyForces(p)
