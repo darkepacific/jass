@@ -107,6 +107,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array TransferIndex
         public integer array SwapIndex
         public integer array Offset
+        private string array SellHotkeyText
+        private boolean array SellHotkeyArmed
         public boolean array IgnoreNextSelection // Need to refactor this out
         public boolean array SuppressNextBagPopup
 
@@ -258,6 +260,46 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetLocalPlayer() == whichPlayer then
             call StopSound(gg_snd_Error, false, false)
             call StartSound(gg_snd_Error)
+        endif
+    endfunction
+
+    private function GetSellButtonCaption takes integer pId returns string
+        if SellHotkeyText[pId] == "" then
+            return "SELL"
+        endif
+        return "SELL (|cffffffff" + SellHotkeyText[pId] + "|r)"
+    endfunction
+
+    private function UpdateSellPopupButtonText takes player p returns nothing
+        if p == null then
+            return
+        endif
+        if GetLocalPlayer() == p then
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPopUpButtonSell", 0), GetSellButtonCaption(GetPlayerId(p)))
+        endif
+    endfunction
+
+    function TasItemBagSetSellHotkeyLabel takes player p, string label returns nothing
+        local integer pId
+        if p == null then
+            return
+        endif
+        set pId = GetPlayerId(p)
+        set SellHotkeyText[pId] = label
+        call UpdateSellPopupButtonText(p)
+    endfunction
+
+    private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
+        set SellHotkeyArmed[pId] = armed
+    endfunction
+
+    private function HideBagPopupPanels takes player p returns nothing
+        if p == null then
+            return
+        endif
+        if GetLocalPlayer() == p then
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
         endif
     endfunction
 
@@ -1264,6 +1306,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return start > 0 and slotIndex >= start and slotIndex < start + 6
     endfunction
 
+    private function CanSwapActivePageSlots takes unit hero, integer playerKey, integer indexA, integer indexB returns boolean
+        if hero == null then
+            return false
+        endif
+        if (IsActivePageSlot(playerKey, indexA) or IsActivePageSlot(playerKey, indexB)) and not IsAbleToChangePage(hero) then
+            call BagErrorMessage("Cannot swap equipped items while your hero is dead.", GetOwningPlayer(hero))
+            return false
+        endif
+        return true
+    endfunction
+
     // Converts a page display slot index to a 0-based hero inventory slot.
     private function PageSlotToInvSlot takes integer slotIndex returns integer
         if slotIndex >= PAGE2_DISPLAY_START then
@@ -1400,6 +1453,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local boolean bIsActive
         local unit hero
         if indexA <= 0 or indexB <= 0 or indexA > MAX_INTERACTIVE_SLOT or indexB > MAX_INTERACTIVE_SLOT or indexA == indexB then
+            return false
+        endif
+        if not CanSwapActivePageSlots(u, playerKey, indexA, indexB) then
             return false
         endif
         set a = SlotToArrayIndex(playerKey, indexA)
@@ -2464,28 +2520,58 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return SellBagIndexToShop(p, bagIndex, shop, true)
     endfunction
 
-    private function BagPopupActionSell takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
-        local unit hero = udg_Heroes[GetPlayerNumber(p)]
-        local unit shop = null
-
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+    function TasItemBagSellSelectedForPlayer takes player p returns nothing
+        local integer pId
+        local unit hero
+        local unit shop
+        local item selectedItem
+        if p == null then
+            return
+        endif
+        if not BagEnabledForPlayer(p) then
+            return
         endif
 
+        set pId = GetPlayerId(p)
+        if not SellHotkeyArmed[pId] then
+            return
+        endif
+        set hero = udg_Heroes[GetPlayerNumber(p)]
         if hero == null then
-            call FrameLoseFocus()
+            call SetSellHotkeyArmed(pId, false)
+            call BagErrorMessage("No hero available.", p)
+            set hero = null
+            return
+        endif
+
+        if TransferIndex[pId] <= 0 then
+            call SetSellHotkeyArmed(pId, false)
+            call BagErrorMessage("Select a bag item first.", p)
+            set hero = null
+            return
+        endif
+
+        set selectedItem = TasItemBagGetItem(hero, TransferIndex[pId])
+        if selectedItem == null or TransferItem[pId] != selectedItem then
+            call SetSellHotkeyArmed(pId, false)
+            call BagErrorMessage("Select a bag item first.", p)
+            set hero = null
+            set selectedItem = null
             return
         endif
 
         set shop = FindNearbySellShop(hero)
         call SellBagIndexToShop(p, TransferIndex[pId], shop, true)
-
+        call HideBagPopupPanels(p)
+        call SetSellHotkeyArmed(pId, false)
         call FrameLoseFocus()
-        set hero = null
+        set selectedItem = null
         set shop = null
+        set hero = null
+    endfunction
+
+    private function BagPopupActionSell takes nothing returns nothing
+        call TasItemBagSellSelectedForPlayer(GetTriggerPlayer())
     endfunction
 
     private function BagPopupActionSplit takes nothing returns nothing
@@ -2495,9 +2581,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer charges
         // For now: open the (stub) split panel. No actual splitting logic yet.
         set SplitRequested[pId] = TransferIndex[pId]
+        call SetSellHotkeyArmed(pId, false)
+        call HideBagPopupPanels(p)
         if GetLocalPlayer() == p then
-            // Hide the popup menu while splitting to avoid click-through/interference
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), true)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitMinus", 0), true)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPlus", 0), true)
@@ -2603,10 +2689,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set newItem = null
         
         // Close split + popup
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-        endif
+        call HideBagPopupPanels(p)
         set SplitRequested[pId] = 0
         set SplitAmount[pId] = 0
         set src = null
@@ -2678,10 +2761,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPopupActionSplitCancel takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-        endif
+        call SetSellHotkeyArmed(pId, false)
+        call HideBagPopupPanels(p)
         set SplitRequested[pId] = 0
         set SplitAmount[pId] = 0
         call FrameLoseFocus()
@@ -2853,24 +2934,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Sell-mode: left-clicking a bag slot sells the item to the shop
-        if SellMode[pId] and evt == FRAMEEVENT_CONTROL_CLICK then
-            if bagIndex <= 0 then
-                set targetIndex = ResolveBagIndexFromMouse()
-                if targetIndex > 0 then
-                    set bagIndex = targetIndex
-                endif
-            endif
-            if bagIndex > 0 and bagIndex <= MAX_INTERACTIVE_SLOT then
-                call SellBagIndexToShop(p, bagIndex, SellTargetShop[pId], false)
-                call RequestUIUpdate()
-            endif
-            set hero = null
-            set it = null
-            call FrameLoseFocus()
-            return
-        endif
-
         // If we're in swap mode, finalize on click OR mouse-up so empty (disabled) bag slots can be targets.
         if SwapIndex[pId] > 0 and (evt == FRAMEEVENT_CONTROL_CLICK or evt == FRAMEEVENT_MOUSE_UP) then
             if bagIndex <= 0 then
@@ -2925,8 +2988,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if rawIndex > 0 then
                 set TransferIndex[pId] = bagIndex
                 set TransferItem[pId] = TasItemBagGetItem(hero, bagIndex)
+                call SetSellHotkeyArmed(pId, TransferItem[pId] != null and IsItemPawnable(TransferItem[pId]))
                 if TransferItem[pId] != null then
                     if GetLocalPlayer() == p then
+                        call UpdateSellPopupButtonText(p)
                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
                         call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
                         call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagPopUpPanel", 0), FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlot", rawIndex), FRAMEPOINT_TOPRIGHT, 0.004, 0)
@@ -2941,6 +3006,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpButtonSplit", 0), false)
                         endif
                     endif
+                else
+                    call SetSellHotkeyArmed(pId, false)
                 endif
             endif
         endif
@@ -3120,18 +3187,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // WoW-like: right-click cancels an armed swap without side-effects
             if SwapIndex[pId] > 0 then
                 set SwapIndex[pId] = 0
+                call SetSellHotkeyArmed(pId, false)
                 call SwapHighlightHide(pId)
-                if GetLocalPlayer() == p then
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                endif
+                call HideBagPopupPanels(p)
                 return
             endif
             // Always hide the popup on any right-click while the bag UI is open
-            if GetLocalPlayer() == p then
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            endif
+            call SetSellHotkeyArmed(pId, false)
+            call HideBagPopupPanels(p)
             // Right-click: A) deposit when over inventory, B) quick SELECT-arm when over bag
             // [DISABLED] Right-click deposit competes with native WC3 right-click.
             // Uncomment to re-enable inventory right-click deposit:
@@ -3290,17 +3353,19 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function CloseButtonAction takes nothing returns nothing
-        local integer pId = GetPlayerId(GetTriggerPlayer())
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
         set SwapIndex[pId] = 0
+        call SetSellHotkeyArmed(pId, false)
         call SwapHighlightHide(pId)
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
-        if GetLocalPlayer() == GetTriggerPlayer() then
+        call HideBagPopupPanels(p)
+        if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
         call FrameLoseFocus()
+        set p = null
     endfunction
 
     function TasItemBagToggleForPlayer takes player p, boolean forceClose returns nothing
@@ -3319,12 +3384,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         set pId = GetPlayerId(p)
+        call SetSellHotkeyArmed(pId, false)
         if GetLocalPlayer() == p then
             // Update once before showing to avoid a one-frame flash of stale/null slot data.
             call UpdateUI()
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false and not forceClose)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            call HideBagPopupPanels(p)
             call UpdateUI()
         endif
         set SwapIndex[pId] = 0
@@ -3349,6 +3414,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SwapHighlightHide(pId)
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
+        call SetSellHotkeyArmed(pId, false)
         if GetLocalPlayer() == p then
             // Update once before showing to avoid a one-frame flash of stale/null slot data
             call UpdateUI()
@@ -3358,8 +3424,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             else
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
             endif
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            call HideBagPopupPanels(p)
             call UpdateUI()
         endif
         call FrameLoseFocus()
@@ -3446,10 +3511,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         // WoW-like: ESC cancels swap first, then closes UI on subsequent ESC
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-        endif
+        call SetSellHotkeyArmed(pId, false)
+        call HideBagPopupPanels(p)
         if SwapIndex[pId] > 0 then
             set SwapIndex[pId] = 0
             call SwapHighlightHide(pId)
@@ -3819,7 +3882,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame3 = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagPopUpButtonSell", frame, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame3, 0.1, 0.028)
         call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame2, FRAMEPOINT_BOTTOMLEFT, 0, 0.001)
-        call BlzFrameSetText(frame3, "|cffff8000SELL (|cffffffffG|r)|r")
+        call BlzFrameSetText(frame3, GetSellButtonCaption(GetPlayerId(GetLocalPlayer())))
         call BlzTriggerRegisterFrameEvent(TriggerUISell, frame3, FRAMEEVENT_CONTROL_CLICK)
 
         // 5th popup button: Split (conditionally shown)
@@ -3991,6 +4054,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Global mouse handlers (used for inventory deposit and diagnostics)
         set TriggerUIMouseUp = CreateTrigger()
         call RegisterAnyPlayerEvent(EVENT_PLAYER_MOUSE_UP, function GlobalMouseUpAction)
+
+        set i = 0
+        loop
+            exitwhen i >= bj_MAX_PLAYERS
+            set SellHotkeyText[i] = "G"
+            set i = i + 1
+        endloop
 
         // Note: Global mouse right-click detection removed for compatibility.
 

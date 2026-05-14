@@ -342,6 +342,10 @@ function Load_GUI takes nothing returns nothing
         set i = i + 1 
     endloop 
 
+    // -------------------
+    // Turn on Interfaces
+    // -------------------
+
     // -------------------  
     // Class Specific Conditionals  
     // -------------------  

@@ -73,21 +73,26 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint
 				if udg_GameMode == "PVP" then
 					call SetHeroLevel(playerHero[pid], 25, false)
 					//Bandit's Boots
-					// call UnitAddItem(playerHero[pid], CreateItem('I008', GetUnitX(playerHero[pid]), GetUnitY(playerHero[pid])))
 					call UnitAddItemByIdSwapped( 'I008', playerHero[pid])
 					set udg_P_Items[GetPItemsIndex(whichPlayer, udg_Bag_Page[GetPlayerHeroNumber(whichPlayer)], 1)] = bj_lastCreatedItem
 				else
 					//Burnt Leather Boots
-					// call UnitAddItem(playerHero[pid], CreateItem('I007', GetUnitX(playerHero[pid]), GetUnitY(playerHero[pid])))
 					call UnitAddItemByIdSwapped( 'I007', playerHero[pid])
 					set udg_P_Items[GetPItemsIndex(whichPlayer, udg_Bag_Page[GetPlayerHeroNumber(whichPlayer)], 1)] = bj_lastCreatedItem
 				endif
+
+				// -------------------
+    			// Turn on Interfaces
+    			// -------------------
+				TasItemBagToggleForPlayer(whichPlayer, false)
+
+
 			else
-            	call Debug("Loading Hero for Player: " + GetPlayerName(whichPlayer))
+				call Debug("Loading Hero for Player: " + GetPlayerName(whichPlayer))
 				set udg_SaveLoadEvent_Player = whichPlayer
 				set udg_SaveCodeString = s
 				call TriggerExecute(gg_trg_Load_GUI)
-            	// call Load_GUI(whichPlayer, s)
+				// call Load_GUI(whichPlayer, s)
 			endif
 
 			//Register autosave on lvl

@@ -70,7 +70,7 @@ function Trig_REROLL_Actions takes nothing returns nothing
                 call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, 500)
             endif
             
-            //Reset Inventory
+            //Reset/Hide Interfaces
             call ResetInventory(p)
             call TasItemBagToggleForPlayer(p, true)
 
