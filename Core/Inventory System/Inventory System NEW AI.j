@@ -113,6 +113,27 @@ library MultiPageInventorySystem
         endif 
     endfunction 
 
+    function MPInventorySetInterfaceVisible takes player p, boolean visible returns nothing
+        local integer playerNum
+        local string s
+        if p == null then
+            return
+        endif
+
+        if visible then
+            set playerNum = GetPlayerHeroNumber(p)
+            if udg_Bag_Page[playerNum] <= 0 or udg_Bag_Page[playerNum] > maxPages then
+                set udg_Bag_Page[playerNum] = 1
+            endif
+            set s = "|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r"
+            call InventoryButtonsSetPageText(p, s)
+            call UpdateHotkeyTooltipsFor(p)
+        endif
+
+        call ShowInventoryButtons(p, visible)
+        set s = null
+    endfunction
+
     function ResetInventory takes player p returns nothing
         local integer playerNum = GetPlayerHeroNumber(p)
         local integer bagNum = GetPlayerBagNumber(p)
@@ -509,7 +530,6 @@ library MultiPageInventorySystem
 
         // Register item swap trigger for all players
         loop 
-            call TriggerRegisterPlayerSelectionEventBJ(trigShowButtons, Player(i), true) 
             // Configurable inventory hotkeys are now routed from SampleDialogSystem.
 
             // Register item swap events for each player
@@ -524,7 +544,6 @@ library MultiPageInventorySystem
             exitwhen i > 23 
         endloop 
         
-        call TriggerAddAction(trigShowButtons, function ShowButtonsActions) 
         call TriggerAddCondition(trigItemSwap, Condition(function ItemSwapConditions))
         call TriggerAddAction(trigItemSwap, function ItemSwapActions)
     endfunction

@@ -72,6 +72,8 @@ function Trig_REROLL_Actions takes nothing returns nothing
             
             //Reset/Hide Interfaces
             call ResetInventory(p)
+            call MPInventorySetInterfaceVisible(p, false)
+            call TasItemBagSetShowButtonVisible(p, false)
             call TasItemBagToggleForPlayer(p, true)
 
             //Make sure Enemies are enemies again if they rerolled in sanctuary or duel

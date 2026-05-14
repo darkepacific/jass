@@ -109,6 +109,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array Offset
         private string array SellHotkeyText
         private boolean array SellHotkeyArmed
+        private boolean array ShowBagButtonForPlayer
         public boolean array IgnoreNextSelection // Need to refactor this out
         public boolean array SuppressNextBagPopup
 
@@ -501,7 +502,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowButtonAlwaysVisible or BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0)))
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
         call WarnWhenPagesBecomeFull(p)
 
         // Count items for the little overlay on the show-button.
@@ -643,6 +644,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set UIUpdateScheduled = true
             call TimerStart(TimerUpdate, 0.00, false, function UpdateUI)
         endif
+    endfunction
+
+    function TasItemBagSetShowButtonVisible takes player p, boolean visible returns nothing
+        if p == null then
+            return
+        endif
+        set ShowBagButtonForPlayer[GetPlayerId(p)] = visible
+        call RequestUIUpdate()
     endfunction
 
     //Public facing one for other libraries/triggers to call

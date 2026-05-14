@@ -84,7 +84,8 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint
 				// -------------------
     			// Turn on Interfaces
     			// -------------------
-				TasItemBagToggleForPlayer(whichPlayer, false)
+				call MPInventorySetInterfaceVisible(whichPlayer, true)
+				call TasItemBagSetShowButtonVisible(whichPlayer, true)
 
 
 			else

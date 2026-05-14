@@ -345,6 +345,8 @@ function Load_GUI takes nothing returns nothing
     // -------------------
     // Turn on Interfaces
     // -------------------
+    call MPInventorySetInterfaceVisible(p, true)
+    call TasItemBagSetShowButtonVisible(p, true)
 
     // -------------------  
     // Class Specific Conditionals  
