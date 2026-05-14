@@ -12,26 +12,26 @@ function LWoW_CleanDefaultUI takes nothing returns nothing
     endif
 
     // Open and close the quest menu once so its internal frames initialize.
-    if GetHandleId(questButton) != 0 then
-        call BlzFrameClick(questButton)
-    endif
+    // if GetHandleId(questButton) != 0 then
+    //     call BlzFrameClick(questButton)
+    // endif
 
-    set questAcceptButton = BlzGetFrameByName("QuestAcceptButton", 0)
-    set questItemList = BlzGetFrameByName("QuestItemListContainer", 0)
-    set questScrollBar = BlzGetFrameByName("QuestItemListScrollBar", 0)
+    // set questAcceptButton = BlzGetFrameByName("QuestAcceptButton", 0)
+    // set questItemList = BlzGetFrameByName("QuestItemListContainer", 0)
+    // set questScrollBar = BlzGetFrameByName("QuestItemListScrollBar", 0)
 
-    if GetHandleId(questAcceptButton) != 0 then
-        call BlzFrameClick(questAcceptButton)
-    endif
+    // if GetHandleId(questAcceptButton) != 0 then
+    //     call BlzFrameClick(questAcceptButton)
+    // endif
 
-    // Shrink reserved quest objective / defeat condition space.
-    if GetHandleId(questItemList) != 0 then
-        call BlzFrameSetSize(questItemList, 0.01, 0.01)
-    endif
+    // // Shrink reserved quest objective / defeat condition space.
+    // if GetHandleId(questItemList) != 0 then
+    //     call BlzFrameSetSize(questItemList, 0.01, 0.01)
+    // endif
 
-    if GetHandleId(questScrollBar) != 0 then
-        call BlzFrameSetSize(questScrollBar, 0.001, 0.001)
-    endif
+    // if GetHandleId(questScrollBar) != 0 then
+    //     call BlzFrameSetSize(questScrollBar, 0.001, 0.001)
+    // endif
 endfunction
 
 function InitTrig_LWoW_UI_Cleanup takes nothing returns nothing

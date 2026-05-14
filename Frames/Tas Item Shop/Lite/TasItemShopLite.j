@@ -57,7 +57,7 @@ public function ParentFunc takes nothing returns framehandle // who is the paren
 endfunction
 public function Pos takes framehandle frame returns nothing
     // position of the whole Shop UI
-    call BlzFrameSetAbsPoint(frame, FRAMEPOINT_TOPRIGHT, 0.79, 0.55)
+    call BlzFrameSetAbsPoint(frame, FRAMEPOINT_TOPRIGHT, 0.81, 0.55)
 endfunction
 public function TooltipPos takes framehandle tooltip, framehandle buttonFrame returns nothing
     // position of the tooltips
@@ -329,9 +329,9 @@ public function InitFrames takes nothing returns nothing
     //call BlzFrameSetAllPoints(FrameMouseListener, this.ButtonList.TotalFrame)
     //call TasSliderAction(FrameMouseListener, nil, cols, this.ButtonList.Slider)
 
-    // Nudge search bar a tiny bit left
+    // Keep the shop root where it is, but give the scrollbar more room on the right.
     call BlzFrameClearAllPoints(TasButtonListInputFrame[ButtonListIndex])
-    call BlzFrameSetPoint(TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, FrameParentList, FRAMEPOINT_TOPRIGHT, -0.005, 0)
+    call BlzFrameSetPoint(TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, FrameParentList, FRAMEPOINT_TOPRIGHT, -0.015, 0)
 
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, 0.001, 0.003)
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_BOTTOMLEFT, BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + buttonListRows*buttonListCols - (buttonListCols - 1)), FRAMEPOINT_BOTTOMLEFT, -0.003, -0.003)

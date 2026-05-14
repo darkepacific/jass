@@ -146,13 +146,14 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endif
 
         set Button[(pid * 12) + 2] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffcc00Select|r |cffffffffH|r|cffffcc00ot keys|r|r", 72)
-        if MenuHotkeyLabel[pid] == "" then
-            set closeLabel = "|cffff8000Close|r"
-        elseif MenuHotkeyLabel[pid] == "C" then
-            set closeLabel = "|cffff8000|cffffffffC|rlose"
-        else
-            set closeLabel = "|cffff8000(|cffffffff" + MenuHotkeyLabel[pid] + "|r) Close"
-        endif
+        set closeLabel = "|cffff8000|cffffffffC|rlose|r"
+        // if MenuHotkeyLabel[pid] == "" then
+        //     set closeLabel = "|cffff8000Close|r"
+        // elseif MenuHotkeyLabel[pid] == "C" then
+        //     set closeLabel = "|cffff8000|cffffffffC|rlose"
+        // else
+        //     set closeLabel = "|cffff8000(|cffffffff" + MenuHotkeyLabel[pid] + "|r) Close"
+        // endif
         set Button[(pid * 12) + 3] = DialogAddButton(Dialog[(pid * 12) + 0], closeLabel, 67)
         call DialogDisplay(p, Dialog[(pid * 12) + 0], GetLocalPlayer() == p)
         set MenuOpen[pid] = true

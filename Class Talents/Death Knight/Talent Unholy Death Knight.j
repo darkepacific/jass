@@ -92,6 +92,8 @@ function TalentUnholyDeathKnight takes nothing returns nothing
 
 	// Plague Bomber - Gain a second charge of Epidemic, and the cooldown is reduced by 5 sec.
 
+	// Plague Nova - Send forth an explosion of plague around the death knight. https://www.hiveworkshop.com/threads/death-coil.372216/
+
 
 	//Persistent Plague - Virulent Plague last for 2s longer
 	//Raise dead leave behind slimes that travel in a random direction and then explode after 3 sec

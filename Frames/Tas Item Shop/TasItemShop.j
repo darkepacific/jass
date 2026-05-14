@@ -46,7 +46,7 @@ library TasItemShop initializer init_function requires TasItemFusion, Power2, Ta
     
         globals
             // Config Start
-            public real xPos = 0.0
+            public real xPos = 0.01
             public real yPos = -0.02
             public framepointtype posPoint = FRAMEPOINT_TOPRIGHT
             public boolean posScreenRelative = true //(true) repos to the screenSize, when the resolution mode changes the box will move further in/out when using a right or Left point.
