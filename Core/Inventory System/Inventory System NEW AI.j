@@ -21,6 +21,7 @@ library MultiPageInventorySystem
         private trigger trigInvMain = CreateTrigger() 
         private trigger trigInvLeft = CreateTrigger() 
         private trigger trigInvRight = CreateTrigger() 
+        private trigger trigInvPage = CreateTrigger() 
         private trigger trigShowButtons = CreateTrigger() 
         private trigger trigItemSwap = CreateTrigger()
         private string array nextPageHotkeyLabel
@@ -415,6 +416,17 @@ library MultiPageInventorySystem
 
         set p = null 
     endfunction 
+
+    private function InventoryButtonClickPage takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+
+        if GetLocalPlayer() == p then
+            call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 102), false)
+            call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 102), true)
+        endif
+
+        set p = null
+    endfunction
     
     function ShowButtonsActions takes nothing returns nothing 
         local string s = "" 
@@ -523,10 +535,12 @@ library MultiPageInventorySystem
         // call BlzTriggerRegisterFrameEvent(trigInvMain, invButtonMain, FRAMEEVENT_CONTROL_CLICK)
         // call BlzTriggerRegisterFrameEvent(trigInvLeft, invButtonLeft, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigInvRight, invButtonRight, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(trigInvPage, invButtonPage, FRAMEEVENT_CONTROL_CLICK)
  
         // call TriggerAddAction(trigInvMain, function InventoryButtonClickMain)
         // call TriggerAddAction(trigInvLeft, function InventoryButtonClickLeft)
         call TriggerAddAction(trigInvRight, function InventoryButtonClickRight) 
+        call TriggerAddAction(trigInvPage, function InventoryButtonClickPage) 
 
         // Register item swap trigger for all players
         loop 

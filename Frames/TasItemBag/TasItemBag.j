@@ -233,12 +233,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     // Bag system is enabled only for these fixed 1-based player numbers.
     private function BagEnabledForPlayer takes player p returns boolean
-        local integer playerNum
         if p == null then
             return false
         endif
-        set playerNum = GetPlayerNumber(p)
-        return playerNum == 2 or playerNum == 4 or playerNum == 5 or playerNum == 6 or playerNum == 7 or playerNum == 8 or playerNum == 9 or playerNum == 10 or playerNum == 12 or playerNum == 13
+        return GetPlayerNumber(p) < 11
     endfunction
 
     private function BagEnabledForUnit takes unit u returns boolean
@@ -3904,8 +3902,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // BlzFrameClick(BlzGetFrameByName("TasItemBagCloseButton", 0))
 
         set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagHintText", panel, "", 0)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_TOPLEFT, panel, FRAMEPOINT_TOPLEFT, 0.008, -0.008)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_RIGHT, frame, FRAMEPOINT_LEFT, -0.006, 0)
+        call BlzFrameSetSize(frame2, BlzFrameGetWidth(panel) - 0.045, 0.012)
+        call BlzFrameSetPoint(frame2, FRAMEPOINT_BOTTOMLEFT, panel, FRAMEPOINT_TOPLEFT, 0.008, 0.004)
         call BlzFrameSetText(frame2, GetBagToggleHintText(GetPlayerId(GetLocalPlayer())))
         call BlzFrameSetTextAlignment(frame2, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_MIDDLE)
 
