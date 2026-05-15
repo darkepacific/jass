@@ -25,6 +25,9 @@ globals
 
     public unit array CurrentShop
     public real BuyRange = 525.0 // max distance between hero and shop to buy
+    private timer RefreshTimer = null
+    private integer array LastShownGold
+    private integer array LastShownLumber
 
     public framehandle FrameBox
     public framehandle FrameParentSuper
@@ -54,6 +57,43 @@ public real buttonListButtonSizeY = 0.0325
 endglobals
 public function ParentFunc takes nothing returns framehandle // who is the parent of this UI
     return BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0)
+endfunction
+
+private function SyncDisplayedResources takes player p returns nothing
+    local integer playerIndex
+    if p == null then
+        return
+    endif
+    set playerIndex = GetPlayerId(p)
+    if CurrentShop[playerIndex] != null then
+        set LastShownGold[playerIndex] = GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD)
+        set LastShownLumber[playerIndex] = GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER)
+    else
+        set LastShownGold[playerIndex] = -1
+        set LastShownLumber[playerIndex] = -1
+    endif
+endfunction
+
+private function RefreshOpenShopAction takes nothing returns nothing
+    local player p = GetLocalPlayer()
+    local integer playerIndex = GetPlayerId(p)
+    local integer gold
+    local integer lumber
+
+    if CurrentShop[playerIndex] != null then
+        set gold = GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD)
+        set lumber = GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER)
+        if gold != LastShownGold[playerIndex] or lumber != LastShownLumber[playerIndex] then
+            set LastShownGold[playerIndex] = gold
+            set LastShownLumber[playerIndex] = lumber
+            call UpdateTasButtonList(ButtonListIndex)
+        endif
+    elseif LastShownGold[playerIndex] != -1 or LastShownLumber[playerIndex] != -1 then
+        set LastShownGold[playerIndex] = -1
+        set LastShownLumber[playerIndex] = -1
+    endif
+
+    set p = null
 endfunction
 public function Pos takes framehandle frame returns nothing
     // position of the whole Shop UI
@@ -206,6 +246,7 @@ public function Show takes player p, unit shop returns nothing
     else
         set CurrentShop[playerIndex] = null
     endif
+    call SyncDisplayedResources(p)
     set oldShop = null
 endfunction
 public function BuyItem takes player p, integer itemCode returns nothing
@@ -386,6 +427,9 @@ function Init takes nothing returns nothing
         call TriggerRegisterPlayerEventEndCinematic(TriggerESC, Player(i))
         set i = i - 1
     endloop
+
+    set RefreshTimer = CreateTimer()
+    call TimerStart(RefreshTimer, 0.25, true, function RefreshOpenShopAction)
 
 endfunction
 
