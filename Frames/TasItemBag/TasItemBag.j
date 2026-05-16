@@ -4163,4 +4163,3 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TimerStart(ItemGainTimer, 0, false, function InitBagAt0s)  
     endfunction
 endlibrary
-s
