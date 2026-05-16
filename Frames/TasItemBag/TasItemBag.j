@@ -508,13 +508,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer otherPage
         local integer arrIndex
         local real renderTooltipScale = TooltipScale
-        if allowStateRepair then
-            set UIUpdateScheduled = false
-            // Clear stale suppress flag from a completed swap. When swapping to an empty
-            // (disabled) slot, CONTROL_CLICK never fires so the flag isn't consumed within
-            // the same click. Clearing here (next-frame timer) prevents it eating the next click.
-            set SuppressNextBagPopup[pId] = false
-        endif
+        // Rendering must not repair or mutate shared bag/game state.
+        // UIUpdateScheduled is cleared by UpdateUI, not by local rendering.
         if not BagEnabledForPlayer(p) then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
@@ -527,9 +522,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
             set renderTooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
-            if allowStateRepair then
-                set TooltipScale = renderTooltipScale
-            endif
+            // Do not write TooltipScale from local rendering.
         endif
         if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)) > 0 then
             call BlzFrameSetScale(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)))
@@ -537,9 +530,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), renderTooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
-        if allowStateRepair then
-            call WarnWhenPagesBecomeFull(p)
-        endif
+        // Do not call warning/stateful page checks from local rendering.
 
         // Count items for the little overlay on the show-button.
         set maxSlots = PITEMS_EXTRA_SLOTS
@@ -550,10 +541,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set it = udg_P_Items[arrIndex]
             if it != null then
                 if GetItemTypeId(it) == 0 then
-                    // Dead handle — item was destroyed externally; clean up during scheduled updates.
-                    if allowStateRepair then
-                        set udg_P_Items[arrIndex] = null
-                    endif
+                    // Dead handle — show as empty, but do not mutate udg_P_Items from local rendering.
                     set it = null
                 else
                     set itemCount = itemCount + 1
@@ -568,9 +556,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Holes model: fixed grid, no scrolling.
             // call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
             // call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
-            if allowStateRepair then
-                set Offset[pId] = 0
-            endif
+            // Do not write Offset from local rendering.
 
             set i = 1
             loop
@@ -579,9 +565,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set it = udg_P_Items[arrIndex]
                 // Detect dead handles (item destroyed externally)
                 if it != null and GetItemTypeId(it) == 0 then
-                    if allowStateRepair then
-                        set udg_P_Items[arrIndex] = null
-                    endif
+                    // Dead handle — show as empty, but do not mutate udg_P_Items from local rendering.
                     set it = null
                 endif
                 call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), it != null)
@@ -642,9 +626,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                     // Detect dead handles (item destroyed externally)
                     if it != null and GetItemTypeId(it) == 0 then
-                        if allowStateRepair and (hero == null or currentPage != udg_Bag_Page[GetPlayerNumber(p)]) then
-                            set udg_P_Items[arrIndex] = null
-                        endif
+                        // Dead handle — show as empty, but do not mutate udg_P_Items from local rendering.
                         set it = null
                     endif
                     if it != null then
@@ -682,7 +664,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function UpdateUI takes nothing returns nothing
-        call RenderUIForLocalPlayer(true)
+        set UIUpdateScheduled = false
+        call RenderUIForLocalPlayer(false)
     endfunction
 
     // Schedules a UI refresh once (debounced). Safe to call many times.
@@ -786,7 +769,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function SwapHighlightHide takes integer pId returns nothing
         call SwapHoverHide(pId)
         if GetLocalPlayer() == Player(pId) then
-            call SetInventoryHitboxesEnabled(false)
+            // Do not toggle registered inventory hitbox frames here.
+            // Local BlzFrameSetEnable on registered frames has proven unsafe around SELECT.
             if SwapHighlight[pId] != null then
                 call BlzFrameSetVisible(SwapHighlight[pId], false)
             endif
@@ -795,7 +779,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function SwapHighlightShowOnSlot takes integer pId, integer rawSlotIndex returns nothing
         if GetLocalPlayer() == Player(pId) then
-            call SetInventoryHitboxesEnabled(true)
+            // Do not toggle registered inventory hitbox frames here.
+            // The visual highlight is safe; enabling hidden registered buttons locally is not.
             if SwapHighlight[pId] != null and rawSlotIndex > 0 then
                 call BlzFrameClearAllPoints(SwapHighlight[pId])
                 call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_TOPLEFT, 0, -0.002)
@@ -2387,14 +2372,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPopupActionSelect takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
+
+        // SELECT decision state must be shared. Only the visual frame work is local.
+        set SwapIndex[pId] = TransferIndex[pId]
+
         if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            set SwapIndex[pId] = TransferIndex[pId]
             call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
-            call PlaySwapSelectSound(p)
-            call FrameLoseFocus()
         endif
+
         set p = null
     endfunction
 
@@ -3077,11 +3064,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             endif
             if rawIndex > 0 then
+                set TransferIndex[pId] = bagIndex
                 set it = TasItemBagGetItem(hero, bagIndex)
+                call SetSellHotkeyArmed(pId, it != null and IsItemPawnable(it))
                 if it != null then
                     if GetLocalPlayer() == p then
-                        set TransferIndex[pId] = bagIndex
-                        call SetSellHotkeyArmed(pId, IsItemPawnable(it))
                         call UpdateSellPopupButtonText(p)
                         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), true)
                         call BlzFrameClearAllPoints(BlzGetFrameByName("TasItemBagPopUpPanel", 0))
@@ -3098,9 +3085,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         endif
                     endif
                 else
-                    if GetLocalPlayer() == p then
-                        call SetSellHotkeyArmed(pId, false)
-                    endif
+                    call SetSellHotkeyArmed(pId, false)
                 endif
             endif
         endif
