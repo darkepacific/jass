@@ -77,7 +77,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIOpen
         public trigger TriggerUIClose
         public trigger TriggerUIBagButton
-        public trigger TriggerUISlider
         public trigger TriggerUIWheel
         public trigger TriggerUIEquip
         public trigger TriggerUIDrop
@@ -518,13 +517,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set hero = null
             return
         endif
-        // When the options from HeroScoreFrame are in this map use the tooltip&total scale slider
-        if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0)) > 0 then
-            set TooltipScale = BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider1", 0))
-        endif
-        if GetHandleId(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)) > 0 then
-            call BlzFrameSetScale(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameGetValue(BlzGetFrameByName("HeroScoreFrameOptionsSlider3", 0)))
-        endif
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
@@ -552,8 +544,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
 
             // Holes model: fixed grid, no scrolling.
-            // call BlzFrameSetMinMaxValue(BlzGetFrameByName("TasItemBagSlider", 0), 0, 0)
-            // call BlzFrameSetText(BlzGetFrameByName("TasItemBagSliderTooltip", 0), "")
             set Offset[pId] = 0
 
             set i = 1
@@ -1757,7 +1747,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     set slot = slot + 1
                 endloop
 
-                // If we managed to merge anything, update the bank item accordingly.
+                // If we managed to merge anything, update the item accordingly.
                 if incomingCharges < GetItemCharges(i) then
                     if incomingCharges <= 0 then
                         // Fully absorbed into an inventory stack; remove the bag item entry and destroy it.
@@ -1770,7 +1760,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         endif
                         call RemoveItem(i)
                     else
-                        // Partially absorbed; keep the bank item with remaining charges.
+                        // Partially absorbed; keep the item with remaining charges.
                         call SetItemCharges(i, incomingCharges)
                         // call SetItemVisible(i, false)
                     endif
@@ -1795,7 +1785,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Make the item visible and place it at the hero before equipping
         // call SetItemVisible(i, true)
         call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
-        call Debug("Item to be equipped from Bank: " + GetItemName(i) + GetUnitName(u))
+        call Debug("Item to be equipped from Bag: " + GetItemName(i) + GetUnitName(u))
 
         set udg_dontDepositIntoBag = true
         if UnitAddItem(u, i) then
@@ -1812,7 +1802,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set u = null
     endfunction
 
-    // Moves the item in the given inventory slot into the player's bank
+    // Moves the item in the given inventory slot into the player's bag
     private function DepositInventorySlot takes player p, integer slot returns nothing
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
         local item it
@@ -2653,7 +2643,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer take
         local integer remain
         local integer playerKey
-        // Perform split: move "take" charges into a new bank item.
+        // Perform split: move "take" charges into a new bag item.
         call Debug("Performing split for index " + I2S(SplitRequested[pId]) + ", amount " + I2S(SplitAmount[pId]))
         set src = TransferItem[pId]
         call Debug("Source item: " + GetItemName(src))
@@ -2683,7 +2673,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if take >= total then
             set take = total - 1
         endif
-        // Respect bank stacking cap of 20 charges.
+        // Respect bag stacking cap of 20 charges.
         if take > 20 then
             set take = 20
         endif
@@ -2709,11 +2699,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Update source item charges (stays in bank).
+        // Update source item charges (stays in bag).
         call Debug("Settng source item: "+  GetItemName(src) + "charges: " + I2S(remain))
         call SetItemCharges(src, remain)
 
-        // Create a new item of same type and add it to the bank.
+        // Create a new item of same type and add it to the bag.
         set newItem = CreateItem(GetItemTypeId(src), GetUnitX(udg_Heroes[GetPlayerNumber(p)]), GetUnitY(udg_Heroes[GetPlayerNumber(p)]))
         call SetItemCharges(newItem, take)
         
@@ -3193,7 +3183,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Ignore any clicks when bank panel is not open
+        // Ignore any clicks when bag panel is not open
         if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
             return
         endif
@@ -3233,7 +3223,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // [DISABLED] Right-click deposit competes with native WC3 right-click.
             // Uncomment to re-enable inventory right-click deposit:
             // if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-            //     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bank")
+            //     call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bag")
             //     call DepositInventorySlot(p, invIndex)
             //     set didSomething = true
             // else
@@ -3465,11 +3455,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set p = null
     endfunction
 
-    private function SliderAction takes nothing returns nothing
-        // Slider disabled (fixed bag size fits on screen).
-        // set Offset[GetPlayerId(GetTriggerPlayer())] = 0
-    endfunction
-
     private function SelectAction takes nothing returns nothing
         local integer pId = GetPlayerId(GetTriggerPlayer())
         local player p = GetTriggerPlayer()
@@ -3520,18 +3505,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Open banking UI when a Bank unit is selected
-        // Banks have been temporarily disabled due to low demand, but this is how it would begin to work when enabled:
-        // if IsBankUnit(selected) then
-        //     if GetLocalPlayer() == p then
-        //         // Update once before showing to avoid a one-frame flash of stale/null slot data
-        //         call UpdateUI()
-        //         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
-        //         // Auto-reselect the hero so their inventory is visible while banking
-        //         set IgnoreNextSelection[pId] = true
-        //         call SelectUnitForPlayerSingle(udg_Heroes[GetPlayerNumber(p)], p)
-        //     endif
-        // endif
         set selected = null
         set hero = null
         set p = null
@@ -3758,8 +3731,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set invIndex = invIndex + 1
         endloop
 
-        // Slider disabled (fixed bag size fits on screen).
-        // call BlzTriggerRegisterFrameEvent(TriggerUIWheel, panel, FRAMEEVENT_MOUSE_WHEEL)
         call BlzCreateFrameByType("BUTTON", "TasItemBagTooltipPanel", panel, "", 0)
 
         // Swap highlight (autocast border) - per player context, positioned on demand
@@ -3806,8 +3777,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlot", buttonIndex), FRAMEEVENT_MOUSE_LEAVE)
-            // Slider disabled (fixed bag size fits on screen).
-            // call BlzTriggerRegisterFrameEvent(TriggerUIWheel, BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), FRAMEEVENT_MOUSE_WHEEL)
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", buttonIndex), I2S(buttonIndex))
             
             set count = count + 1
