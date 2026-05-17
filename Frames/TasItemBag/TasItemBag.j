@@ -519,7 +519,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
-        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
+        // call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
         call WarnWhenPagesBecomeFull(p)
 
         // Count items for the little overlay on the show-button.
