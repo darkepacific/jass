@@ -65,6 +65,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private abilityintegerlevelfield AbilityFieldUse
         private abilityintegerlevelfield AbilityFieldCanDrop
         public timer TimerUpdate
+        private timer SuppressNextBagPopupClearTimer
 
         // Debounced UI updates (avoid constant polling).
         private boolean UIUpdateScheduled = false
@@ -91,7 +92,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIPanelHover
         public trigger TriggerUIMouseUp
         public trigger TriggerUIInventoryButton
-        public trigger TriggerUISync
         private framehandle array InventoryHitbox
         private integer array InventoryHoverSlot
         public trigger TriggerUnitOrder
@@ -106,7 +106,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public item array TransferItem
         public integer array TransferIndex
         public integer array SwapIndex
-        public integer array Offset
         private string array BagToggleHotkeyText
         private string array SellHotkeyText
         private boolean array SellHotkeyArmed
@@ -131,7 +130,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Hover-highlight target slot while swap is armed (empty bag holes only)
         private integer array SwapHoverIndex
 
-        private constant string BAG_SYNC_PREFIX = "TBAG"
         private constant string SplitLabelPrefix = "|cffffcc00Split:|r "
         private constant integer POPUP_FRAME_LEVEL = 1000
         private constant integer SPLIT_FRAME_LEVEL = 1001
@@ -237,14 +235,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if p == null then
             return false
         endif
-        return GetPlayerNumber(p) < 11
-    endfunction
-
-    private function BagEnabledForUnit takes unit u returns boolean
-        if u == null then
-            return false
-        endif
-        return BagEnabledForPlayer(GetOwningPlayer(u))
+        return (GetPlayerController(p) == MAP_CONTROL_USER and GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING and GetPlayerNumber(p) < 11)
     endfunction
 
     private function BagErrorMessage takes string message, player whichPlayer returns nothing
@@ -391,10 +382,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         set itemType = GetItemTypeId(it)
-        if not HaveSavedInteger(TasItemHash, itemType, StringHash("GOLD")) then
-            return 0
-        endif
-        set goldGain = LoadInteger(TasItemHash, itemType, StringHash("GOLD")) / 2
+        set goldGain = TasItemGetCostGold(itemType) / 2
 
         if itemType == HEARTSEEKER_ITEM_ID then
             set stackCount = GetItemCharges(it)
@@ -500,49 +488,153 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
-    private function RepairBagStateForPlayer takes player p returns nothing
+    private function ClearSuppressNextBagPopup takes nothing returns nothing
+        local integer pId = 0
+        loop
+            exitwhen pId >= bj_MAX_PLAYERS
+            set SuppressNextBagPopup[pId] = false
+            set pId = pId + 1
+        endloop
+    endfunction
+
+    private function SuppressBagPopupUntilNextFrame takes integer pId returns nothing
+        set SuppressNextBagPopup[pId] = true
+        call TimerStart(SuppressNextBagPopupClearTimer, 0.00, false, function ClearSuppressNextBagPopup)
+    endfunction
+
+    private function RenderBagFramesForPlayer takes player p returns nothing
         local integer pId
         local unit hero
-        local integer i
-        local integer currentPage
-        local integer arrIndex
+        local integer itemCount = 0
         local item it
-        if p == null then
+        local integer slotIndex
+        local integer pageSlot
+        local integer maxSlots
+        local integer currentPage
+        local integer otherPage
+        local integer arrIndex
+
+        if p == null or GetLocalPlayer() != p then
             return
         endif
 
         set pId = GetPlayerId(p)
         set hero = udg_Heroes[GetPlayerNumber(p)]
 
-        set Offset[pId] = 0
-        call WarnWhenPagesBecomeFull(p)
+        if not BagEnabledForPlayer(p) then
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            set hero = null
+            return
+        endif
 
-        set i = 1
+        call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
+
+        set maxSlots = PITEMS_EXTRA_SLOTS
+        set slotIndex = 1
         loop
-            exitwhen i > PITEMS_EXTRA_SLOTS
-            set arrIndex = BagSlotArrayIndex(pId, i)
-            set it = udg_P_Items[arrIndex]
-            if it != null and GetItemTypeId(it) == 0 then
-                set udg_P_Items[arrIndex] = null
+            exitwhen slotIndex > maxSlots
+            set it = udg_P_Items[BagSlotArrayIndex(pId, slotIndex)]
+            if it != null and GetItemTypeId(it) != 0 then
+                set itemCount = itemCount + 1
             endif
-            set i = i + 1
+            set slotIndex = slotIndex + 1
         endloop
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
+
+        set slotIndex = 1
+        loop
+            exitwhen slotIndex > PITEMS_EXTRA_SLOTS
+            set it = udg_P_Items[BagSlotArrayIndex(pId, slotIndex)]
+            if it != null and GetItemTypeId(it) == 0 then
+                set it = null
+            endif
+
+            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", slotIndex), it != null)
+            if it != null then
+                call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", slotIndex), BlzGetItemIconPath(it), 0, true)
+                call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", slotIndex), BlzGetItemIconPath(it), 0, true)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", slotIndex), BuildBagItemTooltip(it, AddNeedText))
+                call UpdateTooltipSellDisplay(slotIndex, it)
+
+                if GetItemCharges(it) > 0 then
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", slotIndex), I2S(GetItemCharges(it)))
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", slotIndex), true)
+                else
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", slotIndex), false)
+                endif
+            else
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", slotIndex), false)
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", slotIndex), "")
+                call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", slotIndex), "")
+                call UpdateTooltipSellDisplay(slotIndex, null)
+                call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", slotIndex), "", 0, true)
+                call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", slotIndex), "", 0, true)
+            endif
+            set slotIndex = slotIndex + 1
+        endloop
+
+        set currentPage = udg_Bag_Page[GetPlayerNumber(p)]
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagPageLabel", 0), "|cffffcc00Pages|r")
+        if currentPage == 1 then
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage1Indicator", 0), "|cffffcc001|r")
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage2Indicator", 0), "|cff8888882|r")
+        else
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage1Indicator", 0), "|cff8888881|r")
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage2Indicator", 0), "|cffffcc002|r")
+        endif
 
         set currentPage = 1
         loop
             exitwhen currentPage > 2
-            if hero == null or currentPage != udg_Bag_Page[GetPlayerNumber(p)] then
-                set i = 1
-                loop
-                    exitwhen i > 6
-                    set arrIndex = GetPItemsIndex(p, currentPage, i)
-                    set it = udg_P_Items[arrIndex]
-                    if it != null and GetItemTypeId(it) == 0 then
-                        set udg_P_Items[arrIndex] = null
-                    endif
-                    set i = i + 1
-                endloop
+            if currentPage == 1 then
+                set otherPage = PAGE1_DISPLAY_START
+            else
+                set otherPage = PAGE2_DISPLAY_START
             endif
+
+            set pageSlot = 1
+            loop
+                exitwhen pageSlot > 6
+                if hero != null and currentPage == udg_Bag_Page[GetPlayerNumber(p)] then
+                    set it = UnitItemInSlot(hero, pageSlot - 1)
+                else
+                    set it = udg_P_Items[GetPItemsIndex(p, currentPage, pageSlot)]
+                endif
+                if it != null and GetItemTypeId(it) == 0 then
+                    set it = null
+                endif
+
+                set slotIndex = otherPage + pageSlot - 1
+                if it != null then
+                    call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", slotIndex), true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", slotIndex), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", slotIndex), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", slotIndex), BlzGetItemIconPath(it), 0, true)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", slotIndex), true)
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", slotIndex), BuildBagItemTooltip(it, false))
+                    call UpdateTooltipSellDisplay(slotIndex, it)
+                    if GetItemCharges(it) > 0 then
+                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", slotIndex), I2S(GetItemCharges(it)))
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", slotIndex), true)
+                    else
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", slotIndex), false)
+                    endif
+                else
+                    call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", slotIndex), false)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", slotIndex), "", 0, true)
+                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", slotIndex), "", 0, true)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", slotIndex), false)
+                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", slotIndex), false)
+                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", slotIndex), "")
+                    call UpdateTooltipSellDisplay(slotIndex, null)
+                endif
+
+                set pageSlot = pageSlot + 1
+            endloop
             set currentPage = currentPage + 1
         endloop
 
@@ -550,168 +642,84 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set hero = null
     endfunction
 
-    private function RepairAllBagStates takes nothing returns nothing
-        local integer pId = 0
+    private function UpdateUI takes nothing returns nothing
+        local integer pId
         local player p
+        local unit hero
+        local integer itemCount = 0
+        local item it
+        local integer slotIndex
+        local integer pageSlot
+        local integer maxSlots
+        local integer currentPage
+        local integer arrIndex
+        set UIUpdateScheduled = false
+
+        set pId = 0
         loop
             exitwhen pId >= bj_MAX_PLAYERS
             set p = Player(pId)
-            if BagEnabledForPlayer(p) then
-                call RepairBagStateForPlayer(p)
+            set hero = udg_Heroes[GetPlayerNumber(p)]
+
+            if not BagEnabledForPlayer(p) then
+                if GetLocalPlayer() == p then
+                    call RenderBagFramesForPlayer(p)
+                endif
+                set p = null
+                set hero = null
+            else
+                call WarnWhenPagesBecomeFull(p)
+
+                set itemCount = 0
+                set maxSlots = PITEMS_EXTRA_SLOTS
+                set slotIndex = 1
+                loop
+                    exitwhen slotIndex > maxSlots
+                    set arrIndex = BagSlotArrayIndex(pId, slotIndex)
+                    set it = udg_P_Items[arrIndex]
+                    if it != null then
+                        if GetItemTypeId(it) == 0 then
+                            set udg_P_Items[arrIndex] = null
+                        else
+                            set itemCount = itemCount + 1
+                        endif
+                    endif
+                    set slotIndex = slotIndex + 1
+                endloop
+
+                set currentPage = 1
+                loop
+                    exitwhen currentPage > 2
+                    set pageSlot = 1
+                    loop
+                        exitwhen pageSlot > 6
+                        if hero != null and currentPage == udg_Bag_Page[GetPlayerNumber(p)] then
+                            set it = UnitItemInSlot(hero, pageSlot - 1)
+                        else
+                            set arrIndex = GetPItemsIndex(p, currentPage, pageSlot)
+                            set it = udg_P_Items[arrIndex]
+                        endif
+                        if it != null and GetItemTypeId(it) == 0 then
+                            if hero == null or currentPage != udg_Bag_Page[GetPlayerNumber(p)] then
+                                set udg_P_Items[arrIndex] = null
+                            endif
+                            set it = null
+                        endif
+                        set pageSlot = pageSlot + 1
+                    endloop
+                    set currentPage = currentPage + 1
+                endloop
+
+                if GetLocalPlayer() == p then
+                    call RenderBagFramesForPlayer(p)
+                endif
             endif
             set pId = pId + 1
         endloop
-        set p = null
-    endfunction
 
-    private function RenderBagFramesForLocalPlayer takes nothing returns nothing
-        local integer pId = GetPlayerId(GetLocalPlayer())
-        local player p = Player(pId)
-        local unit hero = udg_Heroes[GetPlayerNumber(p)]
-        local integer itemCount = 0
-        local item it
-        local integer i
-        local integer maxSlots
-        local integer currentPage
-        local integer otherPage
-        local integer arrIndex
-        if not BagEnabledForPlayer(p) then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            set p = null
-            set hero = null
-            return
-        endif
-
-        call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
-
-        // Count items for the little overlay on the show-button.
-        set maxSlots = PITEMS_EXTRA_SLOTS
-        set i = 1
-        loop
-            exitwhen i > maxSlots
-            set arrIndex = BagSlotArrayIndex(pId, i)
-            set it = udg_P_Items[arrIndex]
-            if it != null and GetItemTypeId(it) == 0 then
-                set it = null
-            endif
-            if it != null then
-                set itemCount = itemCount + 1
-            endif
-            set i = i + 1
-        endloop
-        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0), I2S(itemCount))
-
-        if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then    
-            set i = 1
-            loop
-                exitwhen i > PITEMS_EXTRA_SLOTS
-                set arrIndex = BagSlotArrayIndex(pId, i)
-                set it = udg_P_Items[arrIndex]
-                // Detect dead handles (item destroyed externally)
-                if it != null and GetItemTypeId(it) == 0 then
-                    set it = null
-                endif
-                call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", i), it != null)
-                if it != null then
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), BlzGetItemIconPath(it), 0, true)
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), BlzGetItemIconPath(it), 0, true)
-                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), BuildBagItemTooltip(it, AddNeedText))
-                    call UpdateTooltipSellDisplay(i, it)
-                
-                    if GetItemCharges(it) > 0 then
-                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), I2S(GetItemCharges(it)))
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), true)
-                    else
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
-                    endif
-                else
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", i), false)
-                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", i), "")
-                    call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", i), "")
-                    call UpdateTooltipSellDisplay(i, null)
-                    // Ensure empty slots don't show stale textures for a frame
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", i), "", 0, true)
-                    call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", i), "", 0, true)
-                endif
-                set i = i + 1
-            endloop
-
-            // Page display rows: show items from both inventory pages
-            // Highlight active page's indicator in gold, inactive in gray
-            set currentPage = udg_Bag_Page[GetPlayerNumber(Player(pId))]
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagPageLabel", 0), "|cffffcc00Pages|r")
-            if currentPage == 1 then
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage1Indicator", 0), "|cffffcc001|r")
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage2Indicator", 0), "|cff8888882|r")
-            else
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage1Indicator", 0), "|cff8888881|r")
-                call BlzFrameSetText(BlzGetFrameByName("TasItemBagPage2Indicator", 0), "|cffffcc002|r")
-            endif
-
-            // Render page 1 row (slots 25-30), then page 2 row (slots 31-36)
-            // Reusing currentPage as page loop counter, otherPage as display start offset
-            set currentPage = 1
-            loop
-                exitwhen currentPage > 2
-                if currentPage == 1 then
-                    set otherPage = PAGE1_DISPLAY_START
-                else
-                    set otherPage = PAGE2_DISPLAY_START
-                endif
-                set i = 1
-                loop
-                    exitwhen i > 6
-                    if hero != null and currentPage == udg_Bag_Page[GetPlayerNumber(p)] then
-                        set it = UnitItemInSlot(hero, i - 1)
-                    else
-                        set arrIndex = GetPItemsIndex(Player(pId), currentPage, i)
-                        set it = udg_P_Items[arrIndex]
-                    endif
-                    // Detect dead handles (item destroyed externally)
-                    if it != null and GetItemTypeId(it) == 0 then
-                        set it = null
-                    endif
-                    if it != null then
-                        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", otherPage + i - 1), true)
-                        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", otherPage + i - 1), BlzGetItemIconPath(it), 0, true)
-                        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", otherPage + i - 1), BlzGetItemIconPath(it), 0, true)
-                        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), BlzGetItemIconPath(it), 0, true)
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), true)
-                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", otherPage + i - 1), BuildBagItemTooltip(it, false))
-                        call UpdateTooltipSellDisplay(otherPage + i - 1, it)
-                        if GetItemCharges(it) > 0 then
-                            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", otherPage + i - 1), I2S(GetItemCharges(it)))
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", otherPage + i - 1), true)
-                        else
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", otherPage + i - 1), false)
-                        endif
-                    else
-                        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", otherPage + i - 1), false)
-                        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", otherPage + i - 1), "", 0, true)
-                        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", otherPage + i - 1), "", 0, true)
-                        // Hide the disabled backdrop instead of setting empty texture (avoids green "missing texture" fill)
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", otherPage + i - 1), false)
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", otherPage + i - 1), false)
-                        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonTooltip", otherPage + i - 1), "")
-                        call UpdateTooltipSellDisplay(otherPage + i - 1, null)
-                    endif
-                    set i = i + 1
-                endloop
-                set currentPage = currentPage + 1
-            endloop
-        endif
         set it = null
         set p = null
         set hero = null
-    endfunction
-
-    private function UpdateUI takes nothing returns nothing
-        call RepairAllBagStates()
-        set UIUpdateScheduled = false
-        call RenderBagFramesForLocalPlayer()
     endfunction
 
     // Schedules a UI refresh once (debounced). Safe to call many times.
@@ -745,86 +753,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if SwapSelectSound != null then
             call PlayLocalSound(SwapSelectSound, p)
         endif
-    endfunction
-
-    private function SendBagSync takes player p, string payload returns nothing
-        if GetLocalPlayer() == p then
-            call BlzSendSyncData(BAG_SYNC_PREFIX, payload)
-        endif
-    endfunction
-
-    private function SyncOp takes string payload returns string
-        local integer i = 0
-        local integer length = StringLength(payload)
-        loop
-            exitwhen i >= length or SubString(payload, i, i + 1) == ":"
-            set i = i + 1
-        endloop
-        return SubString(payload, 0, i)
-    endfunction
-
-    private function SyncFieldInt takes string payload, integer wantedField returns integer
-        local integer i = 0
-        local integer length = StringLength(payload)
-        local integer field = 1
-        local integer start
-        loop
-            exitwhen i >= length or SubString(payload, i, i + 1) == ":"
-            set i = i + 1
-        endloop
-        if i >= length then
-            return 0
-        endif
-        set i = i + 1
-        set start = i
-        loop
-            exitwhen i > length
-            if i == length then
-                if field == wantedField then
-                    return S2I(SubString(payload, start, i))
-                endif
-            elseif SubString(payload, i, i + 1) == ":" then
-                if field == wantedField then
-                    return S2I(SubString(payload, start, i))
-                endif
-                set field = field + 1
-                set start = i + 1
-            endif
-            set i = i + 1
-        endloop
-        return 0
-    endfunction
-
-    private function SyncFieldReal takes string payload, integer wantedField returns real
-        local integer cursor = 0
-        local integer length = StringLength(payload)
-        local integer field = 1
-        local integer start
-        loop
-            exitwhen cursor >= length or SubString(payload, cursor, cursor + 1) == ":"
-            set cursor = cursor + 1
-        endloop
-        if cursor >= length then
-            return 0.0
-        endif
-        set cursor = cursor + 1
-        set start = cursor
-        loop
-            exitwhen cursor > length
-            if cursor == length then
-                if field == wantedField then
-                    return S2R(SubString(payload, start, cursor))
-                endif
-            elseif SubString(payload, cursor, cursor + 1) == ":" then
-                if field == wantedField then
-                    return S2R(SubString(payload, start, cursor))
-                endif
-                set field = field + 1
-                set start = cursor + 1
-            endif
-            set cursor = cursor + 1
-        endloop
-        return 0.0
     endfunction
 
     private function RestoreBagSlotOverlay takes integer pId, integer rawSlotIndex returns nothing
@@ -895,6 +823,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function SwapHighlightHide takes integer pId returns nothing
         call SwapHoverHide(pId)
         if GetLocalPlayer() == Player(pId) then
+            call SetInventoryHitboxesEnabled(false)
             if SwapHighlight[pId] != null then
                 call BlzFrameSetVisible(SwapHighlight[pId], false)
             endif
@@ -903,6 +832,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function SwapHighlightShowOnSlot takes integer pId, integer rawSlotIndex returns nothing
         if GetLocalPlayer() == Player(pId) then
+            call SetInventoryHitboxesEnabled(true)
             if SwapHighlight[pId] != null and rawSlotIndex > 0 then
                 call BlzFrameClearAllPoints(SwapHighlight[pId])
                 call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_TOPLEFT, 0, -0.002)
@@ -1276,7 +1206,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if i == null then
             return
         endif
-        if not BagEnabledForUnit(u) then
+        if not BagEnabledForPlayer(GetOwningPlayer(u)) then
             return
         endif
 
@@ -1750,15 +1680,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function FrameLoseFocus takes nothing returns nothing
-        local framehandle triggerFrame
         if GetLocalPlayer() == GetTriggerPlayer() then
-            set triggerFrame = BlzGetTriggerFrame()
-            if triggerFrame != null then
-                call BlzFrameSetEnable(triggerFrame, false)
-                call BlzFrameSetEnable(triggerFrame, true)
-            endif
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
         endif
-        set triggerFrame = null
     endfunction
 
     public function TasItemBagUnitCanUseItems takes unit u returns boolean
@@ -2415,39 +2340,87 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return -1
     endfunction
 
+    private function SwapBagSlotToInventorySlot takes player p, integer invSlot returns boolean
+        local integer pId = GetPlayerId(p)
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
+        local integer bagSlot = SwapIndex[pId]
+        local integer targetSlot
+        local item bagItem
+
+        if hero == null or bagSlot <= 0 then
+            return false
+        endif
+        if invSlot < 0 or invSlot >= bj_MAX_INVENTORY then
+            return false
+        endif
+
+        set targetSlot = GetActivePageDisplayStart(pId)
+        if targetSlot <= 0 then
+            return false
+        endif
+        set targetSlot = targetSlot + invSlot
+
+        set bagItem = TasItemBagGetItem(hero, bagSlot)
+        if bagItem == null then
+            return false
+        endif
+        if not UnitCanEquipItem(hero, bagItem) then
+            set bagItem = null
+            return false
+        endif
+
+        if bagSlot == targetSlot then
+            set bagItem = null
+            set hero = null
+            return true
+        endif
+
+        set bagItem = null
+        set hero = null
+        return TasItemBagSwap(udg_Heroes[GetPlayerNumber(p)], bagSlot, targetSlot)
+    endfunction
+
     private function BagPopupActionDrop takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        call SendBagSync(p, "D:" + I2S(TransferIndex[pId]))
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            call FrameLoseFocus()
         endif
-        set p = null
+
+        // Always operate on the triggering player's own bag/hero.
+        if hero != null then
+            if TasItemBagRemoveIndex(hero, TransferIndex[pId], true) then
+                call PlayDropConfirmationEffect(p, GetUnitX(hero), GetUnitY(hero))
+            endif
+        endif
+        set hero = null
+        call FrameLoseFocus()
     endfunction
 
     private function BagPopupActionEquip takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(GetTriggerPlayer())
-        call SendBagSync(p, "E:" + I2S(TransferIndex[pId]))
+        call ItemBag2Equip(p, TransferItem[pId])
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            call FrameLoseFocus()
         endif
-        set p = null
+        call FrameLoseFocus()
     endfunction
 
     private function BagPopupActionSelect takes nothing returns nothing
         local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
+        local integer pId = GetPlayerId(GetTriggerPlayer())
         if GetLocalPlayer() == p then
-            call SendBagSync(p, "A:" + I2S(TransferIndex[pId]))
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+            call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
-        set p = null
+        set SwapIndex[pId] = TransferIndex[pId]
+        call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
+        call PlaySwapSelectSound(p)
+        call FrameLoseFocus()
     endfunction
 
     private function FindNearbySellShop takes unit hero returns unit
@@ -2585,7 +2558,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
 
-        call PrimeSellValueCache()
         set itemType = GetItemTypeId(it)
         set goldGain = TasItemGetCostGold(itemType) / 2
         if IsStackableType(it) then
@@ -2631,199 +2603,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return false
     endfunction
 
-    private function PerformBagSplit takes player p, integer source, integer amount returns nothing
-        local integer pId
-        local unit hero
-        local item src
-        local item newItem
-        local integer total
-        local integer take
-        local integer remain
-
-        if p == null or source <= 0 or source > MAX_INTERACTIVE_SLOT then
-            return
-        endif
-
-        set pId = GetPlayerId(p)
-        set hero = udg_Heroes[GetPlayerNumber(p)]
-        if hero == null then
-            return
-        endif
-
-        set src = TasItemBagGetItem(hero, source)
-        call Debug("Performing split for index " + I2S(source) + ", amount " + I2S(amount))
-        if src == null then
-            set hero = null
-            return
-        endif
-        call Debug("Source item: " + GetItemName(src))
-
-        set total = GetItemCharges(src)
-        if total < 2 then
-            set src = null
-            set hero = null
-            return
-        endif
-
-        set take = amount
-        if take < 1 then
-            set take = 1
-        endif
-        if take >= total then
-            set take = total - 1
-        endif
-        if take > 20 then
-            set take = 20
-        endif
-
-        set remain = total - take
-        if remain < 1 then
-            set remain = 1
-            set take = total - 1
-        endif
-
-        if BagNextEmptySlot(pId) <= 0 then
-            call PlayInventoryFullRaceSoundPlaceholder(p, hero)
-            call BagErrorMessage(BAG_FULL_MESSAGE, p)
-            call RequestUIUpdate()
-            set src = null
-            set hero = null
-            return
-        endif
-
-        call Debug("Settng source item: "+  GetItemName(src) + "charges: " + I2S(remain))
-        call SetItemCharges(src, remain)
-
-        set newItem = CreateItem(GetItemTypeId(src), GetUnitX(hero), GetUnitY(hero))
-        call SetItemCharges(newItem, take)
-        call TasItemBagAddItem(hero, newItem, false)
-        call Debug("Created new item: " + GetItemName(newItem) + " charges: " + I2S(take))
-        call RequestUIUpdate()
-
-        set newItem = null
-        set src = null
-        set hero = null
-    endfunction
-
-    private function BagSyncAction takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
-        local string payload = BlzGetTriggerSyncData()
-        local string op = SyncOp(payload)
-        local unit hero
-        local unit shop
-        local integer source
-        local integer target
-        local integer invSlot
-        local integer amount
-        local integer targetStart
-        local real dropX
-        local real dropY
-        local item selectedItem
-
-        if not BagEnabledForPlayer(p) then
-            set p = null
-            return
-        endif
-
-        set hero = udg_Heroes[GetPlayerNumber(p)]
-        if hero == null then
-            set p = null
-            return
-        endif
-
-        if op == "A" then
-            set source = SyncFieldInt(payload, 1)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT then
-                set SwapIndex[pId] = source
-            endif
-        elseif op == "S" then
-            set source = SyncFieldInt(payload, 1)
-            set target = SyncFieldInt(payload, 2)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT and target > 0 and target <= MAX_INTERACTIVE_SLOT and source != target then
-                call TasItemBagSwap(hero, source, target)
-                call RequestUIUpdate()
-            endif
-        elseif op == "I" then
-            set source = SyncFieldInt(payload, 1)
-            set invSlot = SyncFieldInt(payload, 2)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT and invSlot >= 0 and invSlot < bj_MAX_INVENTORY then
-                set targetStart = GetActivePageDisplayStart(pId)
-                if targetStart > 0 then
-                    set target = targetStart + invSlot
-                    if target > 0 and target <= MAX_INTERACTIVE_SLOT then
-                        set selectedItem = TasItemBagGetItem(hero, source)
-                        if selectedItem != null and UnitCanEquipItem(hero, selectedItem) and source != target then
-                            call TasItemBagSwap(hero, source, target)
-                            call RequestUIUpdate()
-                        endif
-                        set selectedItem = null
-                    endif
-                endif
-            endif
-        elseif op == "E" then
-            set source = SyncFieldInt(payload, 1)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT then
-                set selectedItem = TasItemBagGetItem(hero, source)
-                if selectedItem != null then
-                    set TransferIndex[pId] = source
-                    call ItemBag2Equip(p, selectedItem)
-                    call RequestUIUpdate()
-                endif
-                set selectedItem = null
-            endif
-        elseif op == "D" then
-            set source = SyncFieldInt(payload, 1)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT then
-                if TasItemBagRemoveIndex(hero, source, true) then
-                    call PlayDropConfirmationEffect(p, GetUnitX(hero), GetUnitY(hero))
-                endif
-                call RequestUIUpdate()
-            endif
-        elseif op == "L" then
-            set source = SyncFieldInt(payload, 1)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT then
-                set selectedItem = TasItemBagGetItem(hero, source)
-                if selectedItem == null then
-                    set hero = null
-                    set p = null
-                    return
-                endif
-                set shop = FindNearbySellShop(hero)
-                call ClearWorldDropQueue(pId)
-                call SellBagIndexToShop(p, source, shop, true)
-                call RequestUIUpdate()
-                set shop = null
-                set selectedItem = null
-            endif
-        elseif op == "P" then
-            set source = SyncFieldInt(payload, 1)
-            set amount = SyncFieldInt(payload, 2)
-            call PerformBagSplit(p, source, amount)
-        elseif op == "W" then
-            set source = SyncFieldInt(payload, 1)
-            set dropX = SyncFieldReal(payload, 2)
-            set dropY = SyncFieldReal(payload, 3)
-
-            if source > 0 and source <= MAX_INTERACTIVE_SLOT then
-                if StartWorldDropFromSelection(p, source, dropX, dropY) then
-                    call RequestUIUpdate()
-                endif
-            endif
-        endif
-
-        set selectedItem = null
-        set shop = null
-        set hero = null
-        set p = null
-    endfunction
-
     public function ClearSwapState takes integer pId returns nothing
         set SwapIndex[pId] = 0
         call SwapHighlightHide(pId)
@@ -2836,6 +2615,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     function TasItemBagSellSelectedForPlayer takes player p returns nothing
         local integer pId
         local unit hero
+        local unit shop
         local item selectedItem
         if p == null then
             return
@@ -2872,22 +2652,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        call SendBagSync(p, "L:" + I2S(TransferIndex[pId]))
+        set shop = FindNearbySellShop(hero)
+        call SellBagIndexToShop(p, TransferIndex[pId], shop, true)
         call HideBagPopupPanels(p)
         call SetSellHotkeyArmed(pId, false)
         call FrameLoseFocus()
         set selectedItem = null
+        set shop = null
         set hero = null
     endfunction
 
     private function BagPopupActionSell takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
-        call SendBagSync(p, "L:" + I2S(TransferIndex[pId]))
-        call HideBagPopupPanels(p)
-        call SetSellHotkeyArmed(pId, false)
-        call FrameLoseFocus()
-        set p = null
+        call TasItemBagSellSelectedForPlayer(GetTriggerPlayer())
     endfunction
 
     private function BagPopupActionSplit takes nothing returns nothing
@@ -2899,27 +2675,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set SplitRequested[pId] = TransferIndex[pId]
         call SetSellHotkeyArmed(pId, false)
         call HideBagPopupPanels(p)
+        
+        set it = TransferItem[pId]
+        if it != null then
+            set charges = GetItemCharges(it)
+            if charges < 2 then
+                set SplitAmount[pId] = 1
+            else
+                set SplitAmount[pId] = charges / 2
+                if SplitAmount[pId] < 1 then
+                    set SplitAmount[pId] = 1
+                endif
+                if SplitAmount[pId] >= charges then
+                    set SplitAmount[pId] = charges - 1
+                endif
+            endif
+        else
+            set SplitAmount[pId] = 1
+        endif
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), true)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitMinus", 0), true)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPlus", 0), true)
-            set it = TransferItem[pId]
-            if it != null then
-                set charges = GetItemCharges(it)
-                if charges < 2 then
-                    set SplitAmount[pId] = 1
-                else
-                    set SplitAmount[pId] = charges / 2
-                    if SplitAmount[pId] < 1 then
-                        set SplitAmount[pId] = 1
-                    endif
-                    if SplitAmount[pId] >= charges then
-                        set SplitAmount[pId] = charges - 1
-                    endif
-                endif
-            else
-                set SplitAmount[pId] = 1
-            endif
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSplitInfo", 0), SplitLabelPrefix + I2S(SplitAmount[pId]))
         endif
         set it = null
@@ -2929,15 +2706,87 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function BagPopupActionSplitAccept takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        call SendBagSync(p, "P:" + I2S(TransferIndex[pId]) + ":" + I2S(SplitAmount[pId]))
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+        local item src
+        local item newItem
+        local integer total
+        local integer take
+        local integer remain
+        local integer playerKey
+        // Perform split: move "take" charges into a new bag item.
+        call Debug("Performing split for index " + I2S(SplitRequested[pId]) + ", amount " + I2S(SplitAmount[pId]))
+        set src = TransferItem[pId]
+        call Debug("Source item: " + GetItemName(src))
+        if src == null or SplitRequested[pId] <= 0 then
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
             set SplitRequested[pId] = 0
             set SplitAmount[pId] = 0
             call FrameLoseFocus()
+            return
         endif
-        set p = null
+        set total = GetItemCharges(src)
+        if total < 2 then
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            set SplitRequested[pId] = 0
+            set SplitAmount[pId] = 0
+            call FrameLoseFocus()
+            return
+        endif
+        set take = SplitAmount[pId]
+        if take < 1 then
+            set take = 1
+        endif
+        if take >= total then
+            set take = total - 1
+        endif
+        // Respect bag stacking cap of 20 charges.
+        if take > 20 then
+            set take = 20
+        endif
+
+        set remain = total - take
+        if remain < 1 then
+            set remain = 1
+            set take = total - 1
+        endif
+
+        // Ensure bag has room for a new item.
+        set playerKey = GetPlayerId(p)
+        if BagNextEmptySlot(playerKey) <= 0 then
+            call PlayInventoryFullRaceSoundPlaceholder(p, udg_Heroes[GetPlayerNumber(p)])
+            call BagErrorMessage(BAG_FULL_MESSAGE, p)
+            call RequestUIUpdate()
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
+            set SplitRequested[pId] = 0
+            set SplitAmount[pId] = 0
+            call FrameLoseFocus()
+            return
+        endif
+
+        // Update source item charges (stays in bag).
+        call Debug("Settng source item: "+  GetItemName(src) + "charges: " + I2S(remain))
+        call SetItemCharges(src, remain)
+
+        // Create a new item of same type and add it to the bag.
+        set newItem = CreateItem(GetItemTypeId(src), GetUnitX(udg_Heroes[GetPlayerNumber(p)]), GetUnitY(udg_Heroes[GetPlayerNumber(p)]))
+        call SetItemCharges(newItem, take)
+        
+        // Do not auto-merge split-created stacks back into the source stack.
+        call TasItemBagAddItem(udg_Heroes[GetPlayerNumber(p)], newItem, false)
+        call Debug("Created new item: " + GetItemName(newItem) + " charges: " + I2S(take))
+        set newItem = null
+        
+        // Close split + popup
+        call HideBagPopupPanels(p)
+        set SplitRequested[pId] = 0
+        set SplitAmount[pId] = 0
+        set src = null
+        call FrameLoseFocus()
     endfunction
 
     private function BagPopupActionSplitMinus takes nothing returns nothing
@@ -3052,13 +2901,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        call SendBagSync(p, "I:" + I2S(SwapIndex[pId]) + ":" + I2S(invSlot))
-        if GetLocalPlayer() == p then
+        if SwapBagSlotToInventorySlot(p, invSlot) then
             call PlaySwapConfirmSound(p)
             set SwapIndex[pId] = 0
             call SwapHighlightHide(pId)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            if GetLocalPlayer() == p then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
             set DragOriginType[pId] = 0
             set DragOriginIndex[pId] = 0
             set DragActive[pId] = false
@@ -3201,17 +3051,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 endif
             else
                 call Debug("Swap finalize: " + I2S(SwapIndex[pId]) + " <-> " + I2S(bagIndex))
-                call SendBagSync(p, "S:" + I2S(SwapIndex[pId]) + ":" + I2S(bagIndex))
-                if GetLocalPlayer() == p then
+                if TasItemBagSwap(hero, SwapIndex[pId], bagIndex) then
                     call PlaySwapConfirmSound(p)
                     set SwapIndex[pId] = 0
-                    set SuppressNextBagPopup[pId] = true
+                    call SuppressBagPopupUntilNextFrame(pId)
                     call SwapHighlightHide(pId)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                    set DragOriginType[pId] = 0
-                    set DragOriginIndex[pId] = 0
-                    set DragActive[pId] = false
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    endif
                 endif
             endif
         elseif evt == FRAMEEVENT_CONTROL_CLICK then
@@ -3451,11 +3299,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 if GetLocalPlayer() == p then
                     // Update once before showing to avoid a one-frame flash of stale/null slot data
-                    call RenderBagFramesForLocalPlayer()
+                    call RenderBagFramesForPlayer(p)
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false)
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
                     call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                    call RenderBagFramesForLocalPlayer()
+                    call RenderBagFramesForPlayer(p)
                 endif
                 set SwapIndex[GetPlayerId(p)] = 0
                 call SwapHighlightHide(GetPlayerId(p))
@@ -3500,13 +3348,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
             // Finalize armed bag swap onto an inventory slot (supports empty slots).
             if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                call SendBagSync(p, "I:" + I2S(SwapIndex[pId]) + ":" + I2S(invIndex))
-                if GetLocalPlayer() == p then
+                if SwapBagSlotToInventorySlot(p, invIndex) then
                     call PlaySwapConfirmSound(p)
                     set SwapIndex[pId] = 0
                     call SwapHighlightHide(pId)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    endif
                     set DragOriginType[pId] = 0
                     set DragOriginIndex[pId] = 0
                     set DragActive[pId] = false
@@ -3534,20 +3383,19 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         endif
                         call FrameLoseFocus()
                         return
-                    else
-                        call SendBagSync(p, "S:" + I2S(SwapIndex[pId]) + ":" + I2S(bagIndex))
+                    elseif TasItemBagSwap(udg_Heroes[GetPlayerNumber(p)], SwapIndex[pId], bagIndex) then
+                        call PlaySwapConfirmSound(p)
+                        set SwapIndex[pId] = 0
+                        call SuppressBagPopupUntilNextFrame(pId)
+                        call SwapHighlightHide(pId)
                         if GetLocalPlayer() == p then
-                            call PlaySwapConfirmSound(p)
-                            set SwapIndex[pId] = 0
-                            set SuppressNextBagPopup[pId] = true
-                            call SwapHighlightHide(pId)
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                            set DragOriginType[pId] = 0
-                            set DragOriginIndex[pId] = 0
-                            set DragActive[pId] = false
-                            call FrameLoseFocus()
                         endif
+                        set DragOriginType[pId] = 0
+                        set DragOriginIndex[pId] = 0
+                        set DragActive[pId] = false
+                        call FrameLoseFocus()
                         return
                     endif
                 endif
@@ -3559,26 +3407,33 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     // Check if the player clicked on a vendor.
                     set clickShop = FindVendorNearClick(p, BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY())
                     if clickShop != null then
-                        call SendBagSync(p, "L:" + I2S(SwapIndex[pId]))
-                        if GetLocalPlayer() == p then
-                            set SwapIndex[pId] = 0
-                            call SwapHighlightHide(pId)
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                            set DragOriginType[pId] = 0
-                            set DragOriginIndex[pId] = 0
-                            set DragActive[pId] = false
-                            call FrameLoseFocus()
+                        // Vendor near click — only sell if hero is in range, otherwise block.
+                        if IsHeroInSellRange(p, clickShop) then
+                            if SellBagIndexToShop(p, SwapIndex[pId], clickShop, false) then
+                                set SwapIndex[pId] = 0
+                                call SwapHighlightHide(pId)
+                                if GetLocalPlayer() == p then
+                                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                                endif
+                                set DragOriginType[pId] = 0
+                                set DragOriginIndex[pId] = 0
+                                set DragActive[pId] = false
+                                call FrameLoseFocus()
+                            endif
+                        else
+                            call BagErrorMessage("Move closer to the shop.", p)
                         endif
                         set clickShop = null
                     else
                         // No vendor — world drop at click point.
-                        call SendBagSync(p, "W:" + I2S(SwapIndex[pId]) + ":" + R2S(BlzGetTriggerPlayerMouseX()) + ":" + R2S(BlzGetTriggerPlayerMouseY()))
-                        if GetLocalPlayer() == p then
+                        if StartWorldDropFromSelection(p, SwapIndex[pId], BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY()) then
                             set SwapIndex[pId] = 0
                             call SwapHighlightHide(pId)
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                            if GetLocalPlayer() == p then
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                            endif
                             set DragOriginType[pId] = 0
                             set DragOriginIndex[pId] = 0
                             set DragActive[pId] = false
@@ -3625,10 +3480,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetSellHotkeyArmed(pId, false)
         if GetLocalPlayer() == p then
             // Update once before showing to avoid a one-frame flash of stale/null slot data.
-            call RenderBagFramesForLocalPlayer()
+            call RenderBagFramesForPlayer(p)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false and not forceClose)
             call HideBagPopupPanels(p)
-            call RenderBagFramesForLocalPlayer()
+            call RenderBagFramesForPlayer(p)
         endif
         set SwapIndex[pId] = 0
         call SwapHighlightHide(pId)
@@ -3655,7 +3510,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetSellHotkeyArmed(pId, false)
         if GetLocalPlayer() == p then
             // Update once before showing to avoid a one-frame flash of stale/null slot data
-            call RenderBagFramesForLocalPlayer()
+            call RenderBagFramesForPlayer(p)
             //Close/Open Bag Panel
             if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
@@ -3663,49 +3518,62 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
             endif
             call HideBagPopupPanels(p)
-            call RenderBagFramesForLocalPlayer()
+            call RenderBagFramesForPlayer(p)
         endif
         call FrameLoseFocus()
         set p = null
     endfunction
 
     private function SelectAction takes nothing returns nothing
+        local integer pId = GetPlayerId(GetTriggerPlayer())
         local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
         local unit selected = GetTriggerUnit()
+        local unit hero = udg_Heroes[GetPlayerNumber(p)]
 
         if not BagEnabledForPlayer(p) then
             set selected = null
+            set hero = null
             set p = null
             return
         endif
 
-        if GetLocalPlayer() == p then
-            if IgnoreNextSelection[pId] then
-                set IgnoreNextSelection[pId] = false
-                set selected = null
-                set p = null
-                return
-            endif
+        if IgnoreNextSelection[pId] then
+            set IgnoreNextSelection[pId] = false
+            return
+        endif
 
-            // Armed SELECT + selecting a vendor sells immediately to that selected shop.
-            if SwapIndex[pId] > 0 and IsVendorUnit(selected) then
-                call SendBagSync(p, "L:" + I2S(SwapIndex[pId]))
-                set SwapIndex[pId] = 0
-                call SwapHighlightHide(pId)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                set DragOriginType[pId] = 0
-                set DragOriginIndex[pId] = 0
-                set DragActive[pId] = false
-                call FrameLoseFocus()
-                set selected = null
-                set p = null
-                return
+        // Armed SELECT + selecting a vendor sells immediately to that selected shop.
+        if SwapIndex[pId] > 0 and IsVendorUnit(selected) then
+            // Shop-select sell should always override any queued world-drop command.
+            call ClearWorldDropQueue(pId)
+            if IsHeroInSellRange(p, selected) then
+                call Debug("Shop-select immediate sell: player=" + I2S(pId) + ", bagIndex=" + I2S(SwapIndex[pId]) + ", shop=" + GetUnitName(selected))
+                if SellBagIndexToShop(p, SwapIndex[pId], selected, false) then
+                    set SwapIndex[pId] = 0
+                    call SwapHighlightHide(pId)
+                    if GetLocalPlayer() == p then
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+                    endif
+                    set DragOriginType[pId] = 0
+                    set DragOriginIndex[pId] = 0
+                    set DragActive[pId] = false
+                    if hero != null then
+                        set IgnoreNextSelection[pId] = true
+                        call SelectUnitForPlayerSingle(hero, p)
+                    endif
+                endif
+            else
+                call BagErrorMessage("Move closer to the shop.", p)
             endif
+            set selected = null
+            set hero = null
+            set p = null
+            return
         endif
 
         set selected = null
+        set hero = null
         set p = null
     endfunction
 
@@ -3744,34 +3612,34 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set it = ItemGainTimerItem[ItemGainTimerCount]
             set pId = GetPlayerId(GetOwningPlayer(u))
 
-            if not BagEnabledForUnit(u) then
+            if not BagEnabledForPlayer(GetOwningPlayer(u)) then
                 set u = null
                 set it = null
                 set ItemGainTimerCount = ItemGainTimerCount - 1
             else
 
-            // Check whether current page differs from the player's intended page
-            // BEFORE processing the item, so we know this was a relief-switch pickup.
-            set playerNum = GetPlayerHeroNumber(GetOwningPlayer(u))
-            set currentPage = udg_Bag_Page[playerNum]
-            set intendedPage = MPInventoryGetPlayerIntendedPage(GetOwningPlayer(u))
+                // Check whether current page differs from the player's intended page
+                // BEFORE processing the item, so we know this was a relief-switch pickup.
+                set playerNum = GetPlayerHeroNumber(GetOwningPlayer(u))
+                set currentPage = udg_Bag_Page[playerNum]
+                set intendedPage = MPInventoryGetPlayerIntendedPage(GetOwningPlayer(u))
 
-            if UnitHasItem(u, it) then
-                if intendedPage > 0 and currentPage != intendedPage then
-                    // Relief-switch flow: skip live-inventory merge so charges
-                    // don't leak into the relief page.  TasItemBagAddItem has its
-                    // own bag-storage merge logic.
-                    call TasItemBagAddItem(u, it, true)
-                elseif not MergePickedItemIntoPagedStacks(u, it) then
-                    if UnitHasItem(u, it) then
+                if UnitHasItem(u, it) then
+                    if intendedPage > 0 and currentPage != intendedPage then
+                        // Relief-switch flow: skip live-inventory merge so charges
+                        // don't leak into the relief page.  TasItemBagAddItem has its
+                        // own bag-storage merge logic.
                         call TasItemBagAddItem(u, it, true)
+                    elseif not MergePickedItemIntoPagedStacks(u, it) then
+                        if UnitHasItem(u, it) then
+                            call TasItemBagAddItem(u, it, true)
+                        endif
                     endif
                 endif
-            endif
-            call RestorePlayerIntendedPage(u)
-            set u = null
-            set it = null
-            set ItemGainTimerCount = ItemGainTimerCount - 1
+                call RestorePlayerIntendedPage(u)
+                set u = null
+                set it = null
+                set ItemGainTimerCount = ItemGainTimerCount - 1
             endif
         endloop
     endfunction
@@ -4166,6 +4034,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         
         // set ItemAbilityNeed = Table.create()
         set TimerUpdate = CreateTimer()
+        set SuppressNextBagPopupClearTimer = CreateTimer()
         
         set Trigger = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(Trigger, EVENT_PLAYER_UNIT_SELECTED)
@@ -4201,15 +4070,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TriggerRegisterAnyUnitEventBJ(TriggerUnitOrder, EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER)
         call TriggerRegisterAnyUnitEventBJ(TriggerUnitOrder, EVENT_PLAYER_UNIT_ISSUED_TARGET_ORDER)
         call TriggerAddAction(TriggerUnitOrder, function UnitOrderAction)
-
-        set TriggerUISync = CreateTrigger()
-        set i = 0
-        loop
-            call BlzTriggerRegisterPlayerSyncEvent(TriggerUISync, Player(i), BAG_SYNC_PREFIX, false)
-            set i = i + 1
-            exitwhen i >= bj_MAX_PLAYERS
-        endloop
-        call TriggerAddAction(TriggerUISync, function BagSyncAction)
 
         set TriggerUIOpen = CreateTrigger()
         call TriggerAddAction(TriggerUIOpen, function ShowButtonAction)
