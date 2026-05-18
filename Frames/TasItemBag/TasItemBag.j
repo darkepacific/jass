@@ -2915,24 +2915,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Ignore non-left mouse-up (right/middle release) to avoid accidental finalize.
+        // Inventory frame state is local-risk; do not finalize bag-to-inventory swaps here.
         if evt == FRAMEEVENT_MOUSE_UP and BlzGetTriggerPlayerMouseButton() != MOUSE_BUTTON_TYPE_LEFT then
             return
         endif
 
-        if SwapBagSlotToInventorySlot(p, invSlot) then
-            call PlaySwapConfirmSound(p)
-            set SwapIndex[pId] = 0
-            call SwapHighlightHide(pId)
-            if GetLocalPlayer() == p then
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-            endif
-            set DragOriginType[pId] = 0
-            set DragOriginIndex[pId] = 0
-            set DragActive[pId] = false
-            call FrameLoseFocus()
-        endif
+        return
     endfunction
 
     // Resolve a bag slot index from any of its related frames (button/backdrop/container)
@@ -3362,21 +3350,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set DragActive[pId] = false
             call FrameLoseFocus()
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
-            // Finalize armed bag swap onto an inventory slot (supports empty slots).
+            // Do not finalize bag-to-native-inventory swaps from inventory hover/frame state.
             if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                if SwapBagSlotToInventorySlot(p, invIndex) then
-                    call PlaySwapConfirmSound(p)
-                    set SwapIndex[pId] = 0
-                    call SwapHighlightHide(pId)
-                    if GetLocalPlayer() == p then
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                    endif
-                    set DragOriginType[pId] = 0
-                    set DragOriginIndex[pId] = 0
-                    set DragActive[pId] = false
-                    call FrameLoseFocus()
-                endif
                 return
             endif
 
