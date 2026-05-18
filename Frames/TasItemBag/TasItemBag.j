@@ -204,6 +204,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // private constant string INVENTORY_FULL_MESSAGE = "Inventory is full."
         private constant string PAGES_FULL_WARNING_MESSAGE = "Warning! Auto-pickup will not work when both pages are full."
         private boolean array PagesFullWarningArmed
+        private boolean array BagPanelOpen
 
         // ================================================================
         // P_Items Layout (single source of truth = udg_BAG_SIZE)
@@ -318,6 +319,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+        endif
+    endfunction
+
+    private function SetBagPanelOpen takes player p, boolean open returns nothing
+        local integer pId
+        if p == null then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set BagPanelOpen[pId] = open
+
+        if GetLocalPlayer() == p then
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), open)
+            if not open then
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
+            endif
         endif
     endfunction
 
@@ -3246,17 +3265,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local string panelStr
         local integer itemCharges
         local itemtype itemType
-        local boolean mouseInPanel = IsMouseInsideBagPanel()
+        local boolean mouseInPanel = false
 
         if not BagEnabledForPlayer(p) then
             return
         endif
 
         // Ignore any clicks when bag panel is not open
-        if not BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
+        if not BagPanelOpen[pId] then
             return
         endif
 
+        set mouseInPanel = IsMouseInsideBagPanel()
         if mouseInPanel then
             set PanelHover[pId] = true
         endif
@@ -3297,14 +3317,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             //     set didSomething = true
             // else
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                if GetLocalPlayer() == p then
-                    // Update once before showing to avoid a one-frame flash of stale/null slot data
-                    call RenderBagFramesForPlayer(p)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                    call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                    call RenderBagFramesForPlayer(p)
-                endif
+                call RenderBagFramesForPlayer(p)
+                call SetBagPanelOpen(p, not BagPanelOpen[pId])
+                call HideBagPopupPanels(p)
+                call RenderBagFramesForPlayer(p)
                 set SwapIndex[GetPlayerId(p)] = 0
                 call SwapHighlightHide(GetPlayerId(p))
                 call FrameLoseFocus()
@@ -3454,9 +3470,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
         call HideBagPopupPanels(p)
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-        endif
+        call SetBagPanelOpen(p, false)
         call FrameLoseFocus()
         set p = null
     endfunction
@@ -3466,25 +3480,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if p == null then
             return
         endif
+        set pId = GetPlayerId(p)
         if not BagEnabledForPlayer(p) then
+            call SetBagPanelOpen(p, false)
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
             endif
             return
         endif
 
-        set pId = GetPlayerId(p)
         call SetSellHotkeyArmed(pId, false)
-        if GetLocalPlayer() == p then
-            // Update once before showing to avoid a one-frame flash of stale/null slot data.
-            call RenderBagFramesForPlayer(p)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) == false and not forceClose)
-            call HideBagPopupPanels(p)
-            call RenderBagFramesForPlayer(p)
+        call RenderBagFramesForPlayer(p)
+        if forceClose then
+            call SetBagPanelOpen(p, false)
+        else
+            call SetBagPanelOpen(p, not BagPanelOpen[pId])
         endif
+        call HideBagPopupPanels(p)
+        call RenderBagFramesForPlayer(p)
         set SwapIndex[pId] = 0
         call SwapHighlightHide(pId)
         call FrameLoseFocus()
@@ -3508,18 +3521,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TransferIndex[pId] = 0
         set TransferItem[pId] = null
         call SetSellHotkeyArmed(pId, false)
-        if GetLocalPlayer() == p then
-            // Update once before showing to avoid a one-frame flash of stale/null slot data
-            call RenderBagFramesForPlayer(p)
-            //Close/Open Bag Panel
-            if BlzFrameIsVisible(BlzGetFrameByName("TasItemBagPanel", 0)) then
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-            else
-                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), true)
-            endif
-            call HideBagPopupPanels(p)
-            call RenderBagFramesForPlayer(p)
-        endif
+        call RenderBagFramesForPlayer(p)
+        call SetBagPanelOpen(p, not BagPanelOpen[pId])
+        call HideBagPopupPanels(p)
+        call RenderBagFramesForPlayer(p)
         call FrameLoseFocus()
         set p = null
     endfunction
@@ -3592,9 +3597,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call SwapHighlightHide(pId)
             return
         endif
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
-        endif
+        call SetBagPanelOpen(p, false)
         set p = null
     endfunction
 
