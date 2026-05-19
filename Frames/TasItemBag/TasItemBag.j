@@ -3257,16 +3257,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
         local integer targetIndex = LastHoveredIndex[pId]
-        local integer invIndex = -1
         local integer rawIdx
         local integer bagIndex
         local item bi
         local boolean didSomething = false
         local unit clickShop
-        local string panelStr
-        local integer itemCharges
-        local itemtype itemType
-        local boolean mouseInPanel = false
 
         if not BagEnabledForPlayer(p) then
             return
@@ -3277,24 +3272,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        set mouseInPanel = IsMouseInsideBagPanel()
-        if mouseInPanel then
+        if IsMouseInsideBagPanel() then
             set PanelHover[pId] = true
         endif
 
-        call Debug("GlobalMouseUpAction: InventoryHoverSlot[pId]=" + I2S(InventoryHoverSlot[pId]))
-        if InventoryHoverSlot[pId] > 0 and InventoryHoverSlot[pId] <= bj_MAX_INVENTORY then
-            set invIndex = InventoryHoverSlot[pId] - 1
-        else 
-            // call BagErrorMessage(RIGHT_CLICK_WARN, p)
-        endif
-        call BagErrorMessage( "(" + "invIndex=" + I2S(invIndex) + ", targetIndex=" + I2S(targetIndex) + ")", p)
-
-        if PanelHover[pId] then
-            set panelStr = "true"
-        else
-            set panelStr = "false"
-        endif
+        // call BagErrorMessage( "(" + "invIndex=" + I2S(invIndex) + ", targetIndex=" + I2S(targetIndex) + ")", p)
 
         if btn == MOUSE_BUTTON_TYPE_RIGHT then
             // WoW-like: right-click cancels an armed swap without side-effects
@@ -3308,40 +3290,37 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // Always hide the popup on any right-click while the bag UI is open
             call SetSellHotkeyArmed(pId, false)
             call HideBagPopupPanels(p)
-            if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
-                call Debug("Deposit: inventory slot " + I2S(invIndex) + " -> bag")
+
+            if not PanelHover[pId] then
                 call RenderBagFramesForPlayer(p)
                 call SetBagPanelOpen(p, false)
                 call HideBagPopupPanels(p)
-                call RenderBagFramesForPlayer(p)
-                set SwapIndex[GetPlayerId(p)] = 0
-                call SwapHighlightHide(GetPlayerId(p))
+                set SwapIndex[pId] = 0
+                call SwapHighlightHide(pId)
                 call FrameLoseFocus()
                 set didSomething = true
             else
-                if PanelHover[pId] then
-                    set rawIdx = ResolveBagIndexFromMouse()
-                    if rawIdx <= 0 and targetIndex > 0 then
-                        set bagIndex = targetIndex
-                        set rawIdx = bagIndex
-                    else
-                        set bagIndex = rawIdx
-                    endif
-                    if rawIdx > 0 and rawIdx <= MAX_INTERACTIVE_SLOT then
-                        set bi = udg_P_Items[SlotToArrayIndex(pId, bagIndex)]
-                        if bi != null then
-                            call Debug("Select arm (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
-                            set SwapIndex[pId] = bagIndex
-                            call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
-                            call PlaySwapSelectSound(p)
-                            if GetLocalPlayer() == p then
-                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                            endif
-                            set didSomething = true
-                        else
-                            call Debug("Select suppressed: empty at bagIndex=" + I2S(bagIndex))
+                set rawIdx = ResolveBagIndexFromMouse()
+                if rawIdx <= 0 and targetIndex > 0 then
+                    set bagIndex = targetIndex
+                    set rawIdx = bagIndex
+                else
+                    set bagIndex = rawIdx
+                endif
+                if rawIdx > 0 and rawIdx <= MAX_INTERACTIVE_SLOT then
+                    set bi = udg_P_Items[SlotToArrayIndex(pId, bagIndex)]
+                    if bi != null then
+                        call Debug("Select arm (global right-click): rawIdx=" + I2S(rawIdx) + ", bagIndex=" + I2S(bagIndex))
+                        set SwapIndex[pId] = bagIndex
+                        call SwapHighlightShowOnSlot(pId, SwapIndex[pId])
+                        call PlaySwapSelectSound(p)
+                        if GetLocalPlayer() == p then
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
+                            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
                         endif
+                        set didSomething = true
+                    else
+                        call Debug("Select suppressed: empty at bagIndex=" + I2S(bagIndex))
                     endif
                 endif
             endif
@@ -3356,7 +3335,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call FrameLoseFocus()
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
             // Do not finalize bag-to-native-inventory swaps from inventory hover/frame state.
-            if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
+            if SwapIndex[pId] > 0 then //and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 return
             endif
 
