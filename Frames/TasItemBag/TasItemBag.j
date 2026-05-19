@@ -322,15 +322,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
-    private function ClearBagPanelTransientState takes integer pId returns nothing
-        set PanelHover[pId] = false
-        set LastHoveredIndex[pId] = 0
-        set InventoryHoverSlot[pId] = 0
-        set DragOriginType[pId] = 0
-        set DragOriginIndex[pId] = 0
-        set DragActive[pId] = false
-    endfunction
-
     private function SetBagPanelOpen takes player p, boolean open returns nothing
         local integer pId
         if p == null then
@@ -339,9 +330,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set pId = GetPlayerId(p)
         set BagPanelOpen[pId] = open
-        if not open then
-            call ClearBagPanelTransientState(pId)
-        endif
 
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), open)
@@ -3281,8 +3269,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set PanelHover[pId] = true
         endif
 
+        // Prefer direct frame-hover tracking for inventory slots.
+        // HoverOriginButton is tooltip-polled and can lag on very fast clicks.
         if InventoryHoverSlot[pId] > 0 and InventoryHoverSlot[pId] <= bj_MAX_INVENTORY then
             set invIndex = InventoryHoverSlot[pId] - 1
+        else
+            set invIndex = HoverOriginButton_CurrentSelectedButtonIndex - HoverOriginButton_ItemButtonOffset
         endif
 
         if PanelHover[pId] then
@@ -3314,7 +3306,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // else
             if invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 call RenderBagFramesForPlayer(p)
-                call SetBagPanelOpen(p, false)
+                call SetBagPanelOpen(p, not BagPanelOpen[pId])
                 call HideBagPopupPanels(p)
                 call RenderBagFramesForPlayer(p)
                 set SwapIndex[GetPlayerId(p)] = 0
