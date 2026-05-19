@@ -95,7 +95,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private trigger TriggerUIInventoryPanelHover
         private trigger TriggerUIBagCloseSync
         private framehandle InventoryPanelHoverFrame
-        private framehandle array InventoryHitbox
+        // private framehandle array InventoryHitbox // parked with old bag-to-native-inventory insert hitboxes
         private integer array InventoryHoverSlot
         public trigger TriggerUnitOrder
         public integer array LastHoveredIndex
@@ -190,7 +190,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer ORDER_ID_SMART = 851971
         private constant real PICKUP_INTENT_REACH = 250.0 // CHANGED THIS
         private constant real PICKUP_INTENT_TIMEOUT = 8.0  //CHANGED THIS
-        private constant real INVENTORY_HITBOX_PAD = 0.006
+        // private constant real INVENTORY_HITBOX_PAD = 0.006 // parked with old per-slot inventory hitboxes
+        private constant real INVENTORY_PANEL_HOVER_PAD = 0.018
         // Pickup relief mode:
         // false = pure A2 (near-item timing only), true = immediate-first then fallback (A1-style).
         // Current default: immediate-first (smoother feel in live play).
@@ -814,8 +815,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set it = null
     endfunction
 
-    // Inventory hitboxes are only needed while swap-select is armed.
-    // Keeping them disabled otherwise avoids interfering with native inventory RMB behavior.
+    // Old per-slot inventory hitbox toggles, parked with bag-to-native-inventory left-click insert.
+    /*
     private function SetInventoryHitboxesEnabled takes boolean enabled returns nothing
         local integer invIndex = 0
         loop
@@ -826,6 +827,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set invIndex = invIndex + 1
         endloop
     endfunction
+    */
 
     private function SwapHoverHide takes integer pId returns nothing
         if SwapHoverIndex[pId] > 0 then
@@ -864,7 +866,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function SwapHighlightHide takes integer pId returns nothing
         call SwapHoverHide(pId)
         if GetLocalPlayer() == Player(pId) then
-            call SetInventoryHitboxesEnabled(false)
+            // call SetInventoryHitboxesEnabled(false)
             if SwapHighlight[pId] != null then
                 call BlzFrameSetVisible(SwapHighlight[pId], false)
             endif
@@ -873,7 +875,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function SwapHighlightShowOnSlot takes integer pId, integer rawSlotIndex returns nothing
         if GetLocalPlayer() == Player(pId) then
-            call SetInventoryHitboxesEnabled(true)
+            // call SetInventoryHitboxesEnabled(true)
             if SwapHighlight[pId] != null and rawSlotIndex > 0 then
                 call BlzFrameClearAllPoints(SwapHighlight[pId])
                 call BlzFrameSetPoint(SwapHighlight[pId], FRAMEPOINT_TOPLEFT, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex), FRAMEPOINT_TOPLEFT, 0, -0.002)
@@ -2958,8 +2960,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call FrameLoseFocus()
     endfunction
 
-    // Direct inventory item-button click handler to finalize armed bag swap.
-    // This is more reliable than hover-timer sampling for empty inventory slots.
+    // Direct native inventory item-button hover tracking.
     private function InventoryButtonAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
@@ -2968,7 +2969,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         loop
             exitwhen invSlot >= bj_MAX_INVENTORY
-            if BlzGetTriggerFrame() == BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, invSlot) or BlzGetTriggerFrame() == InventoryHitbox[invSlot] then
+            if BlzGetTriggerFrame() == BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, invSlot) then
                 exitwhen true
             endif
             set invSlot = invSlot + 1
@@ -2978,7 +2979,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        // Track currently hovered inventory slot from native buttons + hitboxes (no grace window).
+        // Track currently hovered inventory slot from native buttons (no grace window).
         if evt == FRAMEEVENT_MOUSE_ENTER then
             set InventoryHoverSlot[pId] = invSlot + 1
             return
@@ -3843,7 +3844,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetAbsPoint(panel, Pos, PosX, PosY)
         call BlzFrameSetAllPoints(BlzCreateFrame("TasItemBagBox", panel, 0, 0), panel)
 
-        // Expanded geometric inventory hitboxes (cover thin gaps around native item buttons).
+        // Per-slot inventory hitboxes are parked while bag-to-native-inventory left-click insert is disabled.
+        // Re-enable this block if that insert path comes back and needs gap coverage around native item buttons.
+        /*
         set invIndex = 0
         loop
             exitwhen invIndex >= bj_MAX_INVENTORY
@@ -3860,11 +3863,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzTriggerRegisterFrameEvent(TriggerUIInventoryButton, InventoryHitbox[invIndex], FRAMEEVENT_MOUSE_UP)
             set invIndex = invIndex + 1
         endloop
+        */
 
         set InventoryPanelHoverFrame = BlzCreateFrameByType("BUTTON", "TasItemBagInventoryPanelHover", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
         call BlzFrameClearAllPoints(InventoryPanelHoverFrame)
-        call BlzFrameSetPoint(InventoryPanelHoverFrame, FRAMEPOINT_TOPLEFT, BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0), FRAMEPOINT_TOPLEFT, -INVENTORY_HITBOX_PAD, INVENTORY_HITBOX_PAD)
-        call BlzFrameSetPoint(InventoryPanelHoverFrame, FRAMEPOINT_BOTTOMRIGHT, BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, bj_MAX_INVENTORY - 1), FRAMEPOINT_BOTTOMRIGHT, INVENTORY_HITBOX_PAD, -INVENTORY_HITBOX_PAD)
+        call BlzFrameSetPoint(InventoryPanelHoverFrame, FRAMEPOINT_TOPLEFT, BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, 0), FRAMEPOINT_TOPLEFT, -INVENTORY_PANEL_HOVER_PAD, INVENTORY_PANEL_HOVER_PAD)
+        call BlzFrameSetPoint(InventoryPanelHoverFrame, FRAMEPOINT_BOTTOMRIGHT, BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, bj_MAX_INVENTORY - 1), FRAMEPOINT_BOTTOMRIGHT, INVENTORY_PANEL_HOVER_PAD, -INVENTORY_PANEL_HOVER_PAD)
         call BlzFrameSetEnable(InventoryPanelHoverFrame, false)
         call BlzFrameSetVisible(InventoryPanelHoverFrame, false)
         call BlzFrameSetAlpha(InventoryPanelHoverFrame, 0)
