@@ -1,17 +1,3 @@
-function CreateSoulStoneRemoveTrackedItem takes unit caster, item whichItem returns nothing
-    if whichItem == null then
-        return
-    endif
-
-    if not TasItemBagRemoveItem(caster, whichItem, false) and UnitHasItem(caster, whichItem) then
-        call UnitRemoveItem(caster, whichItem)
-    endif
-    call RemoveItem(whichItem)
-
-    set whichItem = null
-    set caster = null
-endfunction
-
 function Trig_Create_Soul_Stone_Conditions takes nothing returns boolean
     if ( not ( GetSpellAbilityId() == 'A039' ) ) then
         return false
@@ -24,6 +10,7 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
     local integer abilityLevel = GetUnitAbilityLevelSwapped('A039', GetTriggerUnit())
     local integer playerKey
     local integer slot = 1
+    local integer arrIndex
     local integer chargesLeft
     local integer mergeSpace
     local integer mergeCharges
@@ -66,7 +53,10 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         set chargesLeft = GetItemCharges(shard)
 
         if chargesLeft <= 0 then
-            call CreateSoulStoneRemoveTrackedItem(caster, shard)
+            if not TasItemBagRemoveItem(caster, shard, false) and UnitHasItem(caster, shard) then
+                call UnitRemoveItem(caster, shard)
+            endif
+            call RemoveItem(shard)
             set shard = null
         else
             // Merge the leftover stack into one other shard stack once.
@@ -88,7 +78,10 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
                             set chargesLeft = chargesLeft + movedCharges
                             set mergeCharges = mergeCharges - movedCharges
                             if mergeCharges <= 0 then
-                                call CreateSoulStoneRemoveTrackedItem(caster, mergeShard)
+                                if not TasItemBagRemoveItem(caster, mergeShard, false) and UnitHasItem(caster, mergeShard) then
+                                    call UnitRemoveItem(caster, mergeShard)
+                                endif
+                                call RemoveItem(mergeShard)
                             else
                                 call SetItemCharges(mergeShard, mergeCharges)
                             endif
@@ -111,10 +104,17 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         endif
 
         if oldSoulStone != null then
-            call CreateSoulStoneRemoveTrackedItem(caster, oldSoulStone)
+            if not TasItemBagRemoveItem(caster, oldSoulStone, false) and UnitHasItem(caster, oldSoulStone) then
+                call UnitRemoveItem(caster, oldSoulStone)
+            endif
+            call RemoveItem(oldSoulStone)
         endif
 
-        set newSoulStone = CreateItem('ankh', GetUnitX(caster), GetUnitY(caster))
+        call UnitAddItemByIdSwapped('ankh', caster)
+        set newSoulStone = GetLastCreatedItem()
+        if newSoulStone != null and not UnitHasItem(caster, newSoulStone) then
+            call TasItemBagAddItem(caster, newSoulStone, false)
+        endif
 
         if caster == udg_yA_Demon_Warlock then
             set udg_yA_DEMO_SS = newSoulStone
@@ -123,44 +123,37 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         endif
 
         set abilityLevel = abilityLevel * 2
-        if newSoulStone != null then
-            if abilityLevel == 2 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
-                call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
-            elseif abilityLevel == 4 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
-                call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
-            elseif abilityLevel == 6 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
-            elseif abilityLevel == 8 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
-            elseif abilityLevel == 10 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
-            endif
-
-            set reviveLife = 300 + (150 * abilityLevel)
-            set tooltipText = "+" + I2S(abilityLevel) + " Strength " + I2S(abilityLevel) + " Agility " + I2S(abilityLevel) + " Intelligence|n|n+|cc00FFFFF" + I2S(abilityLevel) + "% Cooldown Reduction|r"
-            set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies. |n|n|cff808080Soulstone must be in active inventory to take effect and does not persist between save and load.|r"
-            call BlzSetItemDescription(newSoulStone, tooltipText)
-            call BlzSetItemExtendedTooltip(newSoulStone, tooltipText)
-
-            set udg_dontDepositIntoBag = true
-            call UnitAddItem(caster, newSoulStone)
-            set udg_dontDepositIntoBag = false
-            if not UnitHasItem(caster, newSoulStone) then
-                if GetItemTypeId(newSoulStone) != 0 then
-                    call TasItemBagAddItem(caster, newSoulStone, false)
-                endif
-            endif
-
-            call CreateTextTagUnitBJ("Soulstone Created!", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
-            call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
-            call SetTextTagLifespan(GetLastCreatedTextTag(), 1.25)
-            call cleanUpText(1.25, 0.75)
+        if newSoulStone == null then
+            set newSoulStone = GetLastCreatedItem()
         endif
+        if abilityLevel == 2 then
+            call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
+            call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
+        elseif abilityLevel == 4 then
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
+            call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
+        elseif abilityLevel == 6 then
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
+        elseif abilityLevel == 8 then
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
+        elseif abilityLevel == 10 then
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
+            call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
+        endif
+
+        set reviveLife = 300 + (150 * abilityLevel)
+        set tooltipText = "+" + I2S(abilityLevel) + " Strength " + I2S(abilityLevel) + " Agility " + I2S(abilityLevel) + " Intelligence|n|n+|cc00FFFFF" + I2S(abilityLevel) + "% Cooldown Reduction|r"
+        set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies."
+        call BlzSetItemDescription(newSoulStone, tooltipText)
+        call BlzSetItemExtendedTooltip(newSoulStone, tooltipText)
+        call CreateTextTagUnitBJ("Soulstone Created!", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
+        call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
+        call SetTextTagLifespan(GetLastCreatedTextTag(), 1.25)
+        call cleanUpText(1.25, 0.75)
+
+        // call TasItemBag_RequestUIUpdate()
     endif
 
     set tooltipText = null
@@ -175,7 +168,7 @@ endfunction
 //===========================================================================
 function InitTrig_Create_Soul_Stone takes nothing returns nothing
     set gg_trg_Create_Soul_Stone = CreateTrigger(  )
-    call TriggerRegisterAnyUnitEventBJ( gg_trg_Create_Soul_Stone, EVENT_PLAYER_UNIT_SPELL_EFFECT )
+    call TriggerRegisterAnyUnitEventBJ( gg_trg_Create_Soul_Stone, EVENT_PLAYER_UNIT_SPELL_CAST )
     call TriggerAddCondition( gg_trg_Create_Soul_Stone, Condition( function Trig_Create_Soul_Stone_Conditions ) )
     call TriggerAddAction( gg_trg_Create_Soul_Stone, function Trig_Create_Soul_Stone_Actions )
 endfunction
