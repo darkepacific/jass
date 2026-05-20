@@ -1,8 +1,5 @@
 function Trig_Create_Soul_Stone_Conditions takes nothing returns boolean
-    if ( not ( GetSpellAbilityId() == 'A039' ) ) then
-        return false
-    endif
-    return true
+    return GetSpellAbilityId() == 'A039'
 endfunction
 
 function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
@@ -110,11 +107,11 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
             call RemoveItem(oldSoulStone)
         endif
 
-        call UnitAddItemByIdSwapped('ankh', caster)
-        set newSoulStone = GetLastCreatedItem()
-        if newSoulStone != null and not UnitHasItem(caster, newSoulStone) then
-            call TasItemBagAddItem(caster, newSoulStone, false)
-        endif
+        // call UnitAddItemByIdSwapped('ankh', caster)
+        // set newSoulStone = GetLastCreatedItem()
+        // if newSoulStone != null and not UnitHasItem(caster, newSoulStone) then
+        //     call TasItemBagAddItem(caster, newSoulStone, false)
+        // endif
 
         if caster == udg_yA_Demon_Warlock then
             set udg_yA_DEMO_SS = newSoulStone
@@ -122,38 +119,38 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
             set udg_yH_DEMO_SS = newSoulStone
         endif
 
-        set abilityLevel = abilityLevel * 2
-        if newSoulStone == null then
-            set newSoulStone = GetLastCreatedItem()
-        endif
-        if abilityLevel == 2 then
-            call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
-            call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
-        elseif abilityLevel == 4 then
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
-            call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
-        elseif abilityLevel == 6 then
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
-        elseif abilityLevel == 8 then
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
-        elseif abilityLevel == 10 then
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
-            call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
-        endif
+        // set abilityLevel = abilityLevel * 2
+        // if newSoulStone == null then
+        //     set newSoulStone = GetLastCreatedItem()
+        // endif
+        // if abilityLevel == 2 then
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
+        // elseif abilityLevel == 4 then
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
+        // elseif abilityLevel == 6 then
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
+        // elseif abilityLevel == 8 then
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
+        // elseif abilityLevel == 10 then
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
+        //     call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
+        // endif
 
         set reviveLife = 300 + (150 * abilityLevel)
         set tooltipText = "+" + I2S(abilityLevel) + " Strength " + I2S(abilityLevel) + " Agility " + I2S(abilityLevel) + " Intelligence|n|n+|cc00FFFFF" + I2S(abilityLevel) + "% Cooldown Reduction|r"
         set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies."
-        call BlzSetItemDescription(newSoulStone, tooltipText)
-        call BlzSetItemExtendedTooltip(newSoulStone, tooltipText)
+        // call BlzSetItemDescription(newSoulStone, tooltipText)
+        // call BlzSetItemExtendedTooltip(newSoulStone, tooltipText)
+        
         call CreateTextTagUnitBJ("Soulstone Created!", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
         call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
-        call SetTextTagLifespan(GetLastCreatedTextTag(), 1.25)
         call cleanUpText(1.25, 0.75)
 
-        // call TasItemBag_RequestUIUpdate()
+        call TasItemBag_RequestUIUpdate()
     endif
 
     set tooltipText = null
