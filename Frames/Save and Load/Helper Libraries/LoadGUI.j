@@ -309,6 +309,9 @@ function Load_GUI takes nothing returns nothing
         
         endif
         set i = i + 1 
+
+        //Reset to false after since not all loads create items
+        set udg_dontDepositIntoBag = false
     endloop 
     
     // -------------------  
