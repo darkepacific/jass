@@ -2741,7 +2741,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call RemoveLocation(heroLoc)
             call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 50, 90 )
             call CleanUpText( 3.00, 2.00)
-            call StartSound(gg_snd_ReceiveGold)
+            call PlaySoundOnUnitBJ(gg_snd_ReceiveGold, 100.00, hero)
             set hero = null
             set heroLoc = null
             set it = null

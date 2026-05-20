@@ -73,10 +73,12 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint
 				if udg_GameMode == "PVP" then
 					call SetHeroLevel(playerHero[pid], 25, false)
 					//Bandit's Boots
+					set udg_dontDepositIntoBag = true
 					call UnitAddItemByIdSwapped( 'I008', playerHero[pid])
 					set udg_P_Items[GetPItemsIndex(whichPlayer, udg_Bag_Page[GetPlayerHeroNumber(whichPlayer)], 1)] = bj_lastCreatedItem
 				else
 					//Burnt Leather Boots
+					set udg_dontDepositIntoBag = true
 					call UnitAddItemByIdSwapped( 'I007', playerHero[pid])
 					set udg_P_Items[GetPItemsIndex(whichPlayer, udg_Bag_Page[GetPlayerHeroNumber(whichPlayer)], 1)] = bj_lastCreatedItem
 				endif
