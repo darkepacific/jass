@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost, optional NeatMessages
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost, NeatMessages
     /*  TasItemBag 1.3
     by Tasyen, expanded by Darke Pacific
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -245,23 +245,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
         return (GetPlayerController(p) == MAP_CONTROL_USER and GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING and GetPlayerNumber(p) < 11)
-    endfunction
-
-    private function BagErrorMessage takes string message, player whichPlayer returns nothing
-        static if LIBRARY_NeatMessages then
-            call ClearNeatMessagesForPlayer(whichPlayer)
-            call NeatMessageToPlayerTimed(whichPlayer, 2.00, "|cffffcc00" + message + "|r")
-        else
-            set message = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n|cffffcc00" + message + "|r"
-            if GetLocalPlayer() == whichPlayer then
-                call ClearTextMessages()
-                call DisplayTimedTextToPlayer(whichPlayer, 0.52, 0.96, 2, message)
-            endif
-        endif
-        if GetLocalPlayer() == whichPlayer then
-            call StopSound(gg_snd_Error, false, false)
-            call StartSound(gg_snd_Error)
-        endif
     endfunction
 
     private function GetSellButtonCaption takes integer pId returns string
@@ -525,7 +508,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if pagesFull then
             if not PagesFullWarningArmed[pId] then
                 set PagesFullWarningArmed[pId] = true
-                call BagErrorMessage(PAGES_FULL_WARNING_MESSAGE, p)
+                call NeatErrorMessage(PAGES_FULL_WARNING_MESSAGE, p)
             endif
         else
             set PagesFullWarningArmed[pId] = false
@@ -1401,7 +1384,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set emptySlot = BagNextEmptySlot(playerKey)
         if emptySlot <= 0 then
             call PlayInventoryFullRaceSoundPlaceholder(GetOwningPlayer(u), u)
-            call BagErrorMessage(BAG_FULL_MESSAGE, GetOwningPlayer(u))
+            call NeatErrorMessage(BAG_FULL_MESSAGE, GetOwningPlayer(u))
             call RequestUIUpdate()
             return
         endif
@@ -1447,7 +1430,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
         if (IsActivePageSlot(playerKey, indexA) or IsActivePageSlot(playerKey, indexB)) and not IsAbleToChangePage(hero) then
-            call BagErrorMessage("Cannot swap equipped items while your hero is dead.", GetOwningPlayer(hero))
             return false
         endif
         return true
@@ -1985,7 +1967,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 and not BagHasMergeSpace(playerKey, it) then
             call PlayInventoryFullRaceSoundPlaceholder(p, hero)
-            call BagErrorMessage(BAG_FULL_MESSAGE, p)
+            call NeatErrorMessage(BAG_FULL_MESSAGE, p)
             call RequestUIUpdate()
             set it = null
             return
@@ -2055,7 +2037,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         call PlayInventoryFullRaceSoundPlaceholder(p, hero)
-        call BagErrorMessage(INVENTORY_PAGES_FULL_MESSAGE, p)
+        call NeatErrorMessage(INVENTORY_PAGES_FULL_MESSAGE, p)
         call ClearPickupIntent(pId)
         return true
     endfunction
@@ -2685,14 +2667,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if not IsItemPawnable(it) then
-            call BagErrorMessage("This item cannot be sold.", p)
+            call NeatErrorMessage("This item cannot be sold.", p)
             set hero = null
             set it = null
             return false
         endif
 
         if shop == null or not IsVendorUnit(shop) then
-            call BagErrorMessage("No shop in range.", p)
+            call NeatErrorMessage("No shop in range.", p)
             set hero = null
             set it = null
             set shop = null
@@ -2703,7 +2685,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set dx = GetUnitX(hero) - GetUnitX(shop)
             set dy = GetUnitY(hero) - GetUnitY(shop)
             if SquareRoot(dx*dx + dy*dy) > SELL_RANGE then
-                call BagErrorMessage("No shop in range.", p)
+                call NeatErrorMessage("No shop in range.", p)
                 set hero = null
                 set it = null
                 set shop = null
@@ -2784,14 +2766,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set hero = udg_Heroes[GetPlayerNumber(p)]
         if hero == null then
             call SetSellHotkeyArmed(pId, false)
-            call BagErrorMessage("No hero available.", p)
+            call NeatErrorMessage("No hero available.", p)
             set hero = null
             return
         endif
 
         if TransferIndex[pId] <= 0 then
             call SetSellHotkeyArmed(pId, false)
-            call BagErrorMessage("Select a bag item first.", p)
+            call NeatErrorMessage("Select a bag item first.", p)
             set hero = null
             return
         endif
@@ -2799,7 +2781,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set selectedItem = TasItemBagGetItem(hero, TransferIndex[pId])
         if selectedItem == null or TransferItem[pId] != selectedItem then
             call SetSellHotkeyArmed(pId, false)
-            call BagErrorMessage("Select a bag item first.", p)
+            call NeatErrorMessage("Select a bag item first.", p)
             set hero = null
             set selectedItem = null
             return
@@ -2910,7 +2892,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set playerKey = GetPlayerId(p)
         if BagNextEmptySlot(playerKey) <= 0 then
             call PlayInventoryFullRaceSoundPlaceholder(p, udg_Heroes[GetPlayerNumber(p)])
-            call BagErrorMessage(BAG_FULL_MESSAGE, p)
+            call NeatErrorMessage(BAG_FULL_MESSAGE, p)
             call RequestUIUpdate()
             if GetLocalPlayer() == p then
                 call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -3560,7 +3542,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                                 call FrameLoseFocus()
                             endif
                         else
-                            call BagErrorMessage("Move closer to the shop.", p)
+                            call NeatErrorMessage("Move closer to the shop.", p)
                         endif
                         set clickShop = null
                     else
@@ -3691,7 +3673,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                 endif
             else
-                call BagErrorMessage("Move closer to the shop.", p)
+                call NeatErrorMessage("Move closer to the shop.", p)
             endif
             set selected = null
             set hero = null

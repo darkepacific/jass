@@ -1,4 +1,4 @@
-library MultiPageInventorySystem 
+library MultiPageInventorySystem requires NeatMessages
 
     //----------------------------------------------\\  
     //                                              \\  
@@ -52,9 +52,10 @@ library MultiPageInventorySystem
             return false
         elseif IsUnitType(u, UNIT_TYPE_DEAD) or GetWidgetLife(u) <= 0.405 then
             // Hero is dead: ignore inventory hotkeys/page swaps
+            call NeatErrorMessage("Cannot swap equipped items while your hero is dead.", GetOwningPlayer(u))
             return false
         elseif IsStunned(u) or IsRooted(u) or IsUnitPaused(u) then
-            call ErrorMessage(errorCantChangePage, GetOwningPlayer(u))
+            call NeatErrorMessage(errorCantChangePage, GetOwningPlayer(u))
             return false
         endif
         return true
@@ -125,6 +126,9 @@ library MultiPageInventorySystem
             set playerNum = GetPlayerHeroNumber(p)
             if udg_Bag_Page[playerNum] <= 0 or udg_Bag_Page[playerNum] > maxPages then
                 set udg_Bag_Page[playerNum] = 1
+            endif
+            if PlayerIntendedPage[GetPlayerId(p)] <= 0 or PlayerIntendedPage[GetPlayerId(p)] > maxPages then
+                set PlayerIntendedPage[GetPlayerId(p)] = udg_Bag_Page[playerNum]
             endif
             set s = "|cffffffff" + I2S(udg_Bag_Page[playerNum]) + "/" + I2S(maxPages) + "|r"
             call InventoryButtonsSetPageText(p, s)
@@ -552,6 +556,7 @@ library MultiPageInventorySystem
             call TriggerRegisterAnyUnitEventBJ(trigItemSwap, EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER) 
 
             set udg_Bag_Page[GetPlayerHeroNumber(Player(i))] = 1
+            set PlayerIntendedPage[i] = 1
             set nextPageHotkeyLabel[i] = "Z"
 
             set i = i + 1 

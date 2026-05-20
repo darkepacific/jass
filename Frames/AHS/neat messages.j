@@ -49,6 +49,8 @@ library NeatMessages initializer Init
     NeatMessageTimed takes real duration, string whichMessage returns nothing
     NeatMessageToPlayerTimed takes player whichPlayer, real duration, string whichMessage returns nothing
     NeatMessageToForceTimed takes force whichForce, real duration, string whichMessage returns nothing
+
+    NeatErrorMessage takes string whichMessage, player whichPlayer returns nothing
    
     NeatMessageFormatted takes string whichMessage, NeatFormat whichFormat returns nothing
     NeatMessageToPlayerFormatted takes player whichPlayer, string whichMessage, NeatFormat whichFormat returns nothing
@@ -907,6 +909,15 @@ function ClearNeatMessagesForPlayer takes player whichPlayer returns nothing
             endloop
             set j = j + 1
         endloop
+    endif
+endfunction
+
+function NeatErrorMessage takes string message, player whichPlayer returns nothing
+    call ClearNeatMessagesForPlayer(whichPlayer)
+    call NeatMessageToPlayerTimed(whichPlayer, 2.00, "|cffffcc00" + message + "|r")
+    if GetLocalPlayer() == whichPlayer then
+        call StopSound(gg_snd_Error, false, false)
+        call StartSound(gg_snd_Error)
     endif
 endfunction
 
