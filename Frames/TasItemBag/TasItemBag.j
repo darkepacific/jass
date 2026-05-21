@@ -1,4 +1,4 @@
-library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost, NeatMessages
+library TasItemBag initializer init_function requires Table, RegisterPlayerEvent, HoverOriginButton, GenericFunctions, MultiPageInventorySystem, TasItemCost, NeatMessages, AcquireAndLoseItemHandler
     /*  TasItemBag 1.3
     by Tasyen, expanded by Darke Pacific
     Allows units to carry additional items in a bag. Items in the bag do not give any boni. 
@@ -1472,10 +1472,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     // Unequip an item from the hero's inventory slot: remove, move to island, mark stored.
+    // Native acquire/loss side effects are suppressed because callers (e.g. TasItemBagSwap)
+    // already invoke LoseItemHandler manually; allowing the native trigger to also fire
+    // would double-apply DeathCap/Warmogs/Banshees/PrevBONUSInt mutations.
     private function UnequipFromHero takes unit hero, integer invSlot returns nothing
         local item removed
         local location itemIsland
-        // call DisableTrigger(gg_trg_Lose_Item)
+        local boolean prevSuppress = AcquireAndLoseItemHandler_PageRebuildSuppress
+        set AcquireAndLoseItemHandler_PageRebuildSuppress = true
         set removed = UnitRemoveItemFromSlot(hero, invSlot)
         if removed != null then
             set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
@@ -1485,7 +1489,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call RemoveLocation(itemIsland)
             set itemIsland = null
         endif
-        // call EnableTrigger(gg_trg_Lose_Item)
+        set AcquireAndLoseItemHandler_PageRebuildSuppress = prevSuppress
         set removed = null
     endfunction
 
@@ -1512,6 +1516,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // Rebuild the currently active hero inventory page from udg_P_Items.
     // This keeps page display and native inventory in sync after swaps involving
     // active page slots, while preserving the map's compacting page-load behavior.
+    //
+    // Native acquire/loss side effects are suppressed during the rebuild because the
+    // items have not actually been gained or lost; allowing AcquireItemHandler /
+    // LoseItemHandler to fire would double-mutate DeathCap, Warmogs, Banshees,
+    // udg_PrevBONUSInt, and trigger redundant orb-swap executions. After the rebuild
+    // we explicitly recompute the active page entries of udg_P_Items from the unit's
+    // native inventory slots so state is deterministic and does not depend on
+    // event re-entry.
     private function SyncCurrentPageInventory takes player p returns nothing
         local integer playerNum = GetPlayerNumber(p)
         local unit hero = udg_Heroes[playerNum]
@@ -1521,14 +1533,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local item currentItem
         local location itemIsland
         local item array Temp_Items
+        local boolean prevSuppress
 
         if hero == null then
             return
         endif
 
+        call Debug("SyncCurrentPageInventory begin: player=" + I2S(playerNum) + " page=" + I2S(currentPage))
+        set prevSuppress = AcquireAndLoseItemHandler_PageRebuildSuppress
+        set AcquireAndLoseItemHandler_PageRebuildSuppress = true
+
         set itemIsland = GetRectCenter(gg_rct_ISLAND_ITEMS)
-        // call DisableTrigger(gg_trg_Acquire_Item)
-        // call DisableTrigger(gg_trg_Lose_Item)
         call DisableTrigger(gg_trg_Firestone_Dropped)
         call DisableTrigger(gg_trg_Firestone_Acquired)
 
@@ -1551,9 +1566,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set slot = slot + 1
         endloop
 
-        // Clear the active page before re-adding. UnitAddItem will compact into
-        // the next open native slot, and AcquireItemHandler will repopulate these
-        // page entries with the final compacted order.
+        // Clear the active page entries before re-adding; we will repopulate them
+        // deterministically below from the unit's native slots once items settle.
         set slot = 1
         loop
             exitwhen slot > 6
@@ -1573,10 +1587,26 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set slot = slot + 1
         endloop
 
+        // Deterministic repopulate: scan native slots and write the resulting
+        // handles back into udg_P_Items. UnitAddItem may have compacted slots or
+        // merged stacks, so the final slot ordering must come from the engine.
+        set slot = 1
+        loop
+            exitwhen slot > 6
+            set pageIndex = GetPItemsIndex(p, currentPage, slot)
+            set currentItem = UnitItemInSlot(hero, slot - 1)
+            if currentItem != null and GetItemTypeId(currentItem) != 0 then
+                set udg_P_Items[pageIndex] = currentItem
+            else
+                set udg_P_Items[pageIndex] = null
+            endif
+            set slot = slot + 1
+        endloop
+
         call EnableTrigger(gg_trg_Firestone_Dropped)
         call EnableTrigger(gg_trg_Firestone_Acquired)
-        // call EnableTrigger(gg_trg_Lose_Item)
-        // call EnableTrigger(gg_trg_Acquire_Item)
+        set AcquireAndLoseItemHandler_PageRebuildSuppress = prevSuppress
+        call Debug("SyncCurrentPageInventory end: player=" + I2S(playerNum))
         call RemoveLocation(itemIsland)
         set itemIsland = null
         set currentItem = null

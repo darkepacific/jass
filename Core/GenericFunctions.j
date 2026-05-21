@@ -1,5 +1,19 @@
 library GenericFunctions
 
+    globals
+        // Persistent on-disk log lines. Each line is stored locally, then a
+        // periodic timer rewrites the file via one Preload() call per line.
+        // Do not pass the whole log as one Preload() string: Warcraft III
+        // truncates that argument like a filename, which cuts off the log.
+        string array DebugLogLines
+        integer DebugLogLineCount = 0
+        integer DebugLogSeq = 0
+        string DebugLogFile = "DesyncLog.txt"
+        boolean DebugLogInited = false
+        boolean DebugLogDirty = false
+        timer DebugLogFlushTimer = CreateTimer()
+    endglobals
+
     function Debug takes string str returns nothing
         if(udg_Debug) then
             call DisplayTextToForce(GetPlayersAll(), str)
@@ -9,6 +23,95 @@ library GenericFunctions
     function DebugCritical takes string str returns nothing
         if(udg_Debug) then
             call DisplayTextToForce(GetPlayersAll(), "|cffffcc00" + str + "|r")
+        endif
+    endfunction
+
+    // Flushes the stored log lines to disk. Cost: rewrites the whole file.
+    // Called from the periodic 0.10s timer below, not from each DebugLog call.
+    function DebugLogFlush takes nothing returns nothing
+        local integer i = 1
+        if not DebugLogDirty then
+            return
+        endif
+        set DebugLogDirty = false
+        call PreloadGenClear()
+        call PreloadGenStart()
+        loop
+            exitwhen i > DebugLogLineCount
+            call Preload(DebugLogLines[i])
+            set i = i + 1
+        endloop
+        call PreloadGenEnd(DebugLogFile)
+    endfunction
+
+    // Timer callback — used to flush on a fixed cadence.
+    function DebugLogPeriodicFlush takes nothing returns nothing
+        call DebugLogFlush()
+    endfunction
+
+    // Optional: call once at map init from each player's local code path to
+    // give each client a distinct filename, e.g. DesyncLog_P0.txt. We do this
+    // GetLocalPlayer-style to make filenames per-client without desyncing.
+    function DebugLogInitPerPlayer takes nothing returns nothing
+        local string suffix = ""
+        if GetLocalPlayer() == Player(0) then
+            set suffix = "_P0"
+        elseif GetLocalPlayer() == Player(1) then
+            set suffix = "_P1"
+        elseif GetLocalPlayer() == Player(2) then
+            set suffix = "_P2"
+        elseif GetLocalPlayer() == Player(3) then
+            set suffix = "_P3"
+        elseif GetLocalPlayer() == Player(4) then
+            set suffix = "_P4"
+        elseif GetLocalPlayer() == Player(5) then
+            set suffix = "_P5"
+        elseif GetLocalPlayer() == Player(6) then
+            set suffix = "_P6"
+        elseif GetLocalPlayer() == Player(7) then
+            set suffix = "_P7"
+        elseif GetLocalPlayer() == Player(8) then
+            set suffix = "_P8"
+        elseif GetLocalPlayer() == Player(9) then
+            set suffix = "_P9"
+        elseif GetLocalPlayer() == Player(10) then
+            set suffix = "_P10"
+        elseif GetLocalPlayer() == Player(11) then
+            set suffix = "_P11"
+        endif
+        // String assignment inside a GetLocalPlayer block is safe - strings
+        // are not synced; this only changes the *name* of the local file each
+        // client writes to, which is exactly what we want.
+        set DebugLogFile = "DesyncLog" + suffix + ".txt"
+        // Seed file with a header so we can see it appeared on disk.
+        set DebugLogLineCount = 1
+        set DebugLogLines[1] = "=== DesyncLog start ==="
+        set DebugLogDirty = true
+        call DebugLogFlush()
+        // Arm the periodic flush timer. 0.10s is fast enough that a desync
+        // banner's countdown will catch the latest tail before the game ends,
+        // and slow enough that we don't clobber rapid back-to-back writes.
+        call TimerStart(DebugLogFlushTimer, 0.10, true, function DebugLogPeriodicFlush)
+    endfunction
+
+    // Appends one tagged line to the persistent log AND prints it on screen
+    // (subject to udg_Debug). The actual disk flush is rate-limited by the
+    // periodic timer in DebugLogInitPerPlayer to avoid Reforged dropping
+    // back-to-back PreloadGenEnd writes.
+    function DebugLog takes string str returns nothing
+        local string line
+        if not DebugLogInited then
+            set DebugLogInited = true
+            call DebugLogInitPerPlayer()
+        endif
+        set DebugLogSeq = DebugLogSeq + 1
+        // Sequence prefix gives stable cross-client ordering.
+        set line = "[" + I2S(DebugLogSeq) + "] " + str
+        set DebugLogLineCount = DebugLogLineCount + 1
+        set DebugLogLines[DebugLogLineCount] = line
+        set DebugLogDirty = true
+        if(udg_Debug) then
+            call DisplayTextToForce(GetPlayersAll(), str)
         endif
     endfunction
 

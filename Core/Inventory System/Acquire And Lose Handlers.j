@@ -1,5 +1,19 @@
 library AcquireAndLoseItemHandler requires GenericFunctions
-    
+
+    globals
+        // When true, native pickup/drop side effects are suppressed and udg_P_Items
+        // is not mutated by the handlers. Set this around TasItemBag page rebuilds
+        // (UnitRemoveItemFromSlot + UnitAddItem loops) so the rebuild does not
+        // cause divergent re-entry into AcquireItemHandler / LoseItemHandler.
+        // The caller is responsible for an explicit udg_P_Items recompute afterwards.
+        public boolean PageRebuildSuppress = false
+        // Diagnostic counters; toggled via udg_Debug through the Debug helper.
+        public integer AcquireFireCount = 0
+        public integer LoseFireCount = 0
+        public integer AcquireSuppressedCount = 0
+        public integer LoseSuppressedCount = 0
+    endglobals
+
     function HasBanshees takes unit u returns boolean
         local integer playerNum = GetPlayerHeroNumber(GetOwningPlayer(u))
         local integer i = 1
@@ -29,6 +43,16 @@ library AcquireAndLoseItemHandler requires GenericFunctions
 
         local integer i = 0
 
+        if PageRebuildSuppress then
+            set AcquireSuppressedCount = AcquireSuppressedCount + 1
+            call Debug("AcquireItemHandler suppressed during page rebuild: " + GetItemName(it))
+            set u = null
+            set it = null
+            set p = null
+            return
+        endif
+
+        set AcquireFireCount = AcquireFireCount + 1
         set statCalc = (GetHeroStatBJ(bj_HEROSTAT_INT, u, true) - GetHeroStatBJ(bj_HEROSTAT_INT, u, false) - udg_PrevBONUSInt[playerNum] )
         call Debug("Acquire Itm: " + GetItemName(it) + " Int Incr: " + I2S(statCalc) )
 
@@ -113,6 +137,16 @@ library AcquireAndLoseItemHandler requires GenericFunctions
         local boolean hasItem = false
         local integer i = 0
 
+        if PageRebuildSuppress then
+            set LoseSuppressedCount = LoseSuppressedCount + 1
+            call Debug("LoseItemHandler suppressed during page rebuild: " + GetItemName(it))
+            set u = null
+            set it = null
+            set p = null
+            return
+        endif
+
+        set LoseFireCount = LoseFireCount + 1
         call Debug("Losing Item: " + GetItemName(it) + " from player: " + I2S(playerNum) )
         
         // Find which slot the item was dropped from and clear it in P_Items
