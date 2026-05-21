@@ -1079,6 +1079,34 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return 0
     endfunction
 
+    function TasItemBagHasFreeSlotForReplacement takes player p, item replacedItem returns boolean
+        local integer playerKey
+        local integer slot = 1
+        local integer arrIndex
+        if p == null then
+            return false
+        endif
+        if not BagEnabledForPlayer(p) then
+            return false
+        endif
+        set playerKey = GetPlayerId(p)
+        if BagNextEmptySlot(playerKey) > 0 then
+            return true
+        endif
+        if replacedItem == null then
+            return false
+        endif
+        loop
+            exitwhen slot > PITEMS_EXTRA_SLOTS
+            set arrIndex = BagSlotArrayIndex(playerKey, slot)
+            if udg_P_Items[arrIndex] == replacedItem then
+                return true
+            endif
+            set slot = slot + 1
+        endloop
+        return false
+    endfunction
+
     function IsStackableType takes item i returns boolean
         if i == null then
             return false
@@ -3753,20 +3781,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function ItemGainAction takes nothing returns nothing
         local unit triggerUnit = GetTriggerUnit()
-        local item manipulated = GetManipulatedItem()
         local player owner
         local integer pId
-        local item queuedItem
+        local item queuedItem = GetManipulatedItem()
         local item intentItem
         set owner = GetOwningPlayer(triggerUnit)
         if not BagEnabledForPlayer(owner) then
             set triggerUnit = null
-            set manipulated = null
+            set queuedItem = null
             set owner = null
             return
         endif
         set pId = GetPlayerId(owner)
-        set queuedItem = manipulated
         set intentItem = PickupIntentItem[pId]
 
         // When pickup intent is active, prefer the intent target item handle.
@@ -3800,7 +3826,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             // here; the page switch is still in progress.
             set udg_dontDepositIntoBag = false
             set triggerUnit = null
-            set manipulated = null
             set queuedItem = null
             set owner = null
             return
@@ -3810,7 +3835,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if IsItemPowerup(GetManipulatedItem()) and TasItemBagUnitCanUseItems(GetTriggerUnit()) then 
             call RestorePlayerIntendedPage(triggerUnit)
             set triggerUnit = null
-            set manipulated = null
             set queuedItem = null
             set owner = null
             return
@@ -3824,7 +3848,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TimerStart(ItemGainTimer, 0, false, function ItemGainTimerAction)
 
         set triggerUnit = null
-        set manipulated = null
         set queuedItem = null
         set intentItem = null
         set owner = null

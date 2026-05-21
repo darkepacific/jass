@@ -89,11 +89,22 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         set slot = slot + 1
     endloop
 
+    if caster == udg_yA_Demon_Warlock then
+        set oldSoulStone = udg_yA_DEMO_SS
+    elseif caster == udg_yH_Demon_Warlock then
+        set oldSoulStone = udg_yH_DEMO_SS
+    endif
+
     if shard == null then
         set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Not enough Soul Shards.", p)
+    elseif not TasItemBagHasFreeSlotForReplacement(p, oldSoulStone) then
+        set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
+        call IssueImmediateOrderBJ(caster, "stop")
+        call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
+        call ErrorMessage("Bag is full.", p)
     else
         call SetItemCharges(shard, GetItemCharges(shard) - reqCharges)
         set chargesLeft = GetItemCharges(shard)
@@ -143,12 +154,6 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         call AddSpecialEffectTargetUnitBJ("overhead", caster, "war3mapImported\\Void Disc.mdx")
         call DestroyEffectBJ(GetLastCreatedEffectBJ())
 
-        if caster == udg_yA_Demon_Warlock then
-            set oldSoulStone = udg_yA_DEMO_SS
-        elseif caster == udg_yH_Demon_Warlock then
-            set oldSoulStone = udg_yH_DEMO_SS
-        endif
-
         if oldSoulStone != null then
             if not TasItemBagRemoveItem(caster, oldSoulStone, false) and UnitHasItem(caster, oldSoulStone) then
                 call UnitRemoveItem(caster, oldSoulStone)
@@ -158,23 +163,23 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
 
         set newSoulStone = CreateItem('ankh', GetUnitX(caster), GetUnitY(caster))
         if newSoulStone != null then
-        //     set abilityLevel = abilityLevel * 2
-        //     if abilityLevel == 2 then
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
-        //     elseif abilityLevel == 4 then
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
-        //     elseif abilityLevel == 6 then
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
-        //     elseif abilityLevel == 8 then
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
-        //     elseif abilityLevel == 10 then
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
-        //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
-        //     endif
+            //     set abilityLevel = abilityLevel * 2
+            //     if abilityLevel == 2 then
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
+            //     elseif abilityLevel == 4 then
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
+            //     elseif abilityLevel == 6 then
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
+            //     elseif abilityLevel == 8 then
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
+            //     elseif abilityLevel == 10 then
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
+            //         call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
+            //     endif
 
             // set reviveLife = 300 + (150 * abilityLevel)
             // set tooltipText = "+" + I2S(abilityLevel) + " Strength " + I2S(abilityLevel) + " Agility " + I2S(abilityLevel) + " Intelligence|n|n+|cc00FFFFF" + I2S(abilityLevel) + "% Cooldown Reduction|r"
@@ -182,7 +187,8 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
             // call BlzSetItemDescription(newSoulStone, tooltipText)
             // call BlzSetItemExtendedTooltip(newSoulStone, tooltipText)
 
-            call CreateSoulStoneQueueAdd(caster, newSoulStone)
+            // call CreateSoulStoneQueueAdd(caster, newSoulStone)
+            call TasItemBagAddItem(caster, newSoulStone, false)
         endif
 
         if caster == udg_yA_Demon_Warlock then
