@@ -48,6 +48,61 @@ function CreateSoulStoneQueueAdd takes unit caster, item soulStone returns nothi
     set soulStone = null
 endfunction
 
+function CreateSoulStoneFindStorageSlot takes integer bagArrayBase, item searchedItem returns integer
+    local integer storageSlot = 1
+    if searchedItem == null then
+        return 0
+    endif
+    loop
+        exitwhen storageSlot > 36
+        if udg_P_Items[bagArrayBase + storageSlot] == searchedItem then
+            return storageSlot
+        endif
+        set storageSlot = storageSlot + 1
+    endloop
+    return 0
+endfunction
+
+function CreateSoulStoneCountEmptyExtraSlots takes integer bagArrayBase returns integer
+    local integer storageSlot = 13
+    local integer emptySlots = 0
+    loop
+        exitwhen storageSlot > 36
+        if udg_P_Items[bagArrayBase + storageSlot] == null then
+            set emptySlots = emptySlots + 1
+        endif
+        set storageSlot = storageSlot + 1
+    endloop
+    return emptySlots
+endfunction
+
+function CreateSoulStoneHasStorageForSpend takes integer bagArrayBase, item shard, item oldSoulStone, integer chargesLeft returns boolean
+    local integer availableSlots = CreateSoulStoneCountEmptyExtraSlots(bagArrayBase)
+    local integer shardSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, shard)
+    local integer oldSoulStoneSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, oldSoulStone)
+    local integer requiredSlots = 1
+
+    if chargesLeft > 0 then
+        set requiredSlots = requiredSlots + 1
+    endif
+    if shardSlot > 12 then
+        set availableSlots = availableSlots + 1
+    endif
+    if oldSoulStoneSlot > 12 and oldSoulStoneSlot != shardSlot then
+        set availableSlots = availableSlots + 1
+    endif
+
+    return availableSlots >= requiredSlots
+endfunction
+
+function CreateSoulStoneRemoveTrackedShard takes integer bagArrayBase, item shard returns nothing
+    local integer storageSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, shard)
+    if storageSlot > 0 then
+        set udg_P_Items[bagArrayBase + storageSlot] = null
+    endif
+    call RemoveItem(shard)
+endfunction
+
 function Trig_Create_Soul_Stone_Conditions takes nothing returns boolean
     return GetSpellAbilityId() == 'A039'
 endfunction
@@ -58,15 +113,12 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
     local integer playerKey
     local integer slot = 1
     local integer chargesLeft
-    local integer mergeSpace
-    local integer mergeCharges
-    local integer movedCharges
     local integer manaRefund
     local integer reviveLife
     local unit caster = GetTriggerUnit()
     local player p = GetOwningPlayer(caster)
     local item shard = null
-    local item mergeShard = null
+    local item remainderShard = null
     local item oldSoulStone = null
     local item newSoulStone = null
     local string tooltipText
@@ -95,60 +147,31 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         set oldSoulStone = udg_yH_DEMO_SS
     endif
 
+    if shard != null then
+        set chargesLeft = GetItemCharges(shard) - reqCharges
+    endif
+
     if shard == null then
         set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Not enough Soul Shards.", p)
-    elseif not TasItemBagHasFreeSlotForReplacement(p, oldSoulStone) then
+    elseif not CreateSoulStoneHasStorageForSpend(playerKey, shard, oldSoulStone, chargesLeft) then
         set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Bag is full.", p)
     else
-        call SetItemCharges(shard, GetItemCharges(shard) - reqCharges)
-        set chargesLeft = GetItemCharges(shard)
+        call CreateSoulStoneRemoveTrackedShard(playerKey, shard)
+        set shard = null
 
-        if chargesLeft <= 0 then
-            if not TasItemBagRemoveItem(caster, shard, false) and UnitHasItem(caster, shard) then
-                call UnitRemoveItem(caster, shard)
+        if chargesLeft > 0 then
+            set remainderShard = CreateItem('I08E', GetUnitX(caster), GetUnitY(caster))
+            if remainderShard != null then
+                call SetItemCharges(remainderShard, chargesLeft)
+                call TasItemBagAddItem(caster, remainderShard, false)
             endif
-            call RemoveItem(shard)
-            set shard = null
-        else
-            // Merge the leftover stack into one other shard stack once.
-            set slot = 1
-            loop
-                exitwhen slot > 36 or shard == null
-                set mergeShard = udg_P_Items[playerKey + slot]
-                if mergeShard != null and mergeShard != shard and GetItemTypeId(mergeShard) == 'I08E' then
-                    set mergeSpace = 20 - chargesLeft
-                    if mergeSpace > 0 then
-                        set mergeCharges = GetItemCharges(mergeShard)
-                        if mergeCharges > 0 then
-                            if mergeCharges > mergeSpace then
-                                set movedCharges = mergeSpace
-                            else
-                                set movedCharges = mergeCharges
-                            endif
-                            call SetItemCharges(shard, chargesLeft + movedCharges)
-                            set chargesLeft = chargesLeft + movedCharges
-                            set mergeCharges = mergeCharges - movedCharges
-                            if mergeCharges <= 0 then
-                                if not TasItemBagRemoveItem(caster, mergeShard, false) and UnitHasItem(caster, mergeShard) then
-                                    call UnitRemoveItem(caster, mergeShard)
-                                endif
-                                call RemoveItem(mergeShard)
-                            else
-                                call SetItemCharges(mergeShard, mergeCharges)
-                            endif
-                        endif
-                    endif
-                    exitwhen true
-                endif
-                set mergeShard = null
-                set slot = slot + 1
-            endloop
+            set remainderShard = null
         endif
 
         call AddSpecialEffectTargetUnitBJ("overhead", caster, "war3mapImported\\Void Disc.mdx")
@@ -207,7 +230,7 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
     set tooltipText = null
     set oldSoulStone = null
     set newSoulStone = null
-    set mergeShard = null
+    set remainderShard = null
     set shard = null
     set p = null
     set caster = null
