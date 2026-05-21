@@ -917,9 +917,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             endif
             //Elaborate Planning
             if udg_TalentChoices[GetPlayerId(sourcePlayer) * udg_NUM_OF_TC + 14]  then
-                if(udg_Debug) then
-                    call DisplayTextToForce(GetPlayersAll(), "|cc00AA000EP Time Remaining: |r" + R2S(TimerGetRemaining(udg_CheatDeath[heroNumb + 8])) + " heroNumb: " + I2S(heroNumb) )
-                endif
+                call Debug("|cc00AA000EP Time Remaining: |r" + R2S(TimerGetRemaining(udg_CheatDeath[heroNumb + 8])) + " heroNumb: " + I2S(heroNumb))
                 if TimerGetRemaining(udg_CheatDeath[heroNumb + 8]) > 0 then
                     set damage = damage * 1.12
                     set increased = true

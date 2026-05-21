@@ -1,4 +1,9 @@
 globals
+    // Probe item used instead of native 'ankh'. Swap this to a dedicated
+    // custom soulstone rawcode once you add one in the object editor.
+    // 'I06M' = Chalice of Holy Regeneration (permanent epic, not Charged,
+    // not Powerup, not auto-consumed on pickup).
+    constant integer CREATE_SOULSTONE_ITEM_ID = 'I06M'
     timer CreateSoulStoneAddTimer = CreateTimer()
     integer CreateSoulStoneAddCount = 0
     unit array CreateSoulStoneAddCaster
@@ -179,13 +184,13 @@ function CreateSoulStoneRunDeferred takes nothing returns nothing
                 call DebugLog("SS:10 after RemoveItem(oldSoulStone)")
             endif
 
-            call DebugLog("SS:11 creating new soulstone")
-            set newSoulStone = CreateItem('ankh', GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-            call DebugLog("SS:12 new soulstone id=" + I2S(GetHandleId(newSoulStone)))
+            call DebugLog("SS:11 creating probe soulstone item rawcode=" + I2S(CREATE_SOULSTONE_ITEM_ID))
+            set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+            call DebugLog("SS:12 probe soulstone id=" + I2S(GetHandleId(newSoulStone)))
             if newSoulStone != null then
-                call DebugLog("SS:13 before TasItemBagAddItem(newSoulStone)")
+                call DebugLog("SS:13 before TasItemBagAddItem(probeSoulstone)")
                 call TasItemBagAddItem(caster, newSoulStone, false)
-                call DebugLog("SS:14 after TasItemBagAddItem(newSoulStone)")
+                call DebugLog("SS:14 after TasItemBagAddItem(probeSoulstone)")
             endif
 
             if caster == udg_yA_Demon_Warlock then
@@ -195,7 +200,7 @@ function CreateSoulStoneRunDeferred takes nothing returns nothing
             endif
             call DebugLog("SS:15 after global SS assignment")
 
-            call CreateTextTagUnitBJ("Soulstone Created!", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
+            call CreateTextTagUnitBJ("Soulstone probe item created", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
             call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
             call cleanUpText(1.25, 0.75)
             call DebugLog("SS:16 success branch complete")

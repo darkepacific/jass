@@ -21,9 +21,7 @@ library GenericFunctions
     endfunction
 
     function DebugCritical takes string str returns nothing
-        if(udg_Debug) then
-            call DisplayTextToForce(GetPlayersAll(), "|cffffcc00" + str + "|r")
-        endif
+        call Debug("|cffffcc00" + str + "|r")
     endfunction
 
     // Flushes the stored log lines to disk. Cost: rewrites the whole file.
@@ -110,9 +108,7 @@ library GenericFunctions
         set DebugLogLineCount = DebugLogLineCount + 1
         set DebugLogLines[DebugLogLineCount] = line
         set DebugLogDirty = true
-        if(udg_Debug) then
-            call DisplayTextToForce(GetPlayersAll(), str)
-        endif
+        call Debug(str)
     endfunction
 
     function GetPlayerHeroNumber takes player p returns integer
@@ -1215,13 +1211,11 @@ library GenericFunctions
     endfunction
 
     function logFirelords takes nothing returns nothing
-        if(udg_Debug) then
-            if(udg_hasFirelords) then
-                call DisplayTextToForce(GetPlayersAll(), "hasFirelords" )
-            endif
-            if(udg_hasReaper) then
-                call DisplayTextToForce(GetPlayersAll(), "hasReaper" )
-            endif
+        if(udg_hasFirelords) then
+            call Debug("hasFirelords")
+        endif
+        if(udg_hasReaper) then
+            call Debug("hasReaper")
         endif
     endfunction
 
