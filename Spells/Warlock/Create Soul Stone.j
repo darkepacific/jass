@@ -1,72 +1,8 @@
 globals
-    // Probe item used instead of native 'ankh'. Swap this to a dedicated
-    // custom soulstone rawcode once you add one in the object editor.
-    // 'I06M' = Chalice of Holy Regeneration (permanent epic, not Charged,
-    // not Powerup, not auto-consumed on pickup).
+    // Temporary non-ankh soulstone item. Swap this to the dedicated custom
+    // soulstone rawcode once it exists in the object editor.
     constant integer CREATE_SOULSTONE_ITEM_ID = 'I06M'
-    timer CreateSoulStoneAddTimer = CreateTimer()
-    integer CreateSoulStoneAddCount = 0
-    unit array CreateSoulStoneAddCaster
-    item array CreateSoulStoneAddItem
-
-    // Deferred-execution queue for the entire success branch.
-    // The SPELL_CAST handler validates inline; if valid, the side-effecting
-    // half is captured here and run by a 0.0s timer, decoupling all
-    // CreateItem/RemoveItem/TasItemBagAddItem/RequestUIUpdate work from the
-    // SPELL_CAST event frame itself. This is to isolate / eliminate any
-    // desyncs that might come from mutating inventory inside the spell event.
-    timer CreateSoulStoneDeferTimer = CreateTimer()
-    integer CreateSoulStoneDeferCount = 0
-    unit array CreateSoulStoneDeferCaster
-    player array CreateSoulStoneDeferPlayer
-    integer array CreateSoulStoneDeferPlayerKey
-    integer array CreateSoulStoneDeferChargesLeft
-    item array CreateSoulStoneDeferShard
-    item array CreateSoulStoneDeferOldSS
 endglobals
-
-function CreateSoulStoneFinishAdd takes nothing returns nothing
-    local integer i = 1
-    local unit caster
-    local item soulStone
-
-    loop
-        exitwhen i > CreateSoulStoneAddCount
-        set caster = CreateSoulStoneAddCaster[i]
-        set soulStone = CreateSoulStoneAddItem[i]
-
-        if caster != null and soulStone != null and GetItemTypeId(soulStone) != 0 then
-            set udg_dontDepositIntoBag = true
-            call UnitAddItem(caster, soulStone)
-            set udg_dontDepositIntoBag = false
-            if not UnitHasItem(caster, soulStone) and GetItemTypeId(soulStone) != 0 then
-                call TasItemBagAddItem(caster, soulStone, false)
-            endif
-        endif
-
-        set CreateSoulStoneAddCaster[i] = null
-        set CreateSoulStoneAddItem[i] = null
-        set i = i + 1
-    endloop
-
-    set CreateSoulStoneAddCount = 0
-    set caster = null
-    set soulStone = null
-endfunction
-
-function CreateSoulStoneQueueAdd takes unit caster, item soulStone returns nothing
-    if caster == null or soulStone == null or GetItemTypeId(soulStone) == 0 then
-        return
-    endif
-
-    set CreateSoulStoneAddCount = CreateSoulStoneAddCount + 1
-    set CreateSoulStoneAddCaster[CreateSoulStoneAddCount] = caster
-    set CreateSoulStoneAddItem[CreateSoulStoneAddCount] = soulStone
-    call TimerStart(CreateSoulStoneAddTimer, 0.01, false, function CreateSoulStoneFinishAdd)
-
-    set caster = null
-    set soulStone = null
-endfunction
 
 function CreateSoulStoneFindStorageSlot takes integer bagArrayBase, item searchedItem returns integer
     local integer storageSlot = 1
@@ -96,13 +32,41 @@ function CreateSoulStoneCountEmptyExtraSlots takes integer bagArrayBase returns 
     return emptySlots
 endfunction
 
-function CreateSoulStoneHasStorageForSpend takes integer bagArrayBase, item shard, item oldSoulStone, integer chargesLeft returns boolean
+function CreateSoulStoneHasNativeSlotForNew takes unit caster, item shard, item oldSoulStone returns boolean
+    local integer slot = 0
+    local item slotItem
+    if caster == null then
+        return false
+    endif
+    loop
+        exitwhen slot >= UnitInventorySize(caster)
+        set slotItem = UnitItemInSlot(caster, slot)
+        if slotItem == null or slotItem == shard or slotItem == oldSoulStone then
+            set slotItem = null
+            set caster = null
+            set shard = null
+            set oldSoulStone = null
+            return true
+        endif
+        set slot = slot + 1
+    endloop
+    set slotItem = null
+    set caster = null
+    set shard = null
+    set oldSoulStone = null
+    return false
+endfunction
+
+function CreateSoulStoneHasStorageForSpend takes unit caster, integer bagArrayBase, item shard, item oldSoulStone, integer chargesLeft returns boolean
     local integer availableSlots = CreateSoulStoneCountEmptyExtraSlots(bagArrayBase)
     local integer shardSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, shard)
     local integer oldSoulStoneSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, oldSoulStone)
-    local integer requiredSlots = 1
+    local integer requiredSlots = 0
 
     if chargesLeft > 0 then
+        set requiredSlots = requiredSlots + 1
+    endif
+    if not CreateSoulStoneHasNativeSlotForNew(caster, shard, oldSoulStone) then
         set requiredSlots = requiredSlots + 1
     endif
     if shardSlot > 12 then
@@ -123,114 +87,68 @@ function CreateSoulStoneRemoveTrackedShard takes integer bagArrayBase, item shar
     call RemoveItem(shard)
 endfunction
 
-// Runs the side-effecting half of Create Soulstone for every entry that was
-// queued during this game tick. Fires off a 0.0s timer so all the
-// CreateItem/RemoveItem/TasItemBag work happens OUTSIDE the SPELL_CAST event
-// frame. Debug("SS:...") instrumentation prints to all players when udg_Debug
-// is on; comparing the last line each client saw isolates the divergence
-// point if a desync still occurs.
-function CreateSoulStoneRunDeferred takes nothing returns nothing
-    local integer i = 1
-    local unit caster
-    local player p
-    local integer playerKey
-    local integer chargesLeft
-    local item shard
-    local item oldSoulStone
-    local item remainderShard
-    local item newSoulStone
+function CreateSoulStoneStoreNew takes unit caster, item soulStone returns nothing
+    local boolean added = false
+    if caster != null and soulStone != null and GetItemTypeId(soulStone) != 0 then
+        set udg_dontDepositIntoBag = true
+        set added = UnitAddItem(caster, soulStone)
+        set udg_dontDepositIntoBag = false
 
-    loop
-        exitwhen i > CreateSoulStoneDeferCount
-        set caster = CreateSoulStoneDeferCaster[i]
-        set p = CreateSoulStoneDeferPlayer[i]
-        set playerKey = CreateSoulStoneDeferPlayerKey[i]
-        set chargesLeft = CreateSoulStoneDeferChargesLeft[i]
-        set shard = CreateSoulStoneDeferShard[i]
-        set oldSoulStone = CreateSoulStoneDeferOldSS[i]
-        set remainderShard = null
-        set newSoulStone = null
-
-        call DebugLog("SS:01 deferred run entry=" + I2S(i) + " playerKey=" + I2S(playerKey) + " chargesLeft=" + I2S(chargesLeft) + " shard=" + I2S(GetHandleId(shard)) + " oldSS=" + I2S(GetHandleId(oldSoulStone)))
-
-        if caster != null and shard != null and GetItemTypeId(shard) != 0 then
-            call CreateSoulStoneRemoveTrackedShard(playerKey, shard)
-            call DebugLog("SS:02 after RemoveTrackedShard")
-
-            if chargesLeft > 0 then
-                call DebugLog("SS:03 creating remainder shard")
-                set remainderShard = CreateItem('I08E', GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-                call DebugLog("SS:04 remainder id=" + I2S(GetHandleId(remainderShard)))
-                if remainderShard != null then
-                    call SetItemCharges(remainderShard, chargesLeft)
-                    call DebugLog("SS:05 before TasItemBagAddItem(remainder)")
-                    call TasItemBagAddItem(caster, remainderShard, false)
-                    call DebugLog("SS:06 after TasItemBagAddItem(remainder)")
-                endif
-            endif
-
-            call DebugLog("SS:07 before AddSpecialEffect")
-            call AddSpecialEffectTargetUnitBJ("overhead", caster, "war3mapImported\\Void Disc.mdx")
-            call DestroyEffectBJ(GetLastCreatedEffectBJ())
-            call DebugLog("SS:08 after DestroyEffect")
-
-            if oldSoulStone != null and GetItemTypeId(oldSoulStone) != 0 then
-                call DebugLog("SS:09 removing old soulstone id=" + I2S(GetHandleId(oldSoulStone)))
-                if not TasItemBagRemoveItem(caster, oldSoulStone, false) and UnitHasItem(caster, oldSoulStone) then
-                    call DebugLog("SS:09a UnitRemoveItem fallback")
-                    call UnitRemoveItem(caster, oldSoulStone)
-                endif
-                call RemoveItem(oldSoulStone)
-                call DebugLog("SS:10 after RemoveItem(oldSoulStone)")
-            endif
-
-            call DebugLog("SS:11 creating probe soulstone item rawcode=" + I2S(CREATE_SOULSTONE_ITEM_ID))
-            set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-            call DebugLog("SS:12 probe soulstone id=" + I2S(GetHandleId(newSoulStone)))
-            if newSoulStone != null then
-                call DebugLog("SS:13 before TasItemBagAddItem(probeSoulstone)")
-                call TasItemBagAddItem(caster, newSoulStone, false)
-                call DebugLog("SS:14 after TasItemBagAddItem(probeSoulstone)")
-            endif
-
-            if caster == udg_yA_Demon_Warlock then
-                set udg_yA_DEMO_SS = newSoulStone
-            elseif caster == udg_yH_Demon_Warlock then
-                set udg_yH_DEMO_SS = newSoulStone
-            endif
-            call DebugLog("SS:15 after global SS assignment")
-
-            call CreateTextTagUnitBJ("Soulstone probe item created", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
-            call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
-            call cleanUpText(1.25, 0.75)
-            call DebugLog("SS:16 success branch complete")
+        if not added and GetItemTypeId(soulStone) != 0 then
+            call TasItemBagAddItem(caster, soulStone, false)
         endif
+    endif
 
-        set CreateSoulStoneDeferCaster[i] = null
-        set CreateSoulStoneDeferPlayer[i] = null
-        set CreateSoulStoneDeferShard[i] = null
-        set CreateSoulStoneDeferOldSS[i] = null
-        set i = i + 1
-    endloop
-
-    set CreateSoulStoneDeferCount = 0
     set caster = null
-    set p = null
-    set shard = null
-    set oldSoulStone = null
-    set remainderShard = null
-    set newSoulStone = null
+    set soulStone = null
 endfunction
 
-function CreateSoulStoneEnqueueDeferred takes unit caster, player p, integer playerKey, integer chargesLeft, item shard, item oldSoulStone returns nothing
-    set CreateSoulStoneDeferCount = CreateSoulStoneDeferCount + 1
-    set CreateSoulStoneDeferCaster[CreateSoulStoneDeferCount] = caster
-    set CreateSoulStoneDeferPlayer[CreateSoulStoneDeferCount] = p
-    set CreateSoulStoneDeferPlayerKey[CreateSoulStoneDeferCount] = playerKey
-    set CreateSoulStoneDeferChargesLeft[CreateSoulStoneDeferCount] = chargesLeft
-    set CreateSoulStoneDeferShard[CreateSoulStoneDeferCount] = shard
-    set CreateSoulStoneDeferOldSS[CreateSoulStoneDeferCount] = oldSoulStone
-    call TimerStart(CreateSoulStoneDeferTimer, 0.00, false, function CreateSoulStoneRunDeferred)
+function CreateSoulStoneSpendAndCreate takes unit caster, integer playerKey, integer chargesLeft, item shard, item oldSoulStone returns nothing
+    local item remainderShard = null
+    local item newSoulStone = null
+
+    if caster != null and shard != null and GetItemTypeId(shard) != 0 then
+        call CreateSoulStoneRemoveTrackedShard(playerKey, shard)
+
+        if chargesLeft > 0 then
+            set remainderShard = CreateItem('I08E', GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+            if remainderShard != null then
+                call SetItemCharges(remainderShard, chargesLeft)
+                call TasItemBagAddItem(caster, remainderShard, false)
+            endif
+        endif
+
+        call AddSpecialEffectTargetUnitBJ("overhead", caster, "war3mapImported\\Void Disc.mdx")
+        call DestroyEffectBJ(GetLastCreatedEffectBJ())
+
+        if oldSoulStone != null and GetItemTypeId(oldSoulStone) != 0 then
+            if not TasItemBagRemoveItem(caster, oldSoulStone, false) and UnitHasItem(caster, oldSoulStone) then
+                call UnitRemoveItem(caster, oldSoulStone)
+            endif
+            call RemoveItem(oldSoulStone)
+        endif
+
+        set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+        if newSoulStone != null then
+            call CreateSoulStoneStoreNew(caster, newSoulStone)
+        endif
+
+        if caster == udg_yA_Demon_Warlock then
+            set udg_yA_DEMO_SS = newSoulStone
+        elseif caster == udg_yH_Demon_Warlock then
+            set udg_yH_DEMO_SS = newSoulStone
+        endif
+
+        call CreateTextTagUnitBJ("Soulstone created", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
+        call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
+        call cleanUpText(1.25, 0.75)
+    endif
+
+    set remainderShard = null
+    set newSoulStone = null
+    set caster = null
+    set shard = null
+    set oldSoulStone = null
 endfunction
 
 function Trig_Create_Soul_Stone_Conditions takes nothing returns boolean
@@ -282,18 +200,13 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Not enough Soul Shards.", p)
-    elseif not CreateSoulStoneHasStorageForSpend(playerKey, shard, oldSoulStone, chargesLeft) then
+    elseif not CreateSoulStoneHasStorageForSpend(caster, playerKey, shard, oldSoulStone, chargesLeft) then
         set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Bag is full.", p)
     else
-        // Defer the entire success branch to a 0.0s timer so all
-        // CreateItem/RemoveItem/TasItemBagAddItem work runs OUTSIDE the
-        // SPELL_CAST event frame. shard / oldSoulStone are captured by handle
-        // and consumed in the deferred function.
-        call DebugLog("SS:00 enqueue deferred playerKey=" + I2S(playerKey) + " shardSlot=" + I2S(slot) + " chargesLeft=" + I2S(chargesLeft) + " shard=" + I2S(GetHandleId(shard)) + " oldSS=" + I2S(GetHandleId(oldSoulStone)))
-        call CreateSoulStoneEnqueueDeferred(caster, p, playerKey, chargesLeft, shard, oldSoulStone)
+        call CreateSoulStoneSpendAndCreate(caster, playerKey, chargesLeft, shard, oldSoulStone)
         set shard = null
         set oldSoulStone = null
     endif

@@ -25,10 +25,10 @@ library GenericFunctions
     endfunction
 
     // Flushes the stored log lines to disk. Cost: rewrites the whole file.
-    // Called from the periodic 0.10s timer below, not from each DebugLog call.
+    // Called from the periodic debug timer below, not from each DebugLog call.
     function DebugLogFlush takes nothing returns nothing
         local integer i = 1
-        if not DebugLogDirty then
+        if not udg_Debug or not DebugLogDirty then
             return
         endif
         set DebugLogDirty = false
@@ -86,10 +86,9 @@ library GenericFunctions
         set DebugLogLines[1] = "=== DesyncLog start ==="
         set DebugLogDirty = true
         call DebugLogFlush()
-        // Arm the periodic flush timer. 0.10s is fast enough that a desync
-        // banner's countdown will catch the latest tail before the game ends,
-        // and slow enough that we don't clobber rapid back-to-back writes.
-        call TimerStart(DebugLogFlushTimer, 0.10, true, function DebugLogPeriodicFlush)
+        // Arm the periodic flush timer only for debug sessions. This rewrites
+        // the whole file, so keep it opt-in through DebugLog's udg_Debug gate.
+        call TimerStart(DebugLogFlushTimer, 0.50, true, function DebugLogPeriodicFlush)
     endfunction
 
     // Appends one tagged line to the persistent log AND prints it on screen
@@ -98,6 +97,9 @@ library GenericFunctions
     // back-to-back PreloadGenEnd writes.
     function DebugLog takes string str returns nothing
         local string line
+        if not udg_Debug then
+            return
+        endif
         if not DebugLogInited then
             set DebugLogInited = true
             call DebugLogInitPerPlayer()

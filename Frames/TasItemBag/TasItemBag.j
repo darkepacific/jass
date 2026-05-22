@@ -681,7 +681,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer currentPage
         local integer arrIndex
         set UIUpdateScheduled = false
-        call DebugLog("TIBU:01 UpdateUI start")
 
         set pId = 0
         loop
@@ -696,7 +695,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 set p = null
                 set hero = null
             else
-                call DebugLog("TIBU:02 pId=" + I2S(pId) + " hero=" + I2S(GetHandleId(hero)) + " page=" + I2S(udg_Bag_Page[GetPlayerNumber(p)]))
                 call WarnWhenPagesBecomeFull(p)
 
                 set itemCount = 0
@@ -715,7 +713,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                     set slotIndex = slotIndex + 1
                 endloop
-                call DebugLog("TIBU:03 pId=" + I2S(pId) + " extraCount=" + I2S(itemCount))
 
                 set currentPage = 1
                 loop
@@ -739,17 +736,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endloop
                     set currentPage = currentPage + 1
                 endloop
-                call DebugLog("TIBU:04 pId=" + I2S(pId) + " pageSweepDone")
 
-                call DebugLog("TIBU:05 pId=" + I2S(pId) + " beforeRenderGate")
                 if GetLocalPlayer() == p then
                     call RenderBagFramesForPlayer(p)
                 endif
-                call DebugLog("TIBU:06 pId=" + I2S(pId) + " afterRenderGate")
             endif
             set pId = pId + 1
         endloop
-        call DebugLog("TIBU:07 UpdateUI end")
 
         set it = null
         set p = null
@@ -760,10 +753,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function RequestUIUpdate takes nothing returns nothing
         if not UIUpdateScheduled then
             set UIUpdateScheduled = true
-            call DebugLog("TIBU:00 schedule UpdateUI")
             call TimerStart(TimerUpdate, 0.00, false, function UpdateUI)
-        else
-            call DebugLog("TIBU:00b UpdateUI already scheduled")
         endif
     endfunction
 
