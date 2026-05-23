@@ -1079,34 +1079,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return 0
     endfunction
 
-    function TasItemBagHasFreeSlotForReplacement takes player p, item replacedItem returns boolean
-        local integer playerKey
-        local integer slot = 1
-        local integer arrIndex
-        if p == null then
-            return false
-        endif
-        if not BagEnabledForPlayer(p) then
-            return false
-        endif
-        set playerKey = GetPlayerId(p)
-        if BagNextEmptySlot(playerKey) > 0 then
-            return true
-        endif
-        if replacedItem == null then
-            return false
-        endif
-        loop
-            exitwhen slot > PITEMS_EXTRA_SLOTS
-            set arrIndex = BagSlotArrayIndex(playerKey, slot)
-            if udg_P_Items[arrIndex] == replacedItem then
-                return true
-            endif
-            set slot = slot + 1
-        endloop
-        return false
-    endfunction
-
     function IsStackableType takes item i returns boolean
         if i == null then
             return false
@@ -1518,12 +1490,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // active page slots, while preserving the map's compacting page-load behavior.
     //
     // Native acquire/loss side effects are suppressed during the rebuild because the
-    // items have not actually been gained or lost; allowing AcquireItemHandler /
-    // LoseItemHandler to fire would double-mutate DeathCap, Warmogs, Banshees,
-    // udg_PrevBONUSInt, and trigger redundant orb-swap executions. After the rebuild
-    // we explicitly recompute the active page entries of udg_P_Items from the unit's
-    // native inventory slots so state is deterministic and does not depend on
-    // event re-entry.
+    // rebuild itself is synthetic. Callers manually apply the meaningful active-page
+    // acquire/loss side effects exactly once around the rebuild.
     private function SyncCurrentPageInventory takes player p returns nothing
         local integer playerNum = GetPlayerNumber(p)
         local unit hero = udg_Heroes[playerNum]
@@ -1539,7 +1507,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        call Debug("SyncCurrentPageInventory begin: player=" + I2S(playerNum) + " page=" + I2S(currentPage))
         set prevSuppress = AcquireAndLoseItemHandler_PageRebuildSuppress
         set AcquireAndLoseItemHandler_PageRebuildSuppress = true
 
@@ -1606,7 +1573,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call EnableTrigger(gg_trg_Firestone_Dropped)
         call EnableTrigger(gg_trg_Firestone_Acquired)
         set AcquireAndLoseItemHandler_PageRebuildSuppress = prevSuppress
-        call Debug("SyncCurrentPageInventory end: player=" + I2S(playerNum))
         call RemoveLocation(itemIsland)
         set itemIsland = null
         set currentItem = null
@@ -1628,6 +1594,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local boolean aIsActive
         local boolean bIsActive
         local unit hero
+        local item acquireCandidate = null
         if indexA <= 0 or indexB <= 0 or indexA > MAX_INTERACTIVE_SLOT or indexB > MAX_INTERACTIVE_SLOT or indexA == indexB then
             return false
         endif
@@ -1640,6 +1607,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set i2 = udg_P_Items[b]
         set aIsActive = IsActivePageSlot(playerKey, indexA)
         set bIsActive = IsActivePageSlot(playerKey, indexB)
+
+        if aIsActive and not bIsActive and i2 != null then
+            set acquireCandidate = i2
+        elseif bIsActive and not aIsActive and i != null then
+            set acquireCandidate = i
+        endif
 
         // Auto-merge matching stacks on any swap (intuitive: same item + swap = combine).
         if i != null and i2 != null then
@@ -1661,6 +1634,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     endif
                     set i = null
                     set i2 = null
+                    set acquireCandidate = null
                     call RequestUIUpdate()
                     return true
                 else
@@ -1695,10 +1669,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         if aIsActive or bIsActive then
             call SyncCurrentPageInventory(GetOwningPlayer(u))
+            if acquireCandidate != null and UnitHasItem(u, acquireCandidate) and GetItemType(acquireCandidate) != ITEM_TYPE_POWERUP and GetItemTypeId(acquireCandidate) != 'I07W' then
+                call AcquireItemHandler(u, acquireCandidate)
+            endif
         endif
 
         set i = null
         set i2 = null
+        set acquireCandidate = null
         call RequestUIUpdate()
         return true
     endfunction

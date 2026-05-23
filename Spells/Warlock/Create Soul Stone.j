@@ -224,7 +224,6 @@ function CreateSoulStoneConfigureItem takes item soulStone, integer abilityLevel
 
     if soulStone != null and GetItemTypeId(soulStone) != 0 then
         if soulstonePower == 2 then
-            call BlzItemAddAbilityBJ(soulStone, 'AIrc')
             call BlzItemAddAbilityBJ(soulStone, 'AIx2')
         elseif soulstonePower == 4 then
             call BlzItemAddAbilityBJ(soulStone, 'A0DP')
@@ -338,7 +337,7 @@ endfunction
 //===========================================================================
 function InitTrig_Create_Soul_Stone takes nothing returns nothing
     set gg_trg_Create_Soul_Stone = CreateTrigger(  )
-    call TriggerRegisterAnyUnitEventBJ( gg_trg_Create_Soul_Stone, EVENT_PLAYER_UNIT_SPELL_CAST )
+    call TriggerRegisterAnyUnitEventBJ( gg_trg_Create_Soul_Stone, EVENT_PLAYER_UNIT_SPELL_EFFECT )
     call TriggerAddCondition( gg_trg_Create_Soul_Stone, Condition( function Trig_Create_Soul_Stone_Conditions ) )
     call TriggerAddAction( gg_trg_Create_Soul_Stone, function Trig_Create_Soul_Stone_Actions )
 endfunction
