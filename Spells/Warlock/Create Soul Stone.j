@@ -224,7 +224,7 @@ function CreateSoulStoneConfigureItem takes item soulStone, integer abilityLevel
 
     if soulStone != null and GetItemTypeId(soulStone) != 0 then
         if soulstonePower == 2 then
-            call BlzItemAddAbilityBJ(soulStone, 'Alrc')
+            call BlzItemAddAbilityBJ(soulStone, 'AIrc')
             call BlzItemAddAbilityBJ(soulStone, 'AIx2')
         elseif soulstonePower == 4 then
             call BlzItemAddAbilityBJ(soulStone, 'A0DP')
