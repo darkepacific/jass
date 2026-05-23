@@ -1,7 +1,8 @@
 globals
     // Temporary non-ankh soulstone item. Swap this to the dedicated custom
     // soulstone rawcode once it exists in the object editor.
-    constant integer CREATE_SOULSTONE_ITEM_ID = 'I06M'
+    constant integer CREATE_SOULSTONE_ITEM_ID = 'I0SS'
+    constant integer CREATE_SOULSTONE_SHARD_MAX_CHARGES = 20
 endglobals
 
 function CreateSoulStoneFindStorageSlot takes integer bagArrayBase, item searchedItem returns integer
@@ -19,72 +20,185 @@ function CreateSoulStoneFindStorageSlot takes integer bagArrayBase, item searche
     return 0
 endfunction
 
-function CreateSoulStoneCountEmptyExtraSlots takes integer bagArrayBase returns integer
-    local integer storageSlot = 13
-    local integer emptySlots = 0
+function CreateSoulStoneFindMergeShard takes integer playerKey, item shard returns item
+    local integer slot = 1
+    local item mergeShard = null
+
     loop
-        exitwhen storageSlot > 36
-        if udg_P_Items[bagArrayBase + storageSlot] == null then
-            set emptySlots = emptySlots + 1
+        exitwhen slot > 36
+        set mergeShard = udg_P_Items[playerKey + slot]
+        if mergeShard != null and mergeShard != shard and GetItemTypeId(mergeShard) == 'I08E' then
+            return mergeShard
         endif
-        set storageSlot = storageSlot + 1
+        set mergeShard = null
+        set slot = slot + 1
     endloop
-    return emptySlots
+
+    return null
 endfunction
 
-function CreateSoulStoneHasNativeSlotForNew takes unit caster, item shard, item oldSoulStone returns boolean
+function CreateSoulStoneWillRemoveMergeShard takes item shard, item mergeShard, integer reqCharges returns boolean
+    local integer chargesLeft
+    local integer mergeSpace
+    if shard == null or mergeShard == null or GetItemTypeId(shard) == 0 or GetItemTypeId(mergeShard) == 0 then
+        return false
+    endif
+
+    set chargesLeft = GetItemCharges(shard) - reqCharges
+    set mergeSpace = CREATE_SOULSTONE_SHARD_MAX_CHARGES - chargesLeft
+    return chargesLeft > 0 and mergeSpace > 0 and GetItemCharges(mergeShard) > 0 and GetItemCharges(mergeShard) <= mergeSpace
+endfunction
+
+function CreateSoulStoneHasNativeSlotAfterSpend takes unit caster, item shard, item oldSoulStone, item mergeShard, boolean removeShard, boolean removeMergeShard returns boolean
     local integer slot = 0
-    local item slotItem
+    local item slotItem = null
+
     if caster == null then
         return false
     endif
+
     loop
         exitwhen slot >= UnitInventorySize(caster)
         set slotItem = UnitItemInSlot(caster, slot)
-        if slotItem == null or slotItem == shard or slotItem == oldSoulStone then
+        if slotItem == null or slotItem == oldSoulStone or (removeShard and slotItem == shard) or (removeMergeShard and slotItem == mergeShard) then
             set slotItem = null
-            set caster = null
-            set shard = null
-            set oldSoulStone = null
             return true
         endif
         set slot = slot + 1
     endloop
+
     set slotItem = null
-    set caster = null
-    set shard = null
-    set oldSoulStone = null
     return false
 endfunction
 
-function CreateSoulStoneHasStorageForSpend takes unit caster, integer bagArrayBase, item shard, item oldSoulStone, integer chargesLeft returns boolean
-    local integer availableSlots = CreateSoulStoneCountEmptyExtraSlots(bagArrayBase)
-    local integer shardSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, shard)
-    local integer oldSoulStoneSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, oldSoulStone)
-    local integer requiredSlots = 0
+function CreateSoulStoneHasExtraSlotAfterSpend takes integer playerKey, item shard, item oldSoulStone, item mergeShard, boolean removeShard, boolean removeMergeShard returns boolean
+    local integer slot = 13
+    local integer storageSlot
 
-    if chargesLeft > 0 then
-        set requiredSlots = requiredSlots + 1
-    endif
-    if not CreateSoulStoneHasNativeSlotForNew(caster, shard, oldSoulStone) then
-        set requiredSlots = requiredSlots + 1
-    endif
-    if shardSlot > 12 then
-        set availableSlots = availableSlots + 1
-    endif
-    if oldSoulStoneSlot > 12 and oldSoulStoneSlot != shardSlot then
-        set availableSlots = availableSlots + 1
+    loop
+        exitwhen slot > 36
+        if udg_P_Items[playerKey + slot] == null then
+            return true
+        endif
+        set slot = slot + 1
+    endloop
+
+    set storageSlot = CreateSoulStoneFindStorageSlot(playerKey, oldSoulStone)
+    if storageSlot > 12 then
+        return true
     endif
 
-    return availableSlots >= requiredSlots
+    if removeShard then
+        set storageSlot = CreateSoulStoneFindStorageSlot(playerKey, shard)
+        if storageSlot > 12 then
+            return true
+        endif
+    endif
+
+    if removeMergeShard then
+        set storageSlot = CreateSoulStoneFindStorageSlot(playerKey, mergeShard)
+        if storageSlot > 12 then
+            return true
+        endif
+    endif
+
+    return false
 endfunction
 
-function CreateSoulStoneRemoveTrackedShard takes integer bagArrayBase, item shard returns nothing
-    local integer storageSlot = CreateSoulStoneFindStorageSlot(bagArrayBase, shard)
-    if storageSlot > 0 then
-        set udg_P_Items[bagArrayBase + storageSlot] = null
+function CreateSoulStoneHasStorageForNew takes unit caster, integer playerKey, item shard, item oldSoulStone, integer reqCharges returns boolean
+    local integer chargesLeft = GetItemCharges(shard) - reqCharges
+    local item mergeShard = null
+    local boolean removeShard = chargesLeft <= 0
+    local boolean removeMergeShard = false
+
+    if not removeShard then
+        set mergeShard = CreateSoulStoneFindMergeShard(playerKey, shard)
+        set removeMergeShard = CreateSoulStoneWillRemoveMergeShard(shard, mergeShard, reqCharges)
     endif
-    call RemoveItem(shard)
+
+    if CreateSoulStoneHasNativeSlotAfterSpend(caster, shard, oldSoulStone, mergeShard, removeShard, removeMergeShard) then
+        set mergeShard = null
+        return true
+    endif
+
+    if CreateSoulStoneHasExtraSlotAfterSpend(playerKey, shard, oldSoulStone, mergeShard, removeShard, removeMergeShard) then
+        set mergeShard = null
+        return true
+    endif
+
+    set mergeShard = null
+    return false
+endfunction
+
+function CreateSoulStoneRemoveItem takes unit caster, item whichItem returns nothing
+    if whichItem != null and GetItemTypeId(whichItem) != 0 then
+        if not TasItemBagRemoveItem(caster, whichItem, false) and UnitHasItem(caster, whichItem) then
+            call UnitRemoveItem(caster, whichItem)
+        endif
+        call RemoveItem(whichItem)
+    endif
+
+    set caster = null
+    set whichItem = null
+endfunction
+
+function CreateSoulStoneMergeLeftoverShard takes unit caster, integer playerKey, item shard, integer chargesLeft returns nothing
+    local integer slot = 1
+    local integer mergeSpace
+    local integer mergeCharges
+    local integer movedCharges
+    local item mergeShard = null
+
+    loop
+        exitwhen slot > 36 or shard == null
+        set mergeShard = udg_P_Items[playerKey + slot]
+        if mergeShard != null and mergeShard != shard and GetItemTypeId(mergeShard) == 'I08E' then
+            set mergeSpace = CREATE_SOULSTONE_SHARD_MAX_CHARGES - chargesLeft
+            if mergeSpace > 0 then
+                set mergeCharges = GetItemCharges(mergeShard)
+                if mergeCharges > 0 then
+                    if mergeCharges > mergeSpace then
+                        set movedCharges = mergeSpace
+                    else
+                        set movedCharges = mergeCharges
+                    endif
+                    call SetItemCharges(shard, chargesLeft + movedCharges)
+                    set chargesLeft = chargesLeft + movedCharges
+                    set mergeCharges = mergeCharges - movedCharges
+                    if mergeCharges <= 0 then
+                        call CreateSoulStoneRemoveItem(caster, mergeShard)
+                    else
+                        call SetItemCharges(mergeShard, mergeCharges)
+                    endif
+                endif
+            endif
+            exitwhen true
+        endif
+        set mergeShard = null
+        set slot = slot + 1
+    endloop
+
+    set mergeShard = null
+    set caster = null
+    set shard = null
+endfunction
+
+function CreateSoulStoneSpendShard takes unit caster, integer playerKey, item shard, integer reqCharges returns nothing
+    local integer chargesLeft
+
+    if shard != null and GetItemTypeId(shard) != 0 then
+        call SetItemCharges(shard, GetItemCharges(shard) - reqCharges)
+        set chargesLeft = GetItemCharges(shard)
+
+        if chargesLeft <= 0 then
+            call CreateSoulStoneRemoveItem(caster, shard)
+        else
+            call CreateSoulStoneMergeLeftoverShard(caster, playerKey, shard, chargesLeft)
+        endif
+    endif
+
+    set caster = null
+    set shard = null
 endfunction
 
 function CreateSoulStoneStoreNew takes unit caster, item soulStone returns nothing
@@ -103,52 +217,37 @@ function CreateSoulStoneStoreNew takes unit caster, item soulStone returns nothi
     set soulStone = null
 endfunction
 
-function CreateSoulStoneSpendAndCreate takes unit caster, integer playerKey, integer chargesLeft, item shard, item oldSoulStone returns nothing
-    local item remainderShard = null
-    local item newSoulStone = null
+function CreateSoulStoneConfigureItem takes item soulStone, integer abilityLevel returns nothing
+    local integer soulstonePower = abilityLevel * 2
+    local integer reviveLife = 300 + (150 * soulstonePower)
+    local string tooltipText = ""
 
-    if caster != null and shard != null and GetItemTypeId(shard) != 0 then
-        call CreateSoulStoneRemoveTrackedShard(playerKey, shard)
-
-        if chargesLeft > 0 then
-            set remainderShard = CreateItem('I08E', GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-            if remainderShard != null then
-                call SetItemCharges(remainderShard, chargesLeft)
-                call TasItemBagAddItem(caster, remainderShard, false)
-            endif
+    if soulStone != null and GetItemTypeId(soulStone) != 0 then
+        if soulstonePower == 2 then
+            call BlzItemAddAbilityBJ(soulStone, 'Alrc')
+            call BlzItemAddAbilityBJ(soulStone, 'AIx2')
+        elseif soulstonePower == 4 then
+            call BlzItemAddAbilityBJ(soulStone, 'A0DP')
+            call BlzItemAddAbilityBJ(soulStone, 'AIx4')
+        elseif soulstonePower == 6 then
+            call BlzItemAddAbilityBJ(soulStone, 'A0DQ')
+            call BlzItemAddAbilityBJ(soulStone, 'A0CO')
+        elseif soulstonePower == 8 then
+            call BlzItemAddAbilityBJ(soulStone, 'A0DR')
+            call BlzItemAddAbilityBJ(soulStone, 'A0DU')
+        elseif soulstonePower == 10 then
+            call BlzItemAddAbilityBJ(soulStone, 'A0DT')
+            call BlzItemAddAbilityBJ(soulStone, 'A0DV')
         endif
 
-        call AddSpecialEffectTargetUnitBJ("overhead", caster, "war3mapImported\\Void Disc.mdx")
-        call DestroyEffectBJ(GetLastCreatedEffectBJ())
-
-        if oldSoulStone != null and GetItemTypeId(oldSoulStone) != 0 then
-            if not TasItemBagRemoveItem(caster, oldSoulStone, false) and UnitHasItem(caster, oldSoulStone) then
-                call UnitRemoveItem(caster, oldSoulStone)
-            endif
-            call RemoveItem(oldSoulStone)
-        endif
-
-        set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
-        if newSoulStone != null then
-            call CreateSoulStoneStoreNew(caster, newSoulStone)
-        endif
-
-        if caster == udg_yA_Demon_Warlock then
-            set udg_yA_DEMO_SS = newSoulStone
-        elseif caster == udg_yH_Demon_Warlock then
-            set udg_yH_DEMO_SS = newSoulStone
-        endif
-
-        call CreateTextTagUnitBJ("Soulstone created", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
-        call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
-        call cleanUpText(1.25, 0.75)
+        set tooltipText = "+" + I2S(soulstonePower) + " Strength " + I2S(soulstonePower) + " Agility " + I2S(soulstonePower) + " Intelligence|n|n+|cc00FFFFF" + I2S(soulstonePower) + "% Cooldown Reduction|r"
+        set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies."
+        call BlzSetItemDescription(soulStone, tooltipText)
+        call BlzSetItemExtendedTooltip(soulStone, tooltipText)
     endif
 
-    set remainderShard = null
-    set newSoulStone = null
-    set caster = null
-    set shard = null
-    set oldSoulStone = null
+    set tooltipText = null
+    set soulStone = null
 endfunction
 
 function Trig_Create_Soul_Stone_Conditions takes nothing returns boolean
@@ -160,12 +259,12 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
     local integer abilityLevel = GetUnitAbilityLevelSwapped('A039', GetTriggerUnit())
     local integer playerKey
     local integer slot = 1
-    local integer chargesLeft = 0
     local integer manaRefund
     local unit caster = GetTriggerUnit()
     local player p = GetOwningPlayer(caster)
     local item shard = null
     local item oldSoulStone = null
+    local item newSoulStone = null
 
     if udg_TalentChoices[GetPlayerId(p) * udg_NUM_OF_TC + 10] then
         set reqCharges = 6
@@ -191,27 +290,46 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         set oldSoulStone = udg_yH_DEMO_SS
     endif
 
-    if shard != null then
-        set chargesLeft = GetItemCharges(shard) - reqCharges
-    endif
-
     if shard == null then
         set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Not enough Soul Shards.", p)
-    elseif not CreateSoulStoneHasStorageForSpend(caster, playerKey, shard, oldSoulStone, chargesLeft) then
+    elseif not CreateSoulStoneHasStorageForNew(caster, playerKey, shard, oldSoulStone, reqCharges) then
         set manaRefund = BlzGetAbilityManaCost('A039', abilityLevel - 1)
         call IssueImmediateOrderBJ(caster, "stop")
         call SetUnitManaBJ(caster, GetUnitStateSwap(UNIT_STATE_MANA, caster) + I2R(manaRefund))
         call ErrorMessage("Bag is full.", p)
     else
-        call CreateSoulStoneSpendAndCreate(caster, playerKey, chargesLeft, shard, oldSoulStone)
-        set shard = null
-        set oldSoulStone = null
+        call CreateSoulStoneSpendShard(caster, playerKey, shard, reqCharges)
+
+        call AddSpecialEffectTargetUnitBJ("overhead", caster, "war3mapImported\\Void Disc.mdx")
+        call DestroyEffectBJ(GetLastCreatedEffectBJ())
+
+        call CreateSoulStoneRemoveItem(caster, oldSoulStone)
+
+        set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+        if newSoulStone != null then
+            call CreateSoulStoneStoreNew(caster, newSoulStone)
+        endif
+
+        if caster == udg_yA_Demon_Warlock then
+            set udg_yA_DEMO_SS = newSoulStone
+        elseif caster == udg_yH_Demon_Warlock then
+            set udg_yH_DEMO_SS = newSoulStone
+        endif
+
+        call CreateSoulStoneConfigureItem(newSoulStone, abilityLevel)
+        call CreateTextTagUnitBJ("Soulstone Created!", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
+        call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
+        call SetTextTagLifespan(GetLastCreatedTextTag(), 1.25)
+        call cleanUpText(1.25, 0.75)
+
+        call TasItemBag_RequestUIUpdate()
     endif
 
     set oldSoulStone = null
+    set newSoulStone = null
     set shard = null
     set p = null
     set caster = null
