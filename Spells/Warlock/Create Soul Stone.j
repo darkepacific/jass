@@ -12,6 +12,24 @@ function CreateSoulStoneRemoveTrackedItem takes unit caster, item whichItem retu
     set caster = null
 endfunction
 
+function CreateSoulStoneDebugAddAbility takes item whichItem, integer abilityId, string abilityName returns nothing
+    if whichItem == null or GetItemTypeId(whichItem) == 0 then
+        call Debug("Soulstone ability add skipped: " + abilityName + " invalid item")
+        set whichItem = null
+        set abilityName = null
+        return
+    endif
+
+    if BlzItemAddAbility(whichItem, abilityId) then
+        call Debug("Soulstone ability add ok: " + abilityName)
+    else
+        call Debug("Soulstone ability add failed: " + abilityName + " on " + GetItemName(whichItem))
+    endif
+
+    set whichItem = null
+    set abilityName = null
+endfunction
+
 function Trig_Create_Soul_Stone_Conditions takes nothing returns boolean
     if ( not ( GetSpellAbilityId() == 'A039' ) ) then
         return false
@@ -114,7 +132,7 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
             call CreateSoulStoneRemoveTrackedItem(caster, oldSoulStone)
         endif
 
-        set newSoulStone = CreateItem('ankh', GetUnitX(caster), GetUnitY(caster))
+        set newSoulStone = CreateItem('I0AL', GetUnitX(caster), GetUnitY(caster))
 
         if caster == udg_yA_Demon_Warlock then
             set udg_yA_DEMO_SS = newSoulStone
@@ -125,20 +143,17 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
         set abilityLevel = abilityLevel * 2
         if newSoulStone != null then
             if abilityLevel == 2 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'AIrc')
-                call BlzItemAddAbilityBJ(newSoulStone, 'AIx2')
+                call CreateSoulStoneDebugAddAbility(newSoulStone, 'AIx2', "AIx2")
             elseif abilityLevel == 4 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DP')
-                call BlzItemAddAbilityBJ(newSoulStone, 'AIx4')
+                call CreateSoulStoneDebugAddAbility(newSoulStone, 'AIx4', "AIx4")
             elseif abilityLevel == 6 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DQ')
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0CO')
+                call CreateSoulStoneDebugAddAbility(newSoulStone, 'A0CO', "A0CO")
             elseif abilityLevel == 8 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DR')
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DU')
+                call CreateSoulStoneDebugAddAbility(newSoulStone, 'A0DU', "A0DU")
             elseif abilityLevel == 10 then
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DT')
-                call BlzItemAddAbilityBJ(newSoulStone, 'A0DV')
+                call CreateSoulStoneDebugAddAbility(newSoulStone, 'A0DV', "A0DV")
+            else
+                call Debug("Soulstone ability add skipped: unexpected power " + I2S(abilityLevel))
             endif
 
             set reviveLife = 300 + (150 * abilityLevel)
