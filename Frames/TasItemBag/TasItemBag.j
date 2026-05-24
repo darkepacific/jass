@@ -79,8 +79,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIClose
         public trigger TriggerUIBagButton
         public trigger TriggerUIWheel
-        public trigger TriggerUIEquip
-        public trigger TriggerUIDrop
         public trigger TriggerUISwap
         public trigger TriggerUISell
         public trigger TriggerUISplit
@@ -1888,107 +1886,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return returnValue
     endfunction
 
-    private function ItemBag2Equip takes player p, item i returns nothing
-        local unit u = udg_Heroes[GetPlayerNumber(p)]
-        local integer pId = GetPlayerId(p)
-        local integer bagIndex = TransferIndex[pId]
-        local integer arrIndex
-        local integer maxCharges
-        local integer incomingCharges
-        local integer existingCharges
-        local integer space
-        local integer addCharges
-        local integer slot
-        local item invItem
-
-        // Inventory Full?
-        if UnitInventoryCount(u) >= UnitInventorySize(u) then
-            // If inventory is full, still try to merge charged consumables into an existing stack.
-            // This matches WC3's natural behavior when adding/picking up charged items.
-            if i != null and IsStackableType(i) and GetItemCharges(i) > 0 then
-                set maxCharges = 20
-                set incomingCharges = GetItemCharges(i)
-                if incomingCharges > maxCharges then
-                    set incomingCharges = maxCharges
-                endif
-                set slot = 0
-                loop
-                    exitwhen slot >= bj_MAX_INVENTORY or incomingCharges <= 0
-                    set invItem = UnitItemInSlot(u, slot)
-                    if invItem != null and IsStackableType(invItem) and GetItemTypeId(invItem) == GetItemTypeId(i) then
-                        set existingCharges = GetItemCharges(invItem)
-                        if existingCharges < 0 then
-                            set existingCharges = 0
-                        endif
-                        if existingCharges < maxCharges then
-                            set space = maxCharges - existingCharges
-                            if incomingCharges > space then
-                                set addCharges = space
-                            else
-                                set addCharges = incomingCharges
-                            endif
-                            call SetItemCharges(invItem, existingCharges + addCharges)
-                            set incomingCharges = incomingCharges - addCharges
-                        endif
-                    endif
-                    set slot = slot + 1
-                endloop
-
-                // If we managed to merge anything, update the item accordingly.
-                if incomingCharges < GetItemCharges(i) then
-                    if incomingCharges <= 0 then
-                        // Fully absorbed into an inventory stack; remove the bag item entry and destroy it.
-                        if bagIndex <= 0 or TasItemBagGetItem(u, bagIndex) != i then
-                            set bagIndex = BagFindItemSlot(pId, i)
-                        endif
-                        if bagIndex > 0 then
-                            set arrIndex = SlotToArrayIndex(pId, bagIndex)
-                            set udg_P_Items[arrIndex] = null
-                        endif
-                        call RemoveItem(i)
-                    else
-                        // Partially absorbed; keep the item with remaining charges.
-                        call SetItemCharges(i, incomingCharges)
-                        // call SetItemVisible(i, false)
-                    endif
-                    call RequestUIUpdate()
-                    set invItem = null
-                    set u = null
-                    return
-                endif
-            endif
-
-            call PlayInventoryFullRaceSoundPlaceholder(GetOwningPlayer(u), u)
-            set invItem = null
-            set u = null
-            return
-        endif
-    
-        // unit can equip this, restrictions
-        if not UnitCanEquipItem(u, i) then
-            return
-        endif
-     
-        // Make the item visible and place it at the hero before equipping
-        // call SetItemVisible(i, true)
-        call SetItemPosition(i, GetUnitX(u), GetUnitY(u))
-        call Debug("Item to be equipped from Bag: " + GetItemName(i) + GetUnitName(u))
-
-        set udg_dontDepositIntoBag = true
-        if UnitAddItem(u, i) then
-            // Clear the bag slot by index; WC3 may merge charges and delete handles.
-            if bagIndex <= 0 or TasItemBagGetItem(u, bagIndex) != i then
-                set bagIndex = BagFindItemSlot(pId, i)
-            endif
-            if bagIndex > 0 then
-                set arrIndex = SlotToArrayIndex(pId, bagIndex)
-                set udg_P_Items[arrIndex] = null
-            endif
-        endif
-        call RequestUIUpdate()
-        set u = null
-    endfunction
-
     // Moves the item in the given inventory slot into the player's bag
     private function DepositInventorySlot takes player p, integer slot returns nothing
         local unit hero = udg_Heroes[GetPlayerNumber(p)]
@@ -2552,7 +2449,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set data = null
     endfunction
 
-    private function RequestBagDropSync takes player p, integer bagIndex returns nothing
+    private function FindBagDropPayloadSeparator takes string data, integer start returns integer
+        local integer i = start
+        local integer dataLength = StringLength(data)
+        loop
+            exitwhen i >= dataLength
+            if SubString(data, i, i + 1) == "|" then
+                return i
+            endif
+            set i = i + 1
+        endloop
+        return -1
+    endfunction
+
+    private function RequestBagDropSync takes player p, integer bagIndex, real x, real y returns nothing
+        local string payload
         if p == null then
             return
         endif
@@ -2564,34 +2475,61 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if GetLocalPlayer() == p then
-            call BlzSendSyncData(BAG_DROP_SYNC_PREFIX, I2S(bagIndex))
+            set payload = I2S(bagIndex) + "|" + I2S(R2I(x)) + "|" + I2S(R2I(y))
+            call BlzSendSyncData(BAG_DROP_SYNC_PREFIX, payload)
         endif
+        set payload = null
     endfunction
 
     private function BagDropSyncAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId
         local string data = BlzGetTriggerSyncData()
+        local integer sepA
+        local integer sepB
+        local string bagText
+        local string xText
+        local string yText
         local integer bagIndex
-        local unit hero
+        local integer dropX
+        local integer dropY
 
-        if not BagEnabledForPlayer(p) or StringLength(data) <= 0 or StringLength(data) > 2 then
+        if not BagEnabledForPlayer(p) then
             set p = null
             set data = null
             return
         endif
 
-        set bagIndex = S2I(data)
-        if data != I2S(bagIndex) or bagIndex <= 0 or bagIndex > MAX_INTERACTIVE_SLOT then
+        set sepA = FindBagDropPayloadSeparator(data, 0)
+        set sepB = FindBagDropPayloadSeparator(data, sepA + 1)
+        if sepA <= 0 or sepB <= sepA + 1 or sepB >= StringLength(data) then
             set p = null
             set data = null
+            return
+        endif
+
+        set bagText = SubString(data, 0, sepA)
+        set xText = SubString(data, sepA + 1, sepB)
+        set yText = SubString(data, sepB + 1, StringLength(data))
+        set bagIndex = S2I(bagText)
+        set dropX = S2I(xText)
+        set dropY = S2I(yText)
+        if bagText != I2S(bagIndex) or xText != I2S(dropX) or yText != I2S(dropY) or bagIndex <= 0 or bagIndex > MAX_INTERACTIVE_SLOT then
+            set p = null
+            set data = null
+            set bagText = null
+            set xText = null
+            set yText = null
             return
         endif
 
         set pId = GetPlayerId(p)
-        set hero = udg_Heroes[GetPlayerNumber(p)]
-        if hero != null and TasItemBagRemoveIndex(hero, bagIndex, true) then
-            call PlayDropConfirmationEffect(p, GetUnitX(hero), GetUnitY(hero))
+        if StartWorldDropFromSelection(p, bagIndex, I2R(dropX), I2R(dropY)) then
+            set SwapIndex[pId] = 0
+            call SwapHighlightHide(pId)
+            set DragOriginType[pId] = 0
+            set DragOriginIndex[pId] = 0
+            set DragActive[pId] = false
         endif
 
         call SetSellHotkeyArmed(pId, false)
@@ -2603,33 +2541,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set SplitRequested[pId] = 0
         set SplitAmount[pId] = 0
 
-        set hero = null
         set p = null
         set data = null
-    endfunction
-
-    private function BagPopupActionDrop takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(p)
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-        endif
-
-        call RequestBagDropSync(p, TransferIndex[pId])
-        set p = null
-        call FrameLoseFocus()
-    endfunction
-
-    private function BagPopupActionEquip takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pId = GetPlayerId(GetTriggerPlayer())
-        call ItemBag2Equip(p, TransferItem[pId])
-        if GetLocalPlayer() == p then
-            call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
-            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-        endif
-        call FrameLoseFocus()
+        set bagText = null
+        set xText = null
+        set yText = null
     endfunction
 
     private function BagPopupActionSelect takes nothing returns nothing
@@ -3634,18 +3550,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         set clickShop = null
                     else
                         // No vendor — world drop at click point.
-                        if StartWorldDropFromSelection(p, SwapIndex[pId], BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY()) then
-                            set SwapIndex[pId] = 0
-                            call SwapHighlightHide(pId)
-                            if GetLocalPlayer() == p then
-                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
-                                call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
-                            endif
-                            set DragOriginType[pId] = 0
-                            set DragOriginIndex[pId] = 0
-                            set DragActive[pId] = false
-                            call FrameLoseFocus()
-                        endif
+                        call RequestBagDropSync(p, SwapIndex[pId], BlzGetTriggerPlayerMouseX(), BlzGetTriggerPlayerMouseY())
                     endif
                 endif
             endif
@@ -4307,13 +4212,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set TriggerUIBagButton = CreateTrigger()
         call TriggerAddAction(TriggerUIBagButton, function BagButtonAction)
-
-        // Legacy popup triggers (events registered in InitFrames after frames are created)
-        set TriggerUIEquip = CreateTrigger()
-        call TriggerAddAction(TriggerUIEquip, function BagPopupActionEquip)
-
-        set TriggerUIDrop = CreateTrigger()
-        call TriggerAddAction(TriggerUIDrop, function BagPopupActionDrop)
 
         set TriggerUISwap = CreateTrigger()
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSelect)

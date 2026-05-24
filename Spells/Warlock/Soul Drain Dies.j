@@ -113,6 +113,8 @@ function Trig_Soul_Drain_Dies_Actions takes nothing returns nothing
         if udg_TalentChoices[GetPlayerId(GetOwningPlayer(u)) * udg_NUM_OF_TC + 5] then
             call BlzEndUnitAbilityCooldown(u, 'A00D' )
         endif
+
+        call TasItemBag_RequestUIUpdate()
     endif
 
     set pt = null

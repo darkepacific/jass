@@ -1,12 +1,22 @@
 globals
-    // Custom soulstone item shell. Native revive item abilities are avoided;
-    // death/revival behavior belongs in the custom death trigger.
-    constant integer CREATE_SOULSTONE_ITEM_ID = 'I0AL'
     constant integer CREATE_SOULSTONE_SHARD_MAX_CHARGES = 20
     constant integer CREATE_SOULSTONE_PAGE_SLOTS = 6
     constant integer CREATE_SOULSTONE_EXTRA_FIRST_SLOT = 13
     constant integer CREATE_SOULSTONE_STORAGE_LAST_SLOT = 36
 endglobals
+
+function CreateSoulStoneItemId takes integer spellLevel returns integer
+    if spellLevel == 1 then
+        return 'I0AL'
+    elseif spellLevel == 2 then
+        return 'I0AM'
+    elseif spellLevel == 3 then
+        return 'I0AN'
+    elseif spellLevel == 4 then
+        return 'I0AO'
+    endif
+    return 'I0AP'
+endfunction
 
 function CreateSoulStoneOtherPage takes player p returns integer
     if udg_Bag_Page[GetPlayerNumber(p)] == 1 then
@@ -347,18 +357,6 @@ function CreateSoulStoneConfigureItem takes item soulStone, integer abilityLevel
     local string tooltipText = ""
 
     if soulStone != null and GetItemTypeId(soulStone) != 0 then
-        if soulstonePower == 2 then
-            call BlzItemAddAbilityBJ(soulStone, 'AIx2')
-        elseif soulstonePower == 4 then
-            call BlzItemAddAbilityBJ(soulStone, 'AIx4')
-        elseif soulstonePower == 6 then
-            call BlzItemAddAbilityBJ(soulStone, 'A0CO')
-        elseif soulstonePower == 8 then
-            call BlzItemAddAbilityBJ(soulStone, 'A0DU')
-        elseif soulstonePower == 10 then
-            call BlzItemAddAbilityBJ(soulStone, 'A0DV')
-        endif
-
         set tooltipText = "+" + I2S(soulstonePower) + " Strength " + I2S(soulstonePower) + " Agility " + I2S(soulstonePower) + " Intelligence|n|n+|cc00FFFFF" + I2S(soulstonePower) + "% Cooldown Reduction|r"
         set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies. |n|n|cff808080Soulstone must be in one of the two inventory pages to take effect and does not persist between save and load.|r"
         call BlzSetItemDescription(soulStone, tooltipText)
@@ -427,7 +425,7 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
 
         call CreateSoulStoneRemoveItem(caster, oldSoulStone)
 
-        set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
+        set newSoulStone = CreateItem(CreateSoulStoneItemId(abilityLevel), GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
         if newSoulStone != null then
             call CreateSoulStoneConfigureItem(newSoulStone, abilityLevel)
             call CreateSoulStoneStoreNew(caster, p, playerKey, newSoulStone)
