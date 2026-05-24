@@ -358,7 +358,7 @@ function CreateSoulStoneConfigureItem takes item soulStone, integer abilityLevel
 
     if soulStone != null and GetItemTypeId(soulStone) != 0 then
         set tooltipText = "+" + I2S(soulstonePower) + " Strength " + I2S(soulstonePower) + " Agility " + I2S(soulstonePower) + " Intelligence|n|n+|cc00FFFFF" + I2S(soulstonePower) + "% Cooldown Reduction|r"
-        set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies. |n|n|cff808080Soulstone must be in one of the two inventory pages to take effect and does not persist between save and load.|r"
+        set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies. |n|n|cff808080Soulstone must be in current inventory page on death to take effect and does not persist between save and load.|r"
         call BlzSetItemDescription(soulStone, tooltipText)
         call BlzSetItemExtendedTooltip(soulStone, tooltipText)
     endif

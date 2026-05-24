@@ -28,6 +28,7 @@ globals
     private timer RefreshTimer = null
     private integer array LastShownGold
     private integer array LastShownLumber
+    private boolean array AutoOpenedBagForShop
 
     public framehandle FrameBox
     public framehandle FrameParentSuper
@@ -122,6 +123,13 @@ private function ShopErrorMessage takes string message, player whichPlayer retur
         call StopSound(gg_snd_Error, false, false)
         call StartSound(gg_snd_Error)
     endif
+endfunction
+
+private function ShouldAutoOpenBagForShop takes unit shop returns boolean
+    if shop == null then
+        return false
+    endif
+    return FindIndex(StringCase(GetUnitName(shop), false), "vendor") >= 0
 endfunction
 // config ende
 
@@ -219,6 +227,16 @@ public function Show takes player p, unit shop returns nothing
         set oldShop = CurrentShop[playerIndex]
         set isNewShop = oldShop != shop
         set CurrentShop[playerIndex] = shop
+
+        if ShouldAutoOpenBagForShop(shop) then
+            if not TasItemBagIsOpenForPlayer(p) then
+                call TasItemBagOpenForPlayer(p)
+                set AutoOpenedBagForShop[playerIndex] = true
+            endif
+        elseif AutoOpenedBagForShop[playerIndex] then
+            call TasItemBagToggleForPlayer(p, true)
+            set AutoOpenedBagForShop[playerIndex] = false
+        endif
         
         if isNewShop then
             call TasButtonListClearDataEx(ButtonListIndex, playerIndex)
@@ -245,6 +263,10 @@ public function Show takes player p, unit shop returns nothing
         call UpdateTasButtonList(ButtonListIndex)
     else
         set CurrentShop[playerIndex] = null
+        if AutoOpenedBagForShop[playerIndex] then
+            call TasItemBagToggleForPlayer(p, true)
+            set AutoOpenedBagForShop[playerIndex] = false
+        endif
     endif
     call SyncDisplayedResources(p)
     set oldShop = null

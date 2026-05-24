@@ -3599,6 +3599,39 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call FrameLoseFocus()
     endfunction
 
+    function TasItemBagIsOpenForPlayer takes player p returns boolean
+        if p == null then
+            return false
+        endif
+        return BagEnabledForPlayer(p) and BagPanelOpen[GetPlayerId(p)]
+    endfunction
+
+    function TasItemBagOpenForPlayer takes player p returns nothing
+        local integer pId = 0
+        if p == null then
+            return
+        endif
+        if not BagEnabledForPlayer(p) then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        if BagPanelOpen[pId] then
+            return
+        endif
+
+        set SwapIndex[pId] = 0
+        call SwapHighlightHide(pId)
+        set TransferIndex[pId] = 0
+        set TransferItem[pId] = null
+        call SetSellHotkeyArmed(pId, false)
+        call RenderBagFramesForPlayer(p)
+        call SetBagPanelOpen(p, true)
+        call HideBagPopupPanels(p)
+        call RenderBagFramesForPlayer(p)
+        call FrameLoseFocus()
+    endfunction
+
     // Toggle the bag panel on OSKEY_X press
     // private function XKeyToggleAction takes nothing returns nothing
     //     call TasItemBagToggleForPlayer(GetTriggerPlayer(), false)
