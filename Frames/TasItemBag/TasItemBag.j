@@ -186,12 +186,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private unit array PickupIntentHero
         private item array PickupIntentItem
         private real array PickupIntentTimeLeft
+        private real array PickupIntentReliefStaleTime
         private boolean array PickupIntentProcessed
         private integer array PickupIntentOriginalPage
         private integer array PickupIntentSwitchPage
         private constant integer ORDER_ID_SMART = 851971
         private constant real PICKUP_INTENT_REACH = 250.0 // CHANGED THIS
         private constant real PICKUP_INTENT_TIMEOUT = 8.0  //CHANGED THIS
+        private constant real PICKUP_INTENT_RELIEF_STALE_DELAY = 2.00
         private constant real INVENTORY_HITBOX_PAD = 0.006
         private constant real INVENTORY_PANEL_HOVER_PAD = 0.018
         // Pickup relief mode:
@@ -1926,6 +1928,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentHero[pId] = null
         set PickupIntentItem[pId] = null
         set PickupIntentTimeLeft[pId] = 0.0
+        set PickupIntentReliefStaleTime[pId] = 0.0
         set PickupIntentProcessed[pId] = false
         set PickupIntentOriginalPage[pId] = 0
         set PickupIntentSwitchPage[pId] = 0
@@ -2003,6 +2006,34 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
+    private function PickupIntentShouldUseImmediateRelief takes unit hero returns boolean
+        return PickupIntentUseImmediateRelief and not IsInCombat(hero)
+    endfunction
+
+    private function RestorePlayerIntendedPageForPlayer takes player p, unit u returns boolean
+        local integer pId
+        local integer playerNum
+        local integer currentPage
+        local integer intendedPage
+
+        if p == null or u == null then
+            return false
+        endif
+
+        set pId = GetPlayerId(p)
+        set playerNum = GetPlayerHeroNumber(p)
+        set currentPage = udg_Bag_Page[playerNum]
+        set intendedPage = MPInventoryGetPlayerIntendedPage(p)
+        if intendedPage > 0 and currentPage != intendedPage then
+            if MPInventorySwitchToPage(p, intendedPage) then
+                call Debug("Auto-return to intended page: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(intendedPage))
+                return true
+            endif
+            return false
+        endif
+        return true
+    endfunction
+
     private function StartPickupIntent takes player p, unit hero, item targetItem returns nothing
         local integer pId = GetPlayerId(p)
         local integer playerNum = GetPlayerHeroNumber(p)
@@ -2032,14 +2063,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if PickupIntentActive[pId] and PickupIntentItem[pId] == targetItem then
             set PickupIntentHero[pId] = hero
             set PickupIntentTimeLeft[pId] = PICKUP_INTENT_TIMEOUT
+            set PickupIntentReliefStaleTime[pId] = 0.0
 
             set currentPage = udg_Bag_Page[playerNum]
-            if not PickupIntentProcessed[pId] and PickupIntentUseImmediateRelief then
+            if not PickupIntentProcessed[pId] and PickupIntentShouldUseImmediateRelief(hero) then
                 set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
                 if reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
                     call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
                     set PickupIntentProcessed[pId] = true
                     set PickupIntentSwitchPage[pId] = reliefPage
+                    set PickupIntentReliefStaleTime[pId] = 0.0
                     call Debug("Pickup intent refreshed relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
                 elseif reliefPage <= 0 then
                     if HandleBlockedPickupIntent(p, hero, targetItem) then
@@ -2056,6 +2089,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set PickupIntentHero[pId] = hero
         set PickupIntentItem[pId] = targetItem
         set PickupIntentTimeLeft[pId] = PICKUP_INTENT_TIMEOUT
+        set PickupIntentReliefStaleTime[pId] = 0.0
         set PickupIntentProcessed[pId] = false
         set PickupIntentOriginalPage[pId] = udg_Bag_Page[playerNum]
         set PickupIntentSwitchPage[pId] = 0
@@ -2064,12 +2098,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Optional immediate-first relief. For pure A2 testing keep this disabled.
         set currentPage = udg_Bag_Page[playerNum]
         set reliefPage = MPInventoryFindPageWithEmptySlot(p, currentPage)
-        if PickupIntentUseImmediateRelief and reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
+        if PickupIntentShouldUseImmediateRelief(hero) and reliefPage > 0 and MPInventorySwitchToPage(p, reliefPage) then
             call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
             set PickupIntentProcessed[pId] = true
             set PickupIntentSwitchPage[pId] = reliefPage
+            set PickupIntentReliefStaleTime[pId] = 0.0
             call Debug("Pickup intent immediate relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
-        elseif PickupIntentUseImmediateRelief and reliefPage <= 0 then
+        elseif PickupIntentShouldUseImmediateRelief(hero) and reliefPage <= 0 then
             call HandleBlockedPickupIntent(p, hero, targetItem)
         endif
     endfunction
@@ -2111,7 +2146,37 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 else
                     set PickupIntentTimeLeft[pId] = PickupIntentTimeLeft[pId] - 0.03
                     if PickupIntentTimeLeft[pId] <= 0.0 then
+                        if PickupIntentProcessed[pId] then
+                            call RestorePlayerIntendedPageForPlayer(p, hero)
+                        endif
                         call ClearPickupIntent(pId)
+                    elseif PickupIntentProcessed[pId] then
+                        set playerNum = GetPlayerHeroNumber(p)
+                        set currentPage = udg_Bag_Page[playerNum]
+                        set dx = GetUnitX(hero) - GetItemX(targetItem)
+                        set dy = GetUnitY(hero) - GetItemY(targetItem)
+                        set dist = SquareRoot(dx*dx + dy*dy)
+                        if currentPage == PickupIntentSwitchPage[pId] and IsInCombat(hero) then
+                            if dist <= PICKUP_INTENT_REACH * 3.0 then
+                                set PickupIntentReliefStaleTime[pId] = 0.0
+                            else
+                                set PickupIntentReliefStaleTime[pId] = PickupIntentReliefStaleTime[pId] + 0.03
+                                if PickupIntentReliefStaleTime[pId] >= PICKUP_INTENT_RELIEF_STALE_DELAY then
+                                    if IsStunned(hero) or IsRooted(hero) or IsUnitPaused(hero) then
+                                        set PickupIntentReliefStaleTime[pId] = PICKUP_INTENT_RELIEF_STALE_DELAY
+                                    else
+                                        if RestorePlayerIntendedPageForPlayer(p, hero) then
+                                            call Debug("Pickup intent stale relief restored: player=" + I2S(pId) + ", page=" + I2S(currentPage))
+                                            call ClearPickupIntent(pId)
+                                        else
+                                            set PickupIntentReliefStaleTime[pId] = 0.0
+                                        endif
+                                    endif
+                                endif
+                            endif
+                        else
+                            set PickupIntentReliefStaleTime[pId] = 0.0
+                        endif
                     elseif (not PickupIntentProcessed[pId]) and UnitInventoryCount(hero) >= UnitInventorySize(hero) then
                         set dx = GetUnitX(hero) - GetItemX(targetItem)
                         set dy = GetUnitY(hero) - GetItemY(targetItem)
@@ -2124,6 +2189,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                                 call StartPickupWarningSuppression(pId, PICKUP_WARN_SUPPRESS_WINDOW)
                                 set PickupIntentProcessed[pId] = true
                                 set PickupIntentSwitchPage[pId] = reliefPage
+                                set PickupIntentReliefStaleTime[pId] = 0.0
                                 call Debug("Pickup intent relief switch: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(reliefPage))
                             elseif reliefPage <= 0 then
                                 call HandleBlockedPickupIntent(p, hero, targetItem)
@@ -2176,26 +2242,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function RestorePlayerIntendedPage takes unit u returns nothing
         local player p
-        local integer pId
-        local integer playerNum
-        local integer currentPage
-        local integer intendedPage
 
         if u == null then
             return
         endif
 
         set p = GetOwningPlayer(u)
-        set pId = GetPlayerId(p)
-        set playerNum = GetPlayerHeroNumber(p)
-        set currentPage = udg_Bag_Page[playerNum]
-        set intendedPage = MPInventoryGetPlayerIntendedPage(p)
-        if intendedPage > 0 and currentPage != intendedPage then
-            if MPInventorySwitchToPage(p, intendedPage) then
-                call Debug("Auto-return to intended page: player=" + I2S(pId) + ", page " + I2S(currentPage) + " -> " + I2S(intendedPage))
-            endif
-        endif
-
+        call RestorePlayerIntendedPageForPlayer(p, u)
         set p = null
     endfunction
 
