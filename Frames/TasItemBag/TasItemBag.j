@@ -95,6 +95,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private trigger TriggerUIInventoryPanelHover
         private trigger TriggerUIBagCloseSync
         private trigger TriggerUIBagInsertSync
+        private trigger TriggerUIBagDropSync
         private framehandle InventoryPanelHoverFrame
         private framehandle array InventoryHitbox
         private integer array InventoryHoverSlot
@@ -144,6 +145,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer HEARTSEEKER_BASE_STACKS = 15
         private constant string BAG_CLOSE_SYNC_PREFIX = "TIBC"
         private constant string BAG_INSERT_SYNC_PREFIX = "TIBI"
+        private constant string BAG_DROP_SYNC_PREFIX = "TIBD"
         private constant string TOOLTIP_SELL_ICON_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp"
         private constant real TOOLTIP_SELL_ICON_SIZE = 0.010
         private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f---------------------------------|r"
@@ -1528,7 +1530,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if currentItem != null then
                 call SetItemPositionLoc(currentItem, itemIsland)
                 // call SetItemVisible(currentItem, false)
-                call SetItemUserData(currentItem, 1)
             endif
             set slot = slot + 1
         endloop
@@ -2551,22 +2552,72 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set data = null
     endfunction
 
+    private function RequestBagDropSync takes player p, integer bagIndex returns nothing
+        if p == null then
+            return
+        endif
+        if not BagEnabledForPlayer(p) or not BagPanelOpen[GetPlayerId(p)] then
+            return
+        endif
+        if bagIndex <= 0 or bagIndex > MAX_INTERACTIVE_SLOT then
+            return
+        endif
+
+        if GetLocalPlayer() == p then
+            call BlzSendSyncData(BAG_DROP_SYNC_PREFIX, I2S(bagIndex))
+        endif
+    endfunction
+
+    private function BagDropSyncAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId
+        local string data = BlzGetTriggerSyncData()
+        local integer bagIndex
+        local unit hero
+
+        if not BagEnabledForPlayer(p) or StringLength(data) <= 0 or StringLength(data) > 2 then
+            set p = null
+            set data = null
+            return
+        endif
+
+        set bagIndex = S2I(data)
+        if data != I2S(bagIndex) or bagIndex <= 0 or bagIndex > MAX_INTERACTIVE_SLOT then
+            set p = null
+            set data = null
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set hero = udg_Heroes[GetPlayerNumber(p)]
+        if hero != null and TasItemBagRemoveIndex(hero, bagIndex, true) then
+            call PlayDropConfirmationEffect(p, GetUnitX(hero), GetUnitY(hero))
+        endif
+
+        call SetSellHotkeyArmed(pId, false)
+        call HideBagPopupPanels(p)
+        if TransferIndex[pId] == bagIndex then
+            set TransferIndex[pId] = 0
+            set TransferItem[pId] = null
+        endif
+        set SplitRequested[pId] = 0
+        set SplitAmount[pId] = 0
+
+        set hero = null
+        set p = null
+        set data = null
+    endfunction
+
     private function BagPopupActionDrop takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        local unit hero = udg_Heroes[GetPlayerNumber(p)]
         if GetLocalPlayer() == p then
             call BlzFrameSetVisible(BlzFrameGetParent(BlzGetTriggerFrame()), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
         endif
 
-        // Always operate on the triggering player's own bag/hero.
-        if hero != null then
-            if TasItemBagRemoveIndex(hero, TransferIndex[pId], true) then
-                call PlayDropConfirmationEffect(p, GetUnitX(hero), GetUnitY(hero))
-            endif
-        endif
-        set hero = null
+        call RequestBagDropSync(p, TransferIndex[pId])
+        set p = null
         call FrameLoseFocus()
     endfunction
 
@@ -4217,6 +4268,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             exitwhen i >= bj_MAX_PLAYER_SLOTS
         endloop
         call TriggerAddAction(TriggerUIBagInsertSync, function BagInventoryInsertSyncAction)
+
+        set TriggerUIBagDropSync = CreateTrigger()
+        set i = 0
+        loop
+            call BlzTriggerRegisterPlayerSyncEvent(TriggerUIBagDropSync, Player(i), BAG_DROP_SYNC_PREFIX, false)
+            set i = i + 1
+            exitwhen i >= bj_MAX_PLAYER_SLOTS
+        endloop
+        call TriggerAddAction(TriggerUIBagDropSync, function BagDropSyncAction)
 
         // Listen for page changes from MultiPageInventorySystem
         call TriggerAddAction(PageChangedTrigger, function PageChangedAction)

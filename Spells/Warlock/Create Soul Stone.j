@@ -296,14 +296,24 @@ endfunction
 // Mirrors CreateSoulStoneHasStorageForNew after shard/old-soulstone removal.
 function CreateSoulStoneStoreNew takes unit caster, player p, integer playerKey, item soulStone returns nothing
     local boolean added = false
+    local boolean prevDontDeposit = false
+    local boolean prevSuppress = false
     local integer otherPage
     local integer pageSlot
     local integer extraSlot
 
     if caster != null and p != null and soulStone != null and GetItemTypeId(soulStone) != 0 then
+        set prevDontDeposit = udg_dontDepositIntoBag
+        set prevSuppress = AcquireAndLoseItemHandler_PageRebuildSuppress
         set udg_dontDepositIntoBag = true
+        set AcquireAndLoseItemHandler_PageRebuildSuppress = true
         set added = UnitAddItem(caster, soulStone)
-        set udg_dontDepositIntoBag = false
+        set AcquireAndLoseItemHandler_PageRebuildSuppress = prevSuppress
+        set udg_dontDepositIntoBag = prevDontDeposit
+
+        if added and UnitHasItem(caster, soulStone) then
+            call AcquireItemHandler(caster, soulStone)
+        endif
 
         if not added and GetItemTypeId(soulStone) != 0 then
             set otherPage = CreateSoulStoneOtherPage(p)
@@ -337,17 +347,17 @@ function CreateSoulStoneConfigureItem takes item soulStone, integer abilityLevel
     local string tooltipText = ""
 
     if soulStone != null and GetItemTypeId(soulStone) != 0 then
-        if soulstonePower == 2 then
-            call BlzItemAddAbilityBJ(soulStone, 'AIx2')
-        elseif soulstonePower == 4 then
-            call BlzItemAddAbilityBJ(soulStone, 'AIx4')
-        elseif soulstonePower == 6 then
-            call BlzItemAddAbilityBJ(soulStone, 'A0CO')
-        elseif soulstonePower == 8 then
-            call BlzItemAddAbilityBJ(soulStone, 'A0DU')
-        elseif soulstonePower == 10 then
-            call BlzItemAddAbilityBJ(soulStone, 'A0DV')
-        endif
+        // if soulstonePower == 2 then
+        //     call BlzItemAddAbilityBJ(soulStone, 'AIx2')
+        // elseif soulstonePower == 4 then
+        //     call BlzItemAddAbilityBJ(soulStone, 'AIx4')
+        // elseif soulstonePower == 6 then
+        //     call BlzItemAddAbilityBJ(soulStone, 'A0CO')
+        // elseif soulstonePower == 8 then
+        //     call BlzItemAddAbilityBJ(soulStone, 'A0DU')
+        // elseif soulstonePower == 10 then
+        //     call BlzItemAddAbilityBJ(soulStone, 'A0DV')
+        // endif
 
         set tooltipText = "+" + I2S(soulstonePower) + " Strength " + I2S(soulstonePower) + " Agility " + I2S(soulstonePower) + " Intelligence|n|n+|cc00FFFFF" + I2S(soulstonePower) + "% Cooldown Reduction|r"
         set tooltipText = tooltipText + "|n|n|c00CC44FFNon-Stacking Passive:|r  Automatically brings the Hero back to life with " + I2S(reviveLife) + " hit points when the Hero dies. |n|n|cff808080Soulstone must be in one of the two inventory pages to take effect and does not persist between save and load.|r"
@@ -419,6 +429,7 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
 
         set newSoulStone = CreateItem(CREATE_SOULSTONE_ITEM_ID, GetRectCenterX(gg_rct_ISLAND_ITEMS), GetRectCenterY(gg_rct_ISLAND_ITEMS))
         if newSoulStone != null then
+            call CreateSoulStoneConfigureItem(newSoulStone, abilityLevel)
             call CreateSoulStoneStoreNew(caster, p, playerKey, newSoulStone)
         endif
 
@@ -428,7 +439,6 @@ function Trig_Create_Soul_Stone_Actions takes nothing returns nothing
             set udg_yH_DEMO_SS = newSoulStone
         endif
 
-        call CreateSoulStoneConfigureItem(newSoulStone, abilityLevel)
         call CreateTextTagUnitBJ("Soulstone Created!", caster, 0.00, 9.00, 80.00, 40.00, 100.00, 0)
         call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 90.00)
         call SetTextTagLifespan(GetLastCreatedTextTag(), 1.25)
