@@ -193,7 +193,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer ORDER_ID_SMART = 851971
         private constant real PICKUP_INTENT_REACH = 250.0 // CHANGED THIS
         private constant real PICKUP_INTENT_TIMEOUT = 8.0  //CHANGED THIS
-        private constant real PICKUP_INTENT_RELIEF_STALE_DELAY = 2.00
+        private constant real PICKUP_INTENT_RELIEF_STALE_DELAY = 2.50
         private constant real INVENTORY_HITBOX_PAD = 0.006
         private constant real INVENTORY_PANEL_HOVER_PAD = 0.018
         // Pickup relief mode:
@@ -2007,7 +2007,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function PickupIntentShouldUseImmediateRelief takes unit hero returns boolean
-        return PickupIntentUseImmediateRelief and not IsInCombat(hero)
+        return PickupIntentUseImmediateRelief
     endfunction
 
     private function RestorePlayerIntendedPageForPlayer takes player p, unit u returns boolean
@@ -2153,24 +2153,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     elseif PickupIntentProcessed[pId] then
                         set playerNum = GetPlayerHeroNumber(p)
                         set currentPage = udg_Bag_Page[playerNum]
-                        set dx = GetUnitX(hero) - GetItemX(targetItem)
-                        set dy = GetUnitY(hero) - GetItemY(targetItem)
-                        set dist = SquareRoot(dx*dx + dy*dy)
                         if currentPage == PickupIntentSwitchPage[pId] and IsInCombat(hero) then
-                            if dist <= PICKUP_INTENT_REACH * 3.0 then
-                                set PickupIntentReliefStaleTime[pId] = 0.0
-                            else
-                                set PickupIntentReliefStaleTime[pId] = PickupIntentReliefStaleTime[pId] + 0.03
-                                if PickupIntentReliefStaleTime[pId] >= PICKUP_INTENT_RELIEF_STALE_DELAY then
-                                    if IsStunned(hero) or IsRooted(hero) or IsUnitPaused(hero) then
-                                        set PickupIntentReliefStaleTime[pId] = PICKUP_INTENT_RELIEF_STALE_DELAY
+                            set PickupIntentReliefStaleTime[pId] = PickupIntentReliefStaleTime[pId] + 0.03
+                            if PickupIntentReliefStaleTime[pId] >= PICKUP_INTENT_RELIEF_STALE_DELAY then
+                                if IsStunned(hero) or IsRooted(hero) or IsUnitPaused(hero) then
+                                    set PickupIntentReliefStaleTime[pId] = PICKUP_INTENT_RELIEF_STALE_DELAY
+                                else
+                                    if RestorePlayerIntendedPageForPlayer(p, hero) then
+                                        call Debug("Pickup intent stale relief restored: player=" + I2S(pId) + ", page=" + I2S(currentPage))
+                                        call ClearPickupIntent(pId)
                                     else
-                                        if RestorePlayerIntendedPageForPlayer(p, hero) then
-                                            call Debug("Pickup intent stale relief restored: player=" + I2S(pId) + ", page=" + I2S(currentPage))
-                                            call ClearPickupIntent(pId)
-                                        else
-                                            set PickupIntentReliefStaleTime[pId] = 0.0
-                                        endif
+                                        set PickupIntentReliefStaleTime[pId] = 0.0
                                     endif
                                 endif
                             endif
