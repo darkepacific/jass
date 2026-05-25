@@ -3957,6 +3957,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle depButton
 
         set panel = BlzCreateFrameByType("BUTTON", "TasItemBagPanel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
+        call BlzFrameSetLevel(panel, 3)
         call BlzFrameSetAbsPoint(panel, Pos, PosX, PosY)
         call BlzFrameSetAllPoints(BlzCreateFrame("TasItemBagBox", panel, 0, 0), panel)
 

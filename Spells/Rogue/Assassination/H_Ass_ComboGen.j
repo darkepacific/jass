@@ -1,103 +1,56 @@
-function Trig_H_Ass_ComboGen_Func003Func003C takes nothing returns boolean
-    if ( ( GetSpellAbilityId() == 'A0AM' ) ) then
+function Trig_H_Ass_ComboGen_IsComboGenerator takes integer abilityId returns boolean
+    if abilityId == 'A0AM' then // Shadowstep (Acid)
         return true
-    endif
-    if ( ( GetSpellAbilityId() == 'A09J' ) ) then
+    elseif abilityId == 'A09J' then // Garrote
         return true
-    endif
-    if ( ( GetSpellAbilityId() == 'AEfk' ) ) then
+    elseif abilityId == 'AEfk' then // Fan of Knives
         return true
-    endif
-    if ( ( GetSpellAbilityId() == 'A06M' ) ) then
+    elseif abilityId == 'A06M' then // Smoke Bomb (Max)
         return true
-    endif
-    if ( ( GetSpellAbilityId() == 'A04S' ) ) then
+    elseif abilityId == 'A04S' then // Sap
         return true
     endif
     return false
 endfunction
 
-function Trig_H_Ass_ComboGen_Func003C takes nothing returns boolean
-    if ( not ( GetSpellAbilityUnit() == udg_yH_Ass_Rogue ) ) then
-        return false
-    endif
-    if ( not ( udg_HAssEviscerate == true ) ) then
-        return false
-    endif
-    if ( not Trig_H_Ass_ComboGen_Func003Func003C() ) then
-        return false
-    endif
-    return true
-endfunction
-
 function Trig_H_Ass_ComboGen_Conditions takes nothing returns boolean
-    if ( not Trig_H_Ass_ComboGen_Func003C() ) then
-        return false
-    endif
-    return true
+    return GetSpellAbilityUnit() == udg_yH_Ass_Rogue and udg_HAssEviscerate and Trig_H_Ass_ComboGen_IsComboGenerator(GetSpellAbilityId())
 endfunction
 
-function Trig_H_Ass_ComboGen_Func004C takes nothing returns boolean
-    if ( not ( udg_HAssComboPoints == 0.00 ) ) then
-        return false
-    endif
-    return true
+function Trig_H_Ass_ComboGen_ShowOrb takes unit hero, integer orbIndex, string attachmentPoint returns nothing
+    call DestroyEffectBJ(udg_HAssComboEffects[orbIndex])
+    call AddSpecialEffectTargetUnitBJ(attachmentPoint, hero, "RedSpellOrb.mdx")
+    call BlzSetSpecialEffectScale(GetLastCreatedEffectBJ(), 0.18)
+    set udg_HAssComboEffects[orbIndex] = GetLastCreatedEffectBJ()
 endfunction
 
-function Trig_H_Ass_ComboGen_Func005C takes nothing returns boolean
-    if ( not ( udg_HAssComboPoints == 1.00 ) ) then
-        return false
-    endif
-    return true
-endfunction
-
-function Trig_H_Ass_ComboGen_Func006C takes nothing returns boolean
-    if ( not ( udg_HAssComboPoints == 2.00 ) ) then
-        return false
-    endif
-    return true
-endfunction
-
-function Trig_H_Ass_ComboGen_Func007C takes nothing returns boolean
-    if ( not ( udg_HAssComboPoints < 3.00 ) ) then
-        return false
-    endif
-    return true
+function Trig_H_Ass_ComboGen_ShowText takes unit hero returns nothing
+    call CreateTextTagUnitBJ("TRIGSTR_5703", hero, 10.00, 8.00, 100, 100, 0.00, 0)
+    call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 0.00)
+    call SetTextTagPermanentBJ(GetLastCreatedTextTag(), false)
+    call SetTextTagLifespanBJ(GetLastCreatedTextTag(), 1.00)
+    call SetTextTagFadepointBJ(GetLastCreatedTextTag(), 0.50)
+    call ShowTextTagForceBJ(true, GetLastCreatedTextTag(), udg_HordePlayers)
 endfunction
 
 function Trig_H_Ass_ComboGen_Actions takes nothing returns nothing
-    set udg_Temp_Unit = udg_yH_Ass_Rogue
-    if ( Trig_H_Ass_ComboGen_Func004C() ) then
-        call DestroyEffectBJ( udg_HAssComboEffects[0] )
-        call AddSpecialEffectTargetUnitBJ( "overhead", udg_Temp_Unit, "RedSpellOrb.mdx" )
-        call BlzSetSpecialEffectScale( GetLastCreatedEffectBJ(), 0.18 )
-        set udg_HAssComboEffects[0] = GetLastCreatedEffectBJ()
-    else
+    local unit hero = udg_yH_Ass_Rogue
+
+    if udg_HAssComboPoints == 0.00 then
+        call Trig_H_Ass_ComboGen_ShowOrb(hero, 0, "overhead")
+    elseif udg_HAssComboPoints == 1.00 then
+        call Trig_H_Ass_ComboGen_ShowOrb(hero, 1, "right hand")
+    elseif udg_HAssComboPoints == 2.00 then
+        call Trig_H_Ass_ComboGen_ShowOrb(hero, 2, "left hand")
     endif
-    if ( Trig_H_Ass_ComboGen_Func005C() ) then
-        call DestroyEffectBJ( udg_HAssComboEffects[1] )
-        call AddSpecialEffectTargetUnitBJ( "right hand", udg_Temp_Unit, "RedSpellOrb.mdx" )
-        call BlzSetSpecialEffectScale( GetLastCreatedEffectBJ(), 0.18 )
-        set udg_HAssComboEffects[1] = GetLastCreatedEffectBJ()
-    else
+
+    if udg_HAssComboPoints < 3.00 then
+        call Trig_H_Ass_ComboGen_ShowText(hero)
+        set udg_HAssComboPoints = udg_HAssComboPoints + 1.00
     endif
-    if ( Trig_H_Ass_ComboGen_Func006C() ) then
-        call DestroyEffectBJ( udg_HAssComboEffects[2] )
-        call AddSpecialEffectTargetUnitBJ( "left hand", udg_Temp_Unit, "RedSpellOrb.mdx" )
-        call BlzSetSpecialEffectScale( GetLastCreatedEffectBJ(), 0.18 )
-        set udg_HAssComboEffects[2] = GetLastCreatedEffectBJ()
-    else
-    endif
-    if ( Trig_H_Ass_ComboGen_Func007C() ) then
-        call CreateTextTagUnitBJ( "TRIGSTR_5703", udg_Temp_Unit, 10.00, 8.00, 100, 100, 0.00, 0 )
-        call SetTextTagVelocityBJ( GetLastCreatedTextTag(), 64, 0.00 )
-        call SetTextTagPermanentBJ( GetLastCreatedTextTag(), false )
-        call SetTextTagLifespanBJ( GetLastCreatedTextTag(), 1.00 )
-        call SetTextTagFadepointBJ( GetLastCreatedTextTag(), 0.50 )
-        call ShowTextTagForceBJ( true, GetLastCreatedTextTag(), udg_HordePlayers )
-        set udg_HAssComboPoints = ( udg_HAssComboPoints + 1 )
-    else
-    endif
+
+    call ComboPointFrameSetPoints(hero, udg_HAssComboPoints)
+    set hero = null
 endfunction
 
 //===========================================================================

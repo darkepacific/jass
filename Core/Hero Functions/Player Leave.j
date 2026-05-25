@@ -13,6 +13,7 @@ function Trig_Player_Leave_Actions takes nothing returns nothing
     call SetUnitOwner(hero, Player(GetPlayerNeutralPassive()), true )
     call SetUnitPositionLoc(hero, pt )
     call RemoveLocation(pt)
+    call ComboPointFrameDisableForPlayer(GetTriggerPlayer())
     call PlayerReturnToHeroSelection(GetTriggerPlayer())
     
     //Wait just to be safe

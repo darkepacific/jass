@@ -75,6 +75,7 @@ function Trig_REROLL_Actions takes nothing returns nothing
             call MPInventorySetInterfaceVisible(p, false)
             call TasItemBagSetShowButtonVisible(p, false)
             call TasItemBagToggleForPlayer(p, true)
+            call ComboPointFrameDisableForPlayer(p)
             // Hide Item Shop if open
             call TasItemShopLite_Show(p, null)
             if GetLocalPlayer() == p then

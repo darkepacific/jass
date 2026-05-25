@@ -1,4 +1,4 @@
-library HeroSelectionCallbacks requires HeroSelection, StartingPoint
+library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPointFrame
 
 	globals
 
@@ -88,6 +88,7 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint
     			// -------------------
 				call MPInventorySetInterfaceVisible(whichPlayer, true)
 				call TasItemBagSetShowButtonVisible(whichPlayer, true)
+				call ComboPointFrameEnableForHero(playerHero[pid])
 
 
 			else

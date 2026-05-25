@@ -355,6 +355,7 @@ function Load_GUI takes nothing returns nothing
     // Class Specific Conditionals  
     // -------------------  
     call TurnOnComboGen(createdUnit) 
+    call ComboPointFrameEnableForHero(createdUnit)
     // -------------------
 
     call saveCode.destroy() 
