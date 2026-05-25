@@ -5,9 +5,9 @@ library ComboPointFrame initializer Init
         private constant real ORB_SIZE = 0.022
         private constant real ORB_GAP = 0.004
         private constant real ANCHOR_X = 0.400
-        private constant real ANCHOR_Y = 0.100
-        private constant string ROGUE_ORB_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNOrbOfFire.blp"
-        private constant string PRIEST_ORB_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNOrbOfDarkness.blp"
+        private constant real ANCHOR_Y = 0.158
+        private constant string ROGUE_ORB_TEXTURE = "ComboPoints\\combo_point_red.blp"
+        private constant string PRIEST_ORB_TEXTURE = "ComboPoints\\combo_point_purple.blp"
 
         private framehandle parentFrame = null
         private framehandle array orbFrame
