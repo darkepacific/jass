@@ -1,3 +1,24 @@
+function ComboGenTextForce takes unit u returns force
+    if u == udg_yA_Subtle_Rogue or u == udg_yA_Combat_Rogue or u == udg_yA_Ass_Rogue then
+        return udg_AlliancePlayers
+    endif
+    return udg_HordePlayers
+endfunction
+
+function ComboGenShowText takes unit hero, integer comboPointsGenerated returns nothing
+    local string text = "+" + I2S(comboPointsGenerated) + " Combo Point"
+
+    if comboPointsGenerated != 1 then
+        set text = text + "s"
+    endif
+
+    call CreateTextTagUnitBJ(text, hero, 10.00, 8.00, 100, 100, 0.00, 0)
+    call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 0.00)
+    call SetTextTagPermanentBJ(GetLastCreatedTextTag(), false)
+    call CleanUpText(1.00, 0.50)
+    call ShowTextTagForceBJ(true, GetLastCreatedTextTag(), ComboGenTextForce(hero))
+endfunction
+
 function SetComboGen takes unit u, boolean b returns nothing 
     if u != null then 
         if(u == udg_yA_Subtle_Rogue) then 
@@ -13,10 +34,10 @@ function SetComboGen takes unit u, boolean b returns nothing
             set udg_UREviscerate = b 
         endif 
         if(u == udg_yA_Ass_Rogue) then 
-            set udg_HAssEviscerate = b 
+            set udg_AAssEviscerate = b 
         endif 
         if(u == udg_yH_Ass_Rogue) then 
-            set udg_AAssEviscerate = b 
+            set udg_HAssEviscerate = b 
         endif 
     endif 
 endfunction 

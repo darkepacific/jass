@@ -24,15 +24,6 @@ function Trig_A_Ass_ComboGen_ShowOrb takes unit hero, integer orbIndex, string a
     set udg_AAssComboEffects[orbIndex] = GetLastCreatedEffectBJ()
 endfunction
 
-function Trig_A_Ass_ComboGen_ShowText takes unit hero returns nothing
-    call CreateTextTagUnitBJ("TRIGSTR_5785", hero, 10.00, 8.00, 100, 100, 0.00, 0)
-    call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 64, 0.00)
-    call SetTextTagPermanentBJ(GetLastCreatedTextTag(), false)
-    call SetTextTagLifespanBJ(GetLastCreatedTextTag(), 1.00)
-    call SetTextTagFadepointBJ(GetLastCreatedTextTag(), 0.50)
-    call ShowTextTagForceBJ(true, GetLastCreatedTextTag(), udg_AlliancePlayers)
-endfunction
-
 function Trig_A_Ass_ComboGen_Actions takes nothing returns nothing
     local unit hero = udg_yA_Ass_Rogue
 
@@ -45,7 +36,7 @@ function Trig_A_Ass_ComboGen_Actions takes nothing returns nothing
     endif
 
     if udg_AAssComboPoints < 3.00 then
-        call Trig_A_Ass_ComboGen_ShowText(hero)
+        call ComboGenShowText(hero, 1)
         set udg_AAssComboPoints = udg_AAssComboPoints + 1.00
     endif
 

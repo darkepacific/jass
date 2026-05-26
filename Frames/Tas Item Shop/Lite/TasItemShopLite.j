@@ -15,6 +15,7 @@ easier use wrappers
 globals
     public boolean AutoRun = true //(true) will create Itself at 0s, (false) you need to InitSpellView()
     public string TocPath = "war3mapImported\\Templates.toc"    
+    private constant integer SHOP_FRAME_LEVEL = 4
     
     public trigger TriggerSelect
     public trigger TriggerESC
@@ -357,13 +358,17 @@ public function InitFrames takes nothing returns nothing
     set parent = ParentFunc()
     // super
     set FrameParentSuper = BlzCreateFrameByType("FRAME", "TasItemShopUI", parent, "", 0)
+    call BlzFrameSetLevel(FrameParentSuper, SHOP_FRAME_LEVEL)
     set FrameBox = BlzCreateFrameByType("BACKDROP", "TasItemShopUIBox", FrameParentSuper, "EscMenuControlBackdropTemplate", 0)
+    call BlzFrameSetLevel(FrameBox, SHOP_FRAME_LEVEL)
     set parent = BlzCreateFrameByType("FRAME", "TasItemShopUI", FrameParentSuper, "", 0)
+    call BlzFrameSetLevel(parent, SHOP_FRAME_LEVEL)
     call BlzFrameSetSize(parent, 0.01, 0.01)
     call Pos(parent)
     set FrameParentList = parent
 
     set FrameMouseListener = BlzCreateFrameByType("SLIDER", "TasItemShopUI", FrameParentList, "", 0)
+    call BlzFrameSetLevel(FrameMouseListener, SHOP_FRAME_LEVEL)
         
     // ButtonList
     set ButtonListIndex = CreateTasButtonList10(buttonListButtonName, buttonListCols, buttonListRows, FrameParentList, function ButtonListFunction_LeftClick, null, function updateItemFrameAction, function ButtonListFunction_Search, null, null, null, buttonListButtonGapCol, buttonListButtonGapRow)
@@ -381,6 +386,7 @@ public function InitFrames takes nothing returns nothing
     endloop
 
     set frame = BlzCreateFrame("TasButtonTextTemplate", FrameParentList, 0, 0)
+    call BlzFrameSetLevel(frame, SHOP_FRAME_LEVEL)
     call BlzFrameSetPoint(frame, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_BOTTOMRIGHT, -0.002, 0)
     call BlzFrameSetTextAlignment(frame, TEXT_JUSTIFY_CENTER, TEXT_JUSTIFY_MIDDLE)
     call BlzFrameSetPoint(frame, FRAMEPOINT_BOTTOMLEFT, BlzGetFrameByName(TasButtonListButtonName[ButtonListIndex], TasButtonListCreateContext[ButtonListIndex] + 1), FRAMEPOINT_TOPLEFT, 0, 0)
@@ -394,6 +400,7 @@ public function InitFrames takes nothing returns nothing
 
     // Keep the shop root where it is, but give the scrollbar more room on the right.
     call BlzFrameClearAllPoints(TasButtonListInputFrame[ButtonListIndex])
+    call BlzFrameSetLevel(TasButtonListInputFrame[ButtonListIndex], SHOP_FRAME_LEVEL)
     call BlzFrameSetPoint(TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, FrameParentList, FRAMEPOINT_TOPRIGHT, -0.005, 0)
 
     call BlzFrameSetPoint(FrameBox, FRAMEPOINT_TOPRIGHT, TasButtonListInputFrame[ButtonListIndex], FRAMEPOINT_TOPRIGHT, 0.001, 0.003)

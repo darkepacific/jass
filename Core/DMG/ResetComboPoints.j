@@ -1,13 +1,13 @@
 function ResetComboPoints takes unit u returns nothing
     if u == udg_yA_Ass_Rogue then
-   	call DestroyEffectBJ( udg_AAssComboEffects[0] )
+   		call DestroyEffectBJ( udg_AAssComboEffects[0] )
     	call DestroyEffectBJ( udg_AAssComboEffects[1] )
-   	call DestroyEffectBJ( udg_AAssComboEffects[2] )
+   		call DestroyEffectBJ( udg_AAssComboEffects[2] )
     	set udg_AAssComboPoints = 0.00
     elseif u == udg_yH_Ass_Rogue then
-   	call DestroyEffectBJ( udg_HAssComboEffects[0] )
+   		call DestroyEffectBJ( udg_HAssComboEffects[0] )
     	call DestroyEffectBJ( udg_HAssComboEffects[1] )
-   	call DestroyEffectBJ( udg_HAssComboEffects[2] )
+   		call DestroyEffectBJ( udg_HAssComboEffects[2] )
     	set udg_HAssComboPoints = 0.00
     elseif u == udg_yA_Combat_Rogue then
     	call DestroyEffectBJ( udg_WRComboEffects[0] )
