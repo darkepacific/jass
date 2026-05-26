@@ -93,6 +93,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIMouseUp
         public trigger TriggerUIInventoryButton
         private trigger TriggerUIQuickUse
+        private trigger TriggerUIQuickUseHotkey
         private trigger TriggerUIInventoryPanelHover
         private trigger TriggerUIBagCloseSync
         private trigger TriggerUIBagInsertSync
@@ -171,6 +172,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private item array QuickUseItem
         private boolean array QuickUsePendingLocalActivate
         private boolean array QuickUseRestorePending
+        private boolean array QuickUseHotkeyDown
 
         // Armed SELECT outside-click world drop (move first, then drop at click point)
         private timer WorldDropTimer
@@ -467,7 +469,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return ""
         endif
 
-        return "" //"|cffc0c0c0Other Page Slot:|r |cffffffff" + I2S(slot) + "|r|n|n" + BuildBagItemTooltip(it, false)
+        return BuildBagItemTooltip(it, false) //"|cffc0c0c0Other Page Slot:|r |cffffffff" + I2S(slot) + "|r|n|n" + BuildBagItemTooltip(it, false)
     endfunction
 
     private function UpdateTooltipSellDisplay takes integer createContext, item it returns nothing
@@ -636,6 +638,56 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function RequestQuickUseCancelSync takes player p returns nothing
         call RequestQuickUseSync(p, 0)
+    endfunction
+
+    private function QuickUseHotkeyStateIndex takes integer pId, integer slot returns integer
+        return (pId * QUICK_USE_BUTTON_COUNT) + slot
+    endfunction
+
+    private function QuickUseHotkeyToSlot takes oskeytype key returns integer
+        if key == OSKEY_1 then
+            return 1
+        elseif key == OSKEY_2 then
+            return 2
+        elseif key == OSKEY_3 then
+            return 3
+        elseif key == OSKEY_4 then
+            return 4
+        elseif key == OSKEY_5 then
+            return 5
+        elseif key == OSKEY_6 then
+            return 6
+        endif
+        return 0
+    endfunction
+
+    private function QuickUseHotkeyAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        local integer pId = GetPlayerId(p)
+        local integer slot = QuickUseHotkeyToSlot(BlzGetTriggerPlayerKey())
+        local integer stateIndex
+
+        if slot <= 0 then
+            set p = null
+            return
+        endif
+
+        set stateIndex = QuickUseHotkeyStateIndex(pId, slot)
+        if BlzGetTriggerPlayerIsKeyDown() then
+            if QuickUseHotkeyDown[stateIndex] then
+                set p = null
+                return
+            endif
+
+            set QuickUseHotkeyDown[stateIndex] = true
+            if BagEnabledForPlayer(p) and ShowBagButtonForPlayer[pId] then
+                call RequestQuickUseSync(p, slot)
+            endif
+        else
+            set QuickUseHotkeyDown[stateIndex] = false
+        endif
+
+        set p = null
     endfunction
 
     private function IsQuickUseCancelOrder takes integer orderId returns boolean
@@ -4479,7 +4531,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseLabel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_BOTTOMLEFT, frame, FRAMEPOINT_TOPLEFT, -(BlzFrameGetWidth(frame) * QUICK_USE_BUTTON_COUNT), 0.002)
-        call BlzFrameSetText(frame2, "|cffffcc00Other Page|r")
+        call BlzFrameSetText(frame2, "") //"|cffffcc00Other Page|r")
 
         set buttonIndex = 1
         loop
@@ -4496,7 +4548,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", QuickUseContext(buttonIndex)), false)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", QuickUseContext(buttonIndex)), false)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", QuickUseContext(buttonIndex)), false)
-            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", QuickUseContext(buttonIndef)), false)
+            call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", QuickUseContext(buttonIndex)), false)
             call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), "TasItemBagSlotButtonTooltip", QuickUseContext(buttonIndex), "")
             call BlzTriggerRegisterFrameEvent(TriggerUIQuickUse, BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), FRAMEEVENT_CONTROL_CLICK)
             call BlzTriggerRegisterFrameEvent(TriggerUIQuickUse, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_UP)
@@ -4632,6 +4684,26 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
         
         call TriggerAddAction(TriggerESC, function ESCAction)
+
+        set TriggerUIQuickUseHotkey = CreateTrigger()
+        set i = 0
+        loop
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_1, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_1, 0, false)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_2, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_2, 0, false)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_3, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_3, 0, false)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_4, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_4, 0, false)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_5, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_5, 0, false)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_6, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_6, 0, false)
+            set i = i + 1
+            exitwhen i >= bj_MAX_PLAYERS
+        endloop
+        call TriggerAddAction(TriggerUIQuickUseHotkey, function QuickUseHotkeyAction)
 
         set TriggerUIBagCloseSync = CreateTrigger()
         set i = 0
