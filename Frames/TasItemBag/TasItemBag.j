@@ -173,11 +173,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private boolean array QuickUsePendingLocalActivate
         private integer array QuickUseTargetPage
         private boolean array QuickUseAwaitingTarget
+        private boolean array QuickUseNativeTargeting
         private boolean array QuickUseIgnoreNextOrder
         private real array QuickUseFailTimeLeft
         private boolean array QuickUseRestorePending
         private boolean array QuickUseHotkeyDown
         private constant real QUICK_USE_FAIL_TIMEOUT = 0.12
+        private constant integer QUICK_USE_TARGET_MODE_NONE = 0
+        private constant integer QUICK_USE_TARGET_MODE_POINT = 1
+        private constant integer QUICK_USE_TARGET_MODE_UNIT = 2
+        private constant integer QUICK_USE_TARGET_MODE_DESTRUCTABLE = 3
 
         // Armed SELECT outside-click world drop (move first, then drop at click point)
         private timer WorldDropTimer
@@ -579,6 +584,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUsePendingLocalActivate[pId] = false
         set QuickUseTargetPage[pId] = 0
         set QuickUseAwaitingTarget[pId] = false
+        set QuickUseNativeTargeting[pId] = false
         set QuickUseIgnoreNextOrder[pId] = false
         set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = false
@@ -591,6 +597,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set QuickUsePendingLocalActivate[pId] = false
         set QuickUseAwaitingTarget[pId] = false
+        set QuickUseNativeTargeting[pId] = false
         set QuickUseIgnoreNextOrder[pId] = false
         set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = true
@@ -750,20 +757,43 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set itemType = GetItemTypeId(it)
         if itemType == 'I08K' then
+            // Blazing Torch (Point Target)
             return 'A0ER'
+        elseif itemType == 'I099' then
+            // Critter Catcher (Unit Target)
+            return 'A0GA'
         elseif itemType == 'I0A5' then
+            // Dragon Catcher (Unit Target)
             return 'A0GI'
         elseif itemType == 'I082' then
+            // Grove Acorn (Point Target)
             return 'A0F7'
         elseif itemType == 'I07G' then
+            // Noxious Potion (Unit Target)
             return 'APLG'
         elseif itemType == 'I097' then
+            // Sea Meat (Doodad Target)
             return 'A0G8'
         elseif itemType == 'I07A' then
+            // Whip (Unit Target)
             return 'Ashs'
         endif
 
         return 0
+    endfunction
+
+    private function QuickUseTargetModeForItem takes item it returns integer
+        local integer abilityId = QuickUseTargetAbilityIdForItem(it)
+
+        if abilityId == 'A0ER' or abilityId == 'A0F7' then
+            return QUICK_USE_TARGET_MODE_POINT
+        elseif abilityId == 'A0G8' then
+            return QUICK_USE_TARGET_MODE_DESTRUCTABLE
+        elseif abilityId != 0 then
+            return QUICK_USE_TARGET_MODE_UNIT
+        endif
+
+        return QUICK_USE_TARGET_MODE_NONE
     endfunction
 
     private function QuickUseItemNeedsExplicitTarget takes item it returns boolean
@@ -775,6 +805,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit targetUnit = GetOrderTargetUnit()
         local item targetItem = GetOrderTargetItem()
         local destructable targetDest = GetOrderTargetDestructable()
+        local integer targetMode = QUICK_USE_TARGET_MODE_NONE
+        local real targetX = GetOrderPointX()
+        local real targetY = GetOrderPointY()
         local boolean issued = false
 
         if hero == null or it == null or GetItemTypeId(it) == 0 then
@@ -785,8 +818,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return false
         endif
 
+        set targetMode = QuickUseTargetModeForItem(it)
         set QuickUseIgnoreNextOrder[pId] = true
-        if targetUnit != null then
+        set QuickUseNativeTargeting[pId] = false
+        if targetMode == QUICK_USE_TARGET_MODE_POINT then
+            if targetUnit != null then
+                set targetX = GetUnitX(targetUnit)
+                set targetY = GetUnitY(targetUnit)
+            elseif targetItem != null then
+                set targetX = GetItemX(targetItem)
+                set targetY = GetItemY(targetItem)
+            elseif targetDest != null then
+                set targetX = GetWidgetX(targetDest)
+                set targetY = GetWidgetY(targetDest)
+            endif
+            set issued = UnitUseItemPoint(hero, it, targetX, targetY)
+        elseif targetUnit != null then
             set issued = UnitUseItemTarget(hero, it, targetUnit)
         elseif targetItem != null then
             set issued = UnitUseItemTarget(hero, it, targetItem)
@@ -886,6 +933,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUsePendingLocalActivate[pId] = false
         set QuickUseTargetPage[pId] = otherPage
         set QuickUseAwaitingTarget[pId] = false
+        set QuickUseNativeTargeting[pId] = false
         set QuickUseIgnoreNextOrder[pId] = false
         set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = false
@@ -2879,11 +2927,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             elseif QuickUseActive[pId] and not QuickUsePendingLocalActivate[pId] then
                 if QuickUseAwaitingTarget[pId] then
                     if eventId == GetHandleId(EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER) or eventId == GetHandleId(EVENT_PLAYER_UNIT_ISSUED_TARGET_ORDER) then
-                        set quickUseTargetIssued = TryQuickUseTargetedActivation(pId, u)
-                        if quickUseTargetIssued then
+                        if QuickUseNativeTargeting[pId] then
+                            call QueueQuickUseRestore(pId)
                             set handledQuickUseOrder = true
                         else
-                            call QueueQuickUseRestore(pId)
+                            set quickUseTargetIssued = TryQuickUseTargetedActivation(pId, u)
+                            if quickUseTargetIssued then
+                                set handledQuickUseOrder = true
+                            else
+                                call QueueQuickUseRestore(pId)
+                            endif
                         endif
                     elseif IsQuickUseCancelOrder(orderId) then
                         call QueueQuickUseRestore(pId)
@@ -3257,7 +3310,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set pId = GetPlayerId(p)
         if QuickUseActive[pId] and usedItem == QuickUseItem[pId] then
-            call QueueQuickUseRestore(pId)
+            if QuickUseAwaitingTarget[pId] and QuickUseItemNeedsExplicitTarget(usedItem) then
+                set QuickUseNativeTargeting[pId] = true
+            else
+                call QueueQuickUseRestore(pId)
+            endif
         endif
 
         set hero = null
