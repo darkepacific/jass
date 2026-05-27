@@ -171,8 +171,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private integer array QuickUseRequestedSlot
         private item array QuickUseItem
         private boolean array QuickUsePendingLocalActivate
+        private integer array QuickUseTargetPage
+        private boolean array QuickUseAwaitingTarget
+        private boolean array QuickUseIgnoreNextOrder
+        private real array QuickUseFailTimeLeft
         private boolean array QuickUseRestorePending
         private boolean array QuickUseHotkeyDown
+        private constant real QUICK_USE_FAIL_TIMEOUT = 0.12
 
         // Armed SELECT outside-click world drop (move first, then drop at click point)
         private timer WorldDropTimer
@@ -572,6 +577,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUseRequestedSlot[pId] = 0
         set QuickUseItem[pId] = null
         set QuickUsePendingLocalActivate[pId] = false
+        set QuickUseTargetPage[pId] = 0
+        set QuickUseAwaitingTarget[pId] = false
+        set QuickUseIgnoreNextOrder[pId] = false
+        set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = false
     endfunction
 
@@ -581,6 +590,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         set QuickUsePendingLocalActivate[pId] = false
+        set QuickUseAwaitingTarget[pId] = false
+        set QuickUseIgnoreNextOrder[pId] = false
+        set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = true
     endfunction
 
@@ -690,6 +702,130 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set p = null
     endfunction
 
+    private function PrepareQuickUseTargetingLocal takes player p, unit hero returns nothing
+        local integer pId
+        local item it
+
+        if p == null or hero == null then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set it = QuickUseItem[pId]
+        if GetLocalPlayer() == p then
+            call SelectUnitForPlayerSingle(hero, p)
+        endif
+        if it != null and GetItemTypeId(it) != 0 then
+            call NeatErrorMessage("Quick-use debug: target mode armed for " + GetItemName(it) + ". Select a target.", p)
+        else
+            call NeatErrorMessage("Quick-use debug: target mode armed. Select a target.", p)
+        endif
+
+        set it = null
+    endfunction
+
+    private function TryQuickUseImmediateActivation takes integer pId, unit hero returns boolean
+        local item it = QuickUseItem[pId]
+
+        if hero == null or it == null or GetItemTypeId(it) == 0 then
+            set it = null
+            return false
+        endif
+
+        if UnitUseItem(hero, it) then
+            set it = null
+            return true
+        endif
+
+        set it = null
+        return false
+    endfunction
+
+    private function QuickUseItemNeedsExplicitTarget takes item it returns boolean
+        local integer index = 0
+        local ability itemAbility
+
+        if it == null or GetItemTypeId(it) == 0 then
+            return false
+        endif
+
+        loop
+            exitwhen index >= 4
+
+            set itemAbility = BlzGetItemAbilityByIndex(it, index)
+            if itemAbility == null then
+                set itemAbility = null
+                return false
+            endif
+
+            if BlzGetAbilityRealLevelField(itemAbility, ABILITY_RLF_CAST_RANGE, 0) > 0.0 then
+                set itemAbility = null
+                return true
+            endif
+
+            set index = index + 1
+        endloop
+
+        set itemAbility = null
+        return false
+    endfunction
+
+    private function TryQuickUseTargetedActivation takes integer pId, unit hero returns boolean
+        local player p = Player(pId)
+        local item it = QuickUseItem[pId]
+        local unit targetUnit = GetOrderTargetUnit()
+        local item targetItem = GetOrderTargetItem()
+        local destructable targetDest = GetOrderTargetDestructable()
+        local string targetKind = "point"
+        local boolean issued = false
+
+        if targetUnit != null then
+            set targetKind = "unit"
+        elseif targetItem != null then
+            set targetKind = "item"
+        elseif targetDest != null then
+            set targetKind = "destructable"
+        endif
+
+        call Debug("TryQuickUseTargetedActivation: entered, target=" + targetKind)
+        call NeatErrorMessage("Quick-use debug: targeted activation entered (" + targetKind + ").", p)
+
+        if hero == null or it == null or GetItemTypeId(it) == 0 then
+            call Debug("TryQuickUseTargetedActivation: invalid hero or item")
+            call NeatErrorMessage("Quick-use debug: targeted activation had invalid hero or item.", p)
+            set targetDest = null
+            set targetItem = null
+            set targetUnit = null
+            set it = null
+            set p = null
+            return false
+        endif
+
+        set QuickUseIgnoreNextOrder[pId] = true
+        if targetUnit != null then
+            set issued = UnitUseItemTarget(hero, it, targetUnit)
+        elseif targetItem != null then
+            set issued = UnitUseItemTarget(hero, it, targetItem)
+        elseif targetDest != null then
+            set issued = UnitUseItemTarget(hero, it, targetDest)
+        else
+            set issued = UnitUseItemPoint(hero, it, GetOrderPointX(), GetOrderPointY())
+        endif
+
+        if issued then
+            set QuickUseAwaitingTarget[pId] = false
+        else
+            set QuickUseIgnoreNextOrder[pId] = false
+        endif
+
+        set targetDest = null
+        set targetItem = null
+        set targetUnit = null
+        set it = null
+        set p = null
+        return issued
+    endfunction
+
     private function IsQuickUseCancelOrder takes integer orderId returns boolean
         return orderId == ORDER_ID_SMART or orderId == OrderId("move") or orderId == OrderId("stop") or orderId == OrderId("holdposition") or orderId == OrderId("attack") or orderId == OrderId("patrol")
     endfunction
@@ -765,6 +901,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUseRequestedSlot[pId] = slot
         set QuickUseItem[pId] = targetItem
         set QuickUsePendingLocalActivate[pId] = false
+        set QuickUseTargetPage[pId] = otherPage
+        set QuickUseAwaitingTarget[pId] = false
+        set QuickUseIgnoreNextOrder[pId] = false
+        set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = false
 
         if MPInventorySwitchToPage(p, otherPage) then
@@ -783,26 +923,50 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = 0
         local player p
         local unit hero
+        local item slotItem
+        local integer playerNum
+        local integer currentPage
 
         loop
             exitwhen pId >= bj_MAX_PLAYERS
 
-            if QuickUsePendingLocalActivate[pId] then
-                set QuickUsePendingLocalActivate[pId] = false
+            if QuickUseActive[pId] then
                 set p = Player(pId)
-                set hero = udg_Heroes[GetPlayerNumber(p)]
+                set playerNum = GetPlayerNumber(p)
+                set hero = udg_Heroes[playerNum]
                 if hero == null or GetWidgetLife(hero) <= 0.405 then
                     call ClearQuickUseState(pId)
-                elseif GetLocalPlayer() == p then
-                    call SelectUnitForPlayerSingle(hero, p)
-                    call BlzFrameClick(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, QuickUseRequestedSlot[pId] - 1))
+                else
+                    set currentPage = udg_Bag_Page[playerNum]
+                    if QuickUsePendingLocalActivate[pId] then
+                        set slotItem = UnitItemInSlot(hero, QuickUseRequestedSlot[pId] - 1)
+                        if slotItem == QuickUseItem[pId] then
+                            set QuickUsePendingLocalActivate[pId] = false
+                            if not TryQuickUseImmediateActivation(pId, hero) then
+                                if QuickUseItemNeedsExplicitTarget(QuickUseItem[pId]) then
+                                    set QuickUseAwaitingTarget[pId] = true
+                                    call PrepareQuickUseTargetingLocal(p, hero)
+                                else
+                                    set QuickUseFailTimeLeft[pId] = QUICK_USE_FAIL_TIMEOUT
+                                endif
+                            endif
+                        endif
+                    elseif QuickUseRestorePending[pId] then
+                        call RestoreQuickUseForPlayer(p, hero)
+                    elseif QuickUseTargetPage[pId] > 0 and currentPage != QuickUseTargetPage[pId] then
+                        call ClearQuickUseState(pId)
+                    elseif QuickUseFailTimeLeft[pId] > 0.0 then
+                        set QuickUseFailTimeLeft[pId] = QuickUseFailTimeLeft[pId] - 0.03
+                        if QuickUseFailTimeLeft[pId] <= 0.0 then
+                            call QueueQuickUseRestore(pId)
+                        endif
+                    endif
                 endif
-            elseif QuickUseRestorePending[pId] then
-                set p = Player(pId)
-                set hero = udg_Heroes[GetPlayerNumber(p)]
-                call RestoreQuickUseForPlayer(p, hero)
             endif
 
+            set slotItem = null
+            set currentPage = 0
+            set playerNum = 0
             set hero = null
             set p = null
             set pId = pId + 1
@@ -2715,22 +2879,43 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player owner
         local integer pId
         local integer orderId
+        local integer eventId
         local item orderTargetItem
+        local boolean handledQuickUseOrder = false
+        local boolean quickUseTargetIssued = false
         if u == null then
             return
         endif
         set owner = GetOwningPlayer(u)
         set pId = GetPlayerId(owner)
         set orderId = GetIssuedOrderId()
+        set eventId = GetHandleId(GetTriggerEventId())
         set orderTargetItem = GetOrderTargetItem()
         if u == udg_Heroes[GetPlayerNumber(owner)] then
-            if QuickUseActive[pId] and not QuickUsePendingLocalActivate[pId] and IsQuickUseCancelOrder(orderId) then
-                call QueueQuickUseRestore(pId)
+            if QuickUseIgnoreNextOrder[pId] then
+                set QuickUseIgnoreNextOrder[pId] = false
+                set handledQuickUseOrder = true
+            elseif QuickUseActive[pId] and not QuickUsePendingLocalActivate[pId] then
+                if QuickUseAwaitingTarget[pId] then
+                    if eventId == GetHandleId(EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER) or eventId == GetHandleId(EVENT_PLAYER_UNIT_ISSUED_TARGET_ORDER) then
+                        set quickUseTargetIssued = TryQuickUseTargetedActivation(pId, u)
+                        if quickUseTargetIssued then
+                            set handledQuickUseOrder = true
+                        else
+                            call QueueQuickUseRestore(pId)
+                        endif
+                    elseif IsQuickUseCancelOrder(orderId) then
+                        call QueueQuickUseRestore(pId)
+                        set handledQuickUseOrder = true
+                    endif
+                elseif IsQuickUseCancelOrder(orderId) then
+                    call QueueQuickUseRestore(pId)
+                endif
             endif
 
             // Option A2 pickup intent tracking from SMART item-target orders.
             // Do not clear on follow-up move orders; clear only when retargeting to another item.
-            if orderId == ORDER_ID_SMART and orderTargetItem != null then
+            if not handledQuickUseOrder and orderId == ORDER_ID_SMART and orderTargetItem != null then
                 set LastSmartPickupTarget[pId] = orderTargetItem
                 set LastSmartPickupTimeLeft[pId] = LAST_SMART_PICKUP_WINDOW
                 if PickupIntentActive[pId] and orderTargetItem != PickupIntentItem[pId] then
@@ -2739,7 +2924,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 call StartPickupIntent(owner, u, orderTargetItem)
                 // Any other explicit order from the player invalidates prior smart pickup intent/target.
                 // This prevents stale long-window targets from leaking into unrelated gains.
-            elseif orderId != ORDER_ID_SMART then
+            elseif not handledQuickUseOrder and orderId != ORDER_ID_SMART then
                 set LastSmartPickupTarget[pId] = null
                 set LastSmartPickupTimeLeft[pId] = 0.0
                 if PickupIntentActive[pId] then
