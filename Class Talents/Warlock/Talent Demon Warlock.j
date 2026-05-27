@@ -103,7 +103,9 @@ function TalentDemonWarlock takes nothing returns nothing
 	//Create Healthstone - 7th ability, allows you to consume a soulshard to create a healthstone that heals for X health, healtstones are consumable and tradeable to other players
 		// Killing a unit with Soulburn now also generates a Soulshard, +10 Int
 
-	
+	// Double Trouble, double all the stats of your soul stone +20 stats and +20% cdr
+
+
 	// Curse of Tongues - the duration of Soul Burn is now increased by 2/1s on units and heroes. (Also increases the fear on Mortal coil)
 
 

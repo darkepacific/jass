@@ -44,12 +44,12 @@ function Trig_Eviscerate_Actions takes nothing returns nothing
     local real comboPoints = Trig_Eviscerate_GetComboPoints(caster)
     local integer abilityLevel = GetUnitAbilityLevel(caster, 'A017')
     local real bonusDamage = 100.00 * (comboPoints * I2R(abilityLevel))
-    local real displayedDamage = (50.00 + (50.00 * I2R(abilityLevel))) + ((I2R(abilityLevel) * 100.00) * comboPoints)
+    local real displayedDamage = (50.00 + (50.00 * I2R(abilityLevel))) + (bonusDamage)
 
+    call ResetComboPoints(caster)
     call PlaySoundOnUnitBJ(gg_snd_ArtilleryCorpseExplodeDeath1, 100.00, caster)
     call UnitDamageTargetBJ(caster, target, bonusDamage, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL)
     call Trig_Eviscerate_ShowDamageText(target, displayedDamage, textForce)
-    call ResetComboPoints(caster)
     call GameTimeWait(0.10)
     call TryProcRuthlessness(caster, comboPoints, textForce)
 
