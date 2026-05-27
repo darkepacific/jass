@@ -174,6 +174,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private integer array QuickUseTargetPage
         private boolean array QuickUseAwaitingTarget
         private boolean array QuickUseNativeTargeting
+        private integer array QuickUseTargetArmDelayTicks
         private boolean array QuickUseIgnoreNextOrder
         private real array QuickUseFailTimeLeft
         private boolean array QuickUseRestorePending
@@ -585,6 +586,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUseTargetPage[pId] = 0
         set QuickUseAwaitingTarget[pId] = false
         set QuickUseNativeTargeting[pId] = false
+        set QuickUseTargetArmDelayTicks[pId] = 0
         set QuickUseIgnoreNextOrder[pId] = false
         set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = false
@@ -598,6 +600,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUsePendingLocalActivate[pId] = false
         set QuickUseAwaitingTarget[pId] = false
         set QuickUseNativeTargeting[pId] = false
+        set QuickUseTargetArmDelayTicks[pId] = 0
         set QuickUseIgnoreNextOrder[pId] = false
         set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = true
@@ -729,6 +732,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         set it = null
+    endfunction
+
+    private function BeginQuickUseTargetingLocal takes player p, unit hero returns nothing
+        local integer pId
+        local integer slotIndex
+
+        if p == null or hero == null then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set slotIndex = QuickUseRequestedSlot[pId] - 1
+        set QuickUseAwaitingTarget[pId] = true
+        call PrepareQuickUseTargetingLocal(p, hero)
+        if GetLocalPlayer() == p and slotIndex >= 0 and slotIndex < bj_MAX_INVENTORY then
+            call BlzFrameClick(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, slotIndex))
+        endif
     endfunction
 
     private function TryQuickUseImmediateActivation takes integer pId, unit hero returns boolean
@@ -934,6 +954,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUseTargetPage[pId] = otherPage
         set QuickUseAwaitingTarget[pId] = false
         set QuickUseNativeTargeting[pId] = false
+        set QuickUseTargetArmDelayTicks[pId] = 0
         set QuickUseIgnoreNextOrder[pId] = false
         set QuickUseFailTimeLeft[pId] = 0.0
         set QuickUseRestorePending[pId] = false
@@ -972,12 +993,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                     if QuickUsePendingLocalActivate[pId] then
                         set slotItem = UnitItemInSlot(hero, QuickUseRequestedSlot[pId] - 1)
                         if slotItem == QuickUseItem[pId] then
-                            set QuickUsePendingLocalActivate[pId] = false
                             if QuickUseItemNeedsExplicitTarget(QuickUseItem[pId]) then
-                                set QuickUseAwaitingTarget[pId] = true
-                                call PrepareQuickUseTargetingLocal(p, hero)
-                            elseif not TryQuickUseImmediateActivation(pId, hero) then
-                                set QuickUseFailTimeLeft[pId] = QUICK_USE_FAIL_TIMEOUT
+                                set QuickUsePendingLocalActivate[pId] = false
+                                set QuickUseTargetArmDelayTicks[pId] = 1
+                            else
+                                set QuickUsePendingLocalActivate[pId] = false
+                                if not TryQuickUseImmediateActivation(pId, hero) then
+                                    set QuickUseFailTimeLeft[pId] = QUICK_USE_FAIL_TIMEOUT
+                                endif
+                            endif
+                        endif
+                    elseif QuickUseTargetArmDelayTicks[pId] > 0 then
+                        set slotItem = UnitItemInSlot(hero, QuickUseRequestedSlot[pId] - 1)
+                        if slotItem != QuickUseItem[pId] then
+                            call QueueQuickUseRestore(pId)
+                        else
+                            set QuickUseTargetArmDelayTicks[pId] = QuickUseTargetArmDelayTicks[pId] - 1
+                            if QuickUseTargetArmDelayTicks[pId] <= 0 then
+                                call BeginQuickUseTargetingLocal(p, hero)
                             endif
                         endif
                     elseif QuickUseRestorePending[pId] then
