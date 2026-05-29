@@ -76,6 +76,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerItemGain
         public trigger TriggerItemLose
         public trigger TriggerItemUse
+        public trigger TriggerSpellEffect
         public trigger TriggerUnitDeath
         public trigger TriggerUIOpen
         public trigger TriggerUIClose
@@ -180,6 +181,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private boolean array QuickUseRestorePending
         private boolean array QuickUseHotkeyDown
         private constant real QUICK_USE_FAIL_TIMEOUT = 0.12
+        private constant real QUICK_USE_TARGET_RESOLVE_TIMEOUT = 6.00
+        private constant integer QUICK_USE_TARGET_ARM_WAIT_TICKS = 6
         private constant integer QUICK_USE_TARGET_MODE_NONE = 0
         private constant integer QUICK_USE_TARGET_MODE_POINT = 1
         private constant integer QUICK_USE_TARGET_MODE_UNIT = 2
@@ -715,6 +718,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function PrepareQuickUseTargetingLocal takes player p, unit hero returns nothing
         local integer pId
         local item it
+        local string prompt
 
         if p == null or hero == null then
             return
@@ -726,46 +730,104 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call SelectUnitForPlayerSingle(hero, p)
         endif
         if it != null and GetItemTypeId(it) != 0 then
-            call NeatErrorMessage("Select a target for " + GetItemName(it) + ".", p)
+            if GetItemTypeId(it) == 'I08K' or GetItemTypeId(it) == 'I082' then
+                set prompt = "Right-click the ground for " + GetItemName(it) + ", or click the item."
+            else
+                set prompt = "Right-click a target for " + GetItemName(it) + ", or click the item."
+            endif
+            call NeatErrorMessage(prompt, p)
         else
-            call NeatErrorMessage("Select a target.", p)
+            call NeatErrorMessage("Right-click a target.", p)
         endif
 
+        set prompt = null
         set it = null
     endfunction
 
-    private function BeginQuickUseTargetingLocal takes player p, unit hero returns nothing
-        local integer pId
-        local integer slotIndex
-
-        if p == null or hero == null then
+    private function StartQuickUseTargetResolve takes integer pId returns nothing
+        if not QuickUseActive[pId] then
             return
         endif
 
-        set pId = GetPlayerId(p)
-        set slotIndex = QuickUseRequestedSlot[pId] - 1
-        set QuickUseAwaitingTarget[pId] = true
-        call PrepareQuickUseTargetingLocal(p, hero)
-        if GetLocalPlayer() == p and slotIndex >= 0 and slotIndex < bj_MAX_INVENTORY then
-            call BlzFrameClick(BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, slotIndex))
+        set QuickUseAwaitingTarget[pId] = false
+        set QuickUseNativeTargeting[pId] = false
+        set QuickUseTargetArmDelayTicks[pId] = 0
+        set QuickUseFailTimeLeft[pId] = QUICK_USE_TARGET_RESOLVE_TIMEOUT
+    endfunction
+
+    private function ActivateQuickUseFrameLocal takes player p, framehandle frame returns nothing
+        if p == null or frame == null then
+            return
+        endif
+
+        if GetLocalPlayer() == p and BlzFrameGetEnable(frame) then
+            call BlzFrameSetEnable(frame, false)
+            call BlzFrameSetEnable(frame, true)
+            call BlzFrameClick(frame)
         endif
     endfunction
 
-    private function TryQuickUseImmediateActivation takes integer pId, unit hero returns boolean
-        local item it = QuickUseItem[pId]
+    private function QuickUseLiveInventorySlot takes integer pId, unit hero returns integer
+        local integer slotIndex = 0
+        local item slotItem
+        local item targetItem = QuickUseItem[pId]
+        local integer targetType
+        local integer targetCharges
 
-        if hero == null or it == null or GetItemTypeId(it) == 0 then
-            set it = null
-            return false
+        if hero == null or targetItem == null or GetItemTypeId(targetItem) == 0 then
+            set targetItem = null
+            return -1
         endif
 
-        if UnitUseItem(hero, it) then
-            set it = null
-            return true
-        endif
+        set targetType = GetItemTypeId(targetItem)
+        set targetCharges = GetItemCharges(targetItem)
 
-        set it = null
-        return false
+        loop
+            exitwhen slotIndex >= bj_MAX_INVENTORY
+
+            set slotItem = UnitItemInSlot(hero, slotIndex)
+            if slotItem == targetItem then
+                set slotItem = null
+                set targetItem = null
+                return slotIndex
+            endif
+
+            set slotIndex = slotIndex + 1
+        endloop
+
+        set slotIndex = 0
+        loop
+            exitwhen slotIndex >= bj_MAX_INVENTORY
+
+            set slotItem = UnitItemInSlot(hero, slotIndex)
+            if slotItem != null and GetItemTypeId(slotItem) == targetType and (targetCharges <= 0 or GetItemCharges(slotItem) == targetCharges) then
+                set QuickUseItem[pId] = slotItem
+                set slotItem = null
+                set targetItem = null
+                return slotIndex
+            endif
+
+            set slotIndex = slotIndex + 1
+        endloop
+
+        set slotIndex = 0
+        loop
+            exitwhen slotIndex >= bj_MAX_INVENTORY
+
+            set slotItem = UnitItemInSlot(hero, slotIndex)
+            if slotItem != null and GetItemTypeId(slotItem) == targetType then
+                set QuickUseItem[pId] = slotItem
+                set slotItem = null
+                set targetItem = null
+                return slotIndex
+            endif
+
+            set slotIndex = slotIndex + 1
+        endloop
+
+        set slotItem = null
+        set targetItem = null
+        return -1
     endfunction
 
     private function QuickUseTargetAbilityIdForItem takes item it returns integer
@@ -802,6 +864,56 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return 0
     endfunction
 
+    private function QuickUseTargetCommandButtonIndex takes integer pId, unit hero returns integer
+        local item it = QuickUseItem[pId]
+        local integer abilityId
+        local integer primaryIndex
+        local integer alternateIndex
+        local ability unitAbility
+        local integer buttonX
+        local integer buttonY
+
+        if hero == null or it == null or GetItemTypeId(it) == 0 then
+            set it = null
+            return -1
+        endif
+
+        set abilityId = QuickUseTargetAbilityIdForItem(it)
+        if abilityId == 0 then
+            set it = null
+            return -1
+        endif
+
+        set unitAbility = BlzGetUnitAbility(hero, abilityId)
+        if unitAbility == null then
+            set it = null
+            set unitAbility = null
+            return -1
+        endif
+
+        set buttonX = BlzGetAbilityIntegerField(unitAbility, ABILITY_IF_BUTTON_POSITION_NORMAL_X)
+        set buttonY = BlzGetAbilityIntegerField(unitAbility, ABILITY_IF_BUTTON_POSITION_NORMAL_Y)
+
+        set unitAbility = null
+        set it = null
+
+        if buttonX < 0 or buttonX > 3 or buttonY < 0 or buttonY > 2 then
+            return -1
+        endif
+
+        set primaryIndex = (buttonY * 4) + buttonX
+        set alternateIndex = ((2 - buttonY) * 4) + buttonX
+
+        if primaryIndex >= 0 and primaryIndex < 12 and BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_COMMAND_BUTTON, primaryIndex)) then
+            return primaryIndex
+        endif
+        if alternateIndex >= 0 and alternateIndex < 12 and alternateIndex != primaryIndex and BlzFrameIsVisible(BlzGetOriginFrame(ORIGIN_FRAME_COMMAND_BUTTON, alternateIndex)) then
+            return alternateIndex
+        endif
+
+        return primaryIndex
+    endfunction
+
     private function QuickUseTargetModeForItem takes item it returns integer
         local integer abilityId = QuickUseTargetAbilityIdForItem(it)
 
@@ -818,6 +930,53 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function QuickUseItemNeedsExplicitTarget takes item it returns boolean
         return QuickUseTargetAbilityIdForItem(it) != 0
+    endfunction
+
+    private function BeginQuickUseTargetingLocal takes player p, unit hero returns nothing
+        local integer pId
+        local integer slotIndex
+        local integer commandButtonIndex
+
+        if p == null or hero == null then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set slotIndex = QuickUseLiveInventorySlot(pId, hero)
+        set commandButtonIndex = -1
+        set QuickUseNativeTargeting[pId] = false
+
+        if slotIndex >= 0 then
+            set QuickUseRequestedSlot[pId] = slotIndex + 1
+        endif
+
+        set QuickUseAwaitingTarget[pId] = true
+        call PrepareQuickUseTargetingLocal(p, hero)
+        if GetLocalPlayer() == p then
+            set commandButtonIndex = QuickUseTargetCommandButtonIndex(pId, hero)
+            if commandButtonIndex >= 0 then
+                call ActivateQuickUseFrameLocal(p, BlzGetOriginFrame(ORIGIN_FRAME_COMMAND_BUTTON, commandButtonIndex))
+            elseif slotIndex >= 0 and slotIndex < bj_MAX_INVENTORY then
+                call ActivateQuickUseFrameLocal(p, BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, slotIndex))
+            endif
+        endif
+    endfunction
+
+    private function TryQuickUseImmediateActivation takes integer pId, unit hero returns boolean
+        local item it = QuickUseItem[pId]
+
+        if hero == null or it == null or GetItemTypeId(it) == 0 then
+            set it = null
+            return false
+        endif
+
+        if UnitUseItem(hero, it) then
+            set it = null
+            return true
+        endif
+
+        set it = null
+        return false
     endfunction
 
     private function TryQuickUseTargetedActivation takes integer pId, unit hero returns boolean
@@ -864,7 +1023,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if issued then
-            set QuickUseAwaitingTarget[pId] = false
+            call StartQuickUseTargetResolve(pId)
         else
             set QuickUseIgnoreNextOrder[pId] = false
         endif
@@ -975,6 +1134,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = 0
         local player p
         local unit hero
+        local integer liveSlot
         local item slotItem
         local integer playerNum
         local integer currentPage
@@ -991,26 +1151,30 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 else
                     set currentPage = udg_Bag_Page[playerNum]
                     if QuickUsePendingLocalActivate[pId] then
-                        set slotItem = UnitItemInSlot(hero, QuickUseRequestedSlot[pId] - 1)
-                        if slotItem == QuickUseItem[pId] then
+                        set liveSlot = QuickUseLiveInventorySlot(pId, hero)
+                        if liveSlot >= 0 then
+                            set QuickUseRequestedSlot[pId] = liveSlot + 1
+                            set QuickUsePendingLocalActivate[pId] = false
                             if QuickUseItemNeedsExplicitTarget(QuickUseItem[pId]) then
-                                set QuickUsePendingLocalActivate[pId] = false
-                                set QuickUseTargetArmDelayTicks[pId] = 1
-                            else
-                                set QuickUsePendingLocalActivate[pId] = false
-                                if not TryQuickUseImmediateActivation(pId, hero) then
-                                    set QuickUseFailTimeLeft[pId] = QUICK_USE_FAIL_TIMEOUT
-                                endif
+                                set QuickUseTargetArmDelayTicks[pId] = QUICK_USE_TARGET_ARM_WAIT_TICKS
+                            elseif not TryQuickUseImmediateActivation(pId, hero) then
+                                set QuickUseFailTimeLeft[pId] = QUICK_USE_FAIL_TIMEOUT
                             endif
                         endif
                     elseif QuickUseTargetArmDelayTicks[pId] > 0 then
-                        set slotItem = UnitItemInSlot(hero, QuickUseRequestedSlot[pId] - 1)
-                        if slotItem != QuickUseItem[pId] then
+                        set liveSlot = QuickUseLiveInventorySlot(pId, hero)
+                        if liveSlot < 0 then
                             call QueueQuickUseRestore(pId)
                         else
-                            set QuickUseTargetArmDelayTicks[pId] = QuickUseTargetArmDelayTicks[pId] - 1
-                            if QuickUseTargetArmDelayTicks[pId] <= 0 then
+                            set QuickUseRequestedSlot[pId] = liveSlot + 1
+                            if QuickUseTargetCommandButtonIndex(pId, hero) >= 0 then
+                                set QuickUseTargetArmDelayTicks[pId] = 0
                                 call BeginQuickUseTargetingLocal(p, hero)
+                            else
+                                set QuickUseTargetArmDelayTicks[pId] = QuickUseTargetArmDelayTicks[pId] - 1
+                                if QuickUseTargetArmDelayTicks[pId] <= 0 then
+                                    call BeginQuickUseTargetingLocal(p, hero)
+                                endif
                             endif
                         endif
                     elseif QuickUseRestorePending[pId] then
@@ -1027,6 +1191,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
 
             set slotItem = null
+            set liveSlot = -1
             set currentPage = 0
             set playerNum = 0
             set hero = null
@@ -2961,7 +3126,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 if QuickUseAwaitingTarget[pId] then
                     if eventId == GetHandleId(EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER) or eventId == GetHandleId(EVENT_PLAYER_UNIT_ISSUED_TARGET_ORDER) then
                         if QuickUseNativeTargeting[pId] then
-                            call QueueQuickUseRestore(pId)
+                            call StartQuickUseTargetResolve(pId)
                             set handledQuickUseOrder = true
                         else
                             set quickUseTargetIssued = TryQuickUseTargetedActivation(pId, u)
@@ -3345,6 +3510,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if QuickUseActive[pId] and usedItem == QuickUseItem[pId] then
             if QuickUseAwaitingTarget[pId] and QuickUseItemNeedsExplicitTarget(usedItem) then
                 set QuickUseNativeTargeting[pId] = true
+            elseif QuickUseItemNeedsExplicitTarget(usedItem) then
+                call StartQuickUseTargetResolve(pId)
             else
                 call QueueQuickUseRestore(pId)
             endif
@@ -3353,6 +3520,41 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set hero = null
         set p = null
         set usedItem = null
+    endfunction
+
+    private function SpellEffectAction takes nothing returns nothing
+        local unit hero = GetTriggerUnit()
+        local player p
+        local integer pId
+        local item quickUseItem
+        local integer spellAbilityId
+
+        if hero == null then
+            return
+        endif
+
+        set p = GetOwningPlayer(hero)
+        if not BagEnabledForPlayer(p) or hero != udg_Heroes[GetPlayerNumber(p)] then
+            set hero = null
+            set p = null
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        if not QuickUseActive[pId] then
+            set hero = null
+            set p = null
+            return
+        endif
+
+        set quickUseItem = QuickUseItem[pId]
+        if quickUseItem != null and QuickUseTargetAbilityIdForItem(quickUseItem) == GetSpellAbilityId() then
+            call QueueQuickUseRestore(pId)
+        endif
+
+        set quickUseItem = null
+        set hero = null
+        set p = null
     endfunction
 
     private function SellBagIndexToShop takes player p, integer bagIndex, unit shop, boolean requireRange returns boolean
@@ -5015,6 +5217,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerItemUse = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(TriggerItemUse, EVENT_PLAYER_UNIT_USE_ITEM)
         call TriggerAddAction(TriggerItemUse, function ItemUseAction)
+
+        set TriggerSpellEffect = CreateTrigger()
+        call TriggerRegisterAnyUnitEventBJ(TriggerSpellEffect, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+        call TriggerAddAction(TriggerSpellEffect, function SpellEffectAction)
 
         set TriggerUnitOrder = CreateTrigger()
         call TriggerRegisterAnyUnitEventBJ(TriggerUnitOrder, EVENT_PLAYER_UNIT_ISSUED_ORDER)
