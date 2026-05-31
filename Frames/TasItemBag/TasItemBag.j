@@ -957,14 +957,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return QUICK_USE_TARGET_MODE_NONE
     endfunction
 
-    private function QuickUseTargetModeForItem takes item it returns integer
-        if it == null or GetItemTypeId(it) == 0 then
-            return QUICK_USE_TARGET_MODE_NONE
-        endif
-
-        return QuickUseTargetModeForItemType(GetItemTypeId(it))
-    endfunction
-
     private function QuickUseItemNeedsExplicitTarget takes item it returns boolean
         return QuickUseTargetAbilityIdForItem(it) != 0
     endfunction
@@ -1032,8 +1024,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local unit targetUnit = GetOrderTargetUnit()
         local item targetItem = GetOrderTargetItem()
         local destructable targetDest = GetOrderTargetDestructable()
-        local real targetX = GetOrderPointX()
-        local real targetY = GetOrderPointY()
         local boolean issued = false
 
         if hero == null or QuickUseLiveInventorySlot(pId, hero) < 0 then
