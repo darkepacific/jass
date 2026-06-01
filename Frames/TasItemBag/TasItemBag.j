@@ -118,6 +118,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array SwapIndex
         private string array BagToggleHotkeyText
         private string array SellHotkeyText
+        private oskeytype array QuickUseHotkey
+        private string array QuickUseHotkeyText
+        private boolean array QuickUseHotkeyConfigOpen
         private boolean array SellHotkeyArmed
         private boolean array ShowBagButtonForPlayer
         public boolean array IgnoreNextSelection // Need to refactor this out
@@ -545,12 +548,250 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagQuickUseLabel", 0), visible)
     endfunction
 
+    private function QuickUseBindingIndex takes integer pId, integer slot returns integer
+        return (pId * QUICK_USE_BUTTON_COUNT) + slot
+    endfunction
+
+    private function QuickUseKeyToString takes oskeytype key returns string
+        if key == OSKEY_A then
+            return "A"
+        elseif key == OSKEY_B then
+            return "B"
+        elseif key == OSKEY_C then
+            return "C"
+        elseif key == OSKEY_D then
+            return "D"
+        elseif key == OSKEY_E then
+            return "E"
+        elseif key == OSKEY_F then
+            return "F"
+        elseif key == OSKEY_G then
+            return "G"
+        elseif key == OSKEY_H then
+            return "H"
+        elseif key == OSKEY_I then
+            return "I"
+        elseif key == OSKEY_J then
+            return "J"
+        elseif key == OSKEY_K then
+            return "K"
+        elseif key == OSKEY_L then
+            return "L"
+        elseif key == OSKEY_M then
+            return "M"
+        elseif key == OSKEY_N then
+            return "N"
+        elseif key == OSKEY_O then
+            return "O"
+        elseif key == OSKEY_P then
+            return "P"
+        elseif key == OSKEY_Q then
+            return "Q"
+        elseif key == OSKEY_R then
+            return "R"
+        elseif key == OSKEY_S then
+            return "S"
+        elseif key == OSKEY_T then
+            return "T"
+        elseif key == OSKEY_U then
+            return "U"
+        elseif key == OSKEY_V then
+            return "V"
+        elseif key == OSKEY_W then
+            return "W"
+        elseif key == OSKEY_X then
+            return "X"
+        elseif key == OSKEY_Y then
+            return "Y"
+        elseif key == OSKEY_Z then
+            return "Z"
+        elseif key == OSKEY_0 then
+            return "0"
+        elseif key == OSKEY_1 then
+            return "1"
+        elseif key == OSKEY_2 then
+            return "2"
+        elseif key == OSKEY_3 then
+            return "3"
+        elseif key == OSKEY_4 then
+            return "4"
+        elseif key == OSKEY_5 then
+            return "5"
+        elseif key == OSKEY_6 then
+            return "6"
+        elseif key == OSKEY_7 then
+            return "7"
+        elseif key == OSKEY_8 then
+            return "8"
+        elseif key == OSKEY_9 then
+            return "9"
+        elseif key == OSKEY_NUMPAD0 then
+            return "Num0"
+        elseif key == OSKEY_NUMPAD1 then
+            return "Num1"
+        elseif key == OSKEY_NUMPAD2 then
+            return "Num2"
+        elseif key == OSKEY_NUMPAD3 then
+            return "Num3"
+        elseif key == OSKEY_NUMPAD4 then
+            return "Num4"
+        elseif key == OSKEY_NUMPAD5 then
+            return "Num5"
+        elseif key == OSKEY_NUMPAD6 then
+            return "Num6"
+        elseif key == OSKEY_NUMPAD7 then
+            return "Num7"
+        elseif key == OSKEY_NUMPAD8 then
+            return "Num8"
+        elseif key == OSKEY_NUMPAD9 then
+            return "Num9"
+        elseif key == OSKEY_ESCAPE then
+            return "Esc"
+        endif
+
+        return ""
+    endfunction
+
+    private function QuickUseDefaultHotkey takes integer slot returns oskeytype
+        if slot == 1 then
+            return OSKEY_1
+        elseif slot == 2 then
+            return OSKEY_2
+        elseif slot == 3 then
+            return OSKEY_3
+        elseif slot == 4 then
+            return OSKEY_4
+        elseif slot == 5 then
+            return OSKEY_5
+        elseif slot == 6 then
+            return OSKEY_6
+        endif
+
+        return null
+    endfunction
+
+    private function GetQuickUseButtonCaption takes integer pId, integer slot returns string
+        local string label = QuickUseHotkeyText[QuickUseBindingIndex(pId, slot)]
+
+        if label == "" then
+            return "-"
+        endif
+
+        return label
+    endfunction
+
+    private function UpdateQuickUseButtonCaption takes player p, integer slot returns nothing
+        if p == null or slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return
+        endif
+
+        if GetLocalPlayer() == p then
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(slot)), "")
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagQuickUseHotkeyText", QuickUseContext(slot)), GetQuickUseButtonCaption(GetPlayerId(p), slot))
+        endif
+    endfunction
+
+    private function UpdateQuickUseButtonCaptions takes player p returns nothing
+        local integer slot = 1
+
+        if p == null then
+            return
+        endif
+
+        loop
+            exitwhen slot > QUICK_USE_BUTTON_COUNT
+            call UpdateQuickUseButtonCaption(p, slot)
+            set slot = slot + 1
+        endloop
+    endfunction
+
+    private function QuickUseSetHotkey takes integer pId, integer slot, oskeytype key, boolean refresh returns nothing
+        local integer index
+
+        if slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return
+        endif
+
+        set index = QuickUseBindingIndex(pId, slot)
+        set QuickUseHotkey[index] = key
+        set QuickUseHotkeyText[index] = QuickUseKeyToString(key)
+
+        if refresh then
+            call UpdateQuickUseButtonCaption(Player(pId), slot)
+        endif
+    endfunction
+
+    private function QuickUseResetHotkeysForPlayer takes integer pId, boolean refresh returns nothing
+        local integer slot = 1
+
+        loop
+            exitwhen slot > QUICK_USE_BUTTON_COUNT
+            call QuickUseSetHotkey(pId, slot, QuickUseDefaultHotkey(slot), refresh)
+            set slot = slot + 1
+        endloop
+    endfunction
+
+    function TasItemBagSetQuickUseHotkey takes player p, integer slot, oskeytype key returns nothing
+        if p == null then
+            return
+        endif
+
+        call QuickUseSetHotkey(GetPlayerId(p), slot, key, true)
+    endfunction
+
+    function TasItemBagGetQuickUseHotkey takes player p, integer slot returns oskeytype
+        if p == null or slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return null
+        endif
+
+        return QuickUseHotkey[QuickUseBindingIndex(GetPlayerId(p), slot)]
+    endfunction
+
+    function TasItemBagGetQuickUseHotkeyLabel takes player p, integer slot returns string
+        if p == null or slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return ""
+        endif
+
+        return QuickUseHotkeyText[QuickUseBindingIndex(GetPlayerId(p), slot)]
+    endfunction
+
+    function TasItemBagResetQuickUseHotkeys takes player p returns nothing
+        if p == null then
+            return
+        endif
+
+        call QuickUseResetHotkeysForPlayer(GetPlayerId(p), true)
+    endfunction
+
+    function TasItemBagSetQuickUseHotkeyConfigOpen takes player p, boolean open returns nothing
+        local integer pId
+        local integer slot = 1
+
+        if p == null then
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        set QuickUseHotkeyConfigOpen[pId] = open
+
+        if open then
+            loop
+                exitwhen slot > QUICK_USE_BUTTON_COUNT
+                set QuickUseHotkeyDown[QuickUseBindingIndex(pId, slot)] = false
+                set slot = slot + 1
+            endloop
+        endif
+    endfunction
+
     private function RenderQuickUseSlot takes integer slot, item it returns nothing
         local integer context = QuickUseContext(slot)
 
         if it != null and GetItemTypeId(it) == 0 then
             set it = null
         endif
+
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", context), "")
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagQuickUseHotkeyText", context), GetQuickUseButtonCaption(GetPlayerId(GetLocalPlayer()), slot))
 
         if it != null then
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", context), true)
@@ -668,31 +909,40 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function QuickUseHotkeyStateIndex takes integer pId, integer slot returns integer
-        return (pId * QUICK_USE_BUTTON_COUNT) + slot
+        return QuickUseBindingIndex(pId, slot)
     endfunction
 
-    private function QuickUseHotkeyToSlot takes oskeytype key returns integer
-        if key == OSKEY_1 then
-            return 1
-        elseif key == OSKEY_2 then
-            return 2
-        elseif key == OSKEY_3 then
-            return 3
-        elseif key == OSKEY_4 then
-            return 4
-        elseif key == OSKEY_5 then
-            return 5
-        elseif key == OSKEY_6 then
-            return 6
-        endif
+    private function QuickUseHotkeyToSlot takes integer pId, oskeytype key returns integer
+        local integer slot = 1
+
+        loop
+            exitwhen slot > QUICK_USE_BUTTON_COUNT
+            if QuickUseHotkey[QuickUseBindingIndex(pId, slot)] == key then
+                return slot
+            endif
+            set slot = slot + 1
+        endloop
+
         return 0
+    endfunction
+
+    private function RegisterQuickUseHotkeyKey takes player p, oskeytype key returns nothing
+        call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, p, key, 0, true)
+        call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, p, key, 0, false)
     endfunction
 
     private function QuickUseHotkeyAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
-        local integer slot = QuickUseHotkeyToSlot(BlzGetTriggerPlayerKey())
+        local integer slot
         local integer stateIndex
+
+        if QuickUseHotkeyConfigOpen[pId] then
+            set p = null
+            return
+        endif
+
+        set slot = QuickUseHotkeyToSlot(pId, BlzGetTriggerPlayerKey())
 
         if slot <= 0 then
             set p = null
@@ -4855,6 +5105,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle frame
         local framehandle frame2
         local framehandle frame3
+        local framehandle frame4
         local integer count = 0
         local integer buttonIndex = 0
         local boolean backup
@@ -5048,10 +5299,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", QuickUseContext(buttonIndex)), false)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", QuickUseContext(buttonIndex)), false)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", QuickUseContext(buttonIndex)), false)
+            set frame4 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseHotkeyText", frame3, "", QuickUseContext(buttonIndex))
+            call BlzFrameSetSize(frame4, BlzFrameGetWidth(frame3) - 0.002, 0.009)
+            call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPRIGHT, frame3, FRAMEPOINT_TOPRIGHT, -0.0050, -0.0045)
+            call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_RIGHT, TEXT_JUSTIFY_TOP)
+            call BlzFrameSetScale(frame4, 0.70)
             call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), "TasItemBagSlotButtonTooltip", QuickUseContext(buttonIndex), "")
             call BlzTriggerRegisterFrameEvent(TriggerUIQuickUse, BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), FRAMEEVENT_CONTROL_CLICK)
             call BlzTriggerRegisterFrameEvent(TriggerUIQuickUse, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_UP)
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), I2S(buttonIndex))
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), "")
+            call BlzFrameSetText(frame4, GetQuickUseButtonCaption(GetPlayerId(GetLocalPlayer()), buttonIndex))
 
             if buttonIndex == 1 then
                 call BlzFrameSetPoint(frame3, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, -(BlzFrameGetWidth(frame3) * QUICK_USE_BUTTON_COUNT), 0.0)
@@ -5061,6 +5318,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
             set buttonIndex = buttonIndex + 1
         endloop
+        set frame4 = null
         call SetQuickUseBarVisible(false)
         
         
@@ -5187,18 +5445,52 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUIQuickUseHotkey = CreateTrigger()
         set i = 0
         loop
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_1, 0, true)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_1, 0, false)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_2, 0, true)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_2, 0, false)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_3, 0, true)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_3, 0, false)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_4, 0, true)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_4, 0, false)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_5, 0, true)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_5, 0, false)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_6, 0, true)
-            call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, Player(i), OSKEY_6, 0, false)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_A)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_B)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_C)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_D)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_E)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_F)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_G)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_H)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_I)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_J)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_K)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_L)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_M)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_N)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_O)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_P)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_Q)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_R)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_S)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_T)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_U)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_V)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_W)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_X)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_Y)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_Z)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_0)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_1)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_2)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_3)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_4)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_5)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_6)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_7)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_8)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_9)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD0)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD1)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD2)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD3)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD4)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD5)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD6)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD7)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD8)
+            call RegisterQuickUseHotkeyKey(Player(i), OSKEY_NUMPAD9)
             set i = i + 1
             exitwhen i >= bj_MAX_PLAYERS
         endloop
@@ -5334,6 +5626,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         loop
             exitwhen i >= bj_MAX_PLAYERS
             set SellHotkeyText[i] = "G"
+            set QuickUseHotkeyConfigOpen[i] = false
+            call QuickUseResetHotkeysForPlayer(i, false)
             set i = i + 1
         endloop
 
