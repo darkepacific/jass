@@ -111,6 +111,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public boolean array DragActive
         public boolean array PanelHover
         public boolean array InventoryPanelHover
+        private integer array QuickUseHoverSlot
     
         // TransferItem remembers the current Target
         public item array TransferItem
@@ -359,6 +360,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function ClearBagPanelTransientState takes integer pId returns nothing
         set PanelHover[pId] = false
         set InventoryPanelHover[pId] = false
+        set QuickUseHoverSlot[pId] = 0
         set LastHoveredIndex[pId] = 0
         set InventoryHoverSlot[pId] = 0
         set DragOriginType[pId] = 0
@@ -3032,12 +3034,154 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
+    private function ResolveQuickUseSlotIndex takes framehandle f returns integer
+        local integer slot = 1
+        local integer context
+
+        loop
+            exitwhen slot > QUICK_USE_BUTTON_COUNT
+            set context = QuickUseContext(slot)
+            if f == BlzGetFrameByName("TasItemBagSlotButton", context) then
+                return slot
+            endif
+            if f == BlzGetFrameByName("TasItemBagSlotButtonBackdrop", context) then
+                return slot
+            endif
+            if f == BlzGetFrameByName("TasItemBagSlot", context) then
+                return slot
+            endif
+            set slot = slot + 1
+        endloop
+
+        return 0
+    endfunction
+
+    private function QuickUseSlotToDisplayIndex takes player p, integer slot returns integer
+        local integer otherPage
+
+        if p == null or slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return 0
+        endif
+
+        set otherPage = GetOtherInventoryPage(p)
+        if otherPage == 1 then
+            return PAGE1_DISPLAY_START + slot - 1
+        elseif otherPage == 2 then
+            return PAGE2_DISPLAY_START + slot - 1
+        endif
+
+        return 0
+    endfunction
+
+    private function ResolveQuickUseSlotFromMouse takes nothing returns integer
+        local real mx = BlzGetTriggerPlayerMouseX()
+        local real my = BlzGetTriggerPlayerMouseY()
+        local framehandle slotFrame = BlzGetFrameByName("TasItemBagSlot", QuickUseContext(1))
+        local real slotW
+        local real slotH
+        local real hotbarLeft
+        local real hotbarRight
+        local real hotbarTop
+        local real hotbarBottom
+        local integer slot
+
+        if slotFrame == null then
+            return 0
+        endif
+
+        set slotW = BlzFrameGetWidth(slotFrame)
+        set slotH = BlzFrameGetHeight(slotFrame)
+        set hotbarLeft = ShowButtonPosX - (slotW * QUICK_USE_BUTTON_COUNT)
+        set hotbarRight = hotbarLeft + (slotW * QUICK_USE_BUTTON_COUNT)
+        set hotbarTop = ShowButtonPosY
+        set hotbarBottom = hotbarTop - slotH
+
+        if mx < hotbarLeft or mx >= hotbarRight then
+            set slotFrame = null
+            return 0
+        endif
+
+        if my > hotbarTop or my <= hotbarBottom then
+            set slotFrame = null
+            return 0
+        endif
+
+        set slot = R2I((mx - hotbarLeft) / slotW) + 1
+        set slotFrame = null
+        if slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return 0
+        endif
+
+        return slot
+    endfunction
+
+    private function TryFinalizeSwapTarget takes player p, integer targetIndex returns boolean
+        local integer pId
+        local unit hero
+
+        if p == null then
+            return false
+        endif
+
+        set pId = GetPlayerId(p)
+        if targetIndex <= 0 or targetIndex > MAX_INTERACTIVE_SLOT then
+            return false
+        endif
+
+        if SwapIndex[pId] == targetIndex then
+            set SwapIndex[pId] = 0
+            call SwapHighlightHide(pId)
+            call HideBagPopupPanels(p)
+            return true
+        endif
+
+        set hero = udg_Heroes[GetPlayerNumber(p)]
+        if hero == null then
+            return false
+        endif
+
+        if TasItemBagSwap(hero, SwapIndex[pId], targetIndex) then
+            call PlaySwapConfirmSound(p)
+            set SwapIndex[pId] = 0
+            call SuppressBagPopupUntilNextFrame(pId)
+            call SwapHighlightHide(pId)
+            call HideBagPopupPanels(p)
+            set hero = null
+            return true
+        endif
+
+        set hero = null
+        return false
+    endfunction
+
     private function QuickUseButtonAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local frameeventtype evt = BlzGetTriggerFrameEvent()
-        local integer slot = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
+        local integer pId
+        local integer slot = 0
+        local integer displaySlot
 
         if p == null or not BagEnabledForPlayer(p) then
+            set p = null
+            return
+        endif
+
+        set pId = GetPlayerId(p)
+        if BlzFrameGetText(BlzGetTriggerFrame()) != "" then
+            set slot = S2I(BlzFrameGetText(BlzGetTriggerFrame()))
+        else
+            set slot = ResolveQuickUseSlotIndex(BlzGetTriggerFrame())
+            if slot <= 0 then
+                set slot = ResolveQuickUseSlotFromMouse()
+            endif
+        endif
+
+        if BagPanelOpen[pId] and SwapIndex[pId] > 0 and (evt == FRAMEEVENT_CONTROL_CLICK or evt == FRAMEEVENT_MOUSE_UP) then
+            set displaySlot = QuickUseSlotToDisplayIndex(p, slot)
+            if displaySlot > 0 then
+                call TryFinalizeSwapTarget(p, displaySlot)
+            endif
+            call FrameLoseFocus()
             set p = null
             return
         endif
@@ -4719,6 +4863,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
         local integer btnIndex
+        local integer quickUseSlot = 0
         local string frameText = BlzFrameGetText(BlzGetTriggerFrame())
 
         if frameText != "" then
@@ -4726,11 +4871,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         else
             set btnIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
             if btnIndex <= 0 then
-                set btnIndex = ResolveBagIndexFromMouse()
+                set quickUseSlot = ResolveQuickUseSlotIndex(BlzGetTriggerFrame())
+                if quickUseSlot <= 0 then
+                    set btnIndex = ResolveBagIndexFromMouse()
+                endif
             endif
+        endif
+        if quickUseSlot > 0 then
+            set QuickUseHoverSlot[pId] = quickUseSlot
+            set PanelHover[pId] = false
+            return
         endif
         if btnIndex > 0 then
             // call Debug("HoverAction triggered")
+            set QuickUseHoverSlot[pId] = 0
             set LastHoveredIndex[pId] = btnIndex
             set PanelHover[pId] = true
             // call Debug("Hover: player " + I2S(pId) + " hovered slot " + I2S(LastHoveredIndex[pId]))
@@ -4749,6 +4903,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer pId = GetPlayerId(p)
         local integer btnIndex
         local integer stillHovering
+        local integer quickUseSlot = 0
+        local integer stillQuickUse = 0
         local string frameText = BlzFrameGetText(BlzGetTriggerFrame())
 
         if frameText != "" then
@@ -4756,8 +4912,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         else
             set btnIndex = ResolveBagSlotIndex(BlzGetTriggerFrame())
             if btnIndex <= 0 then
-                set btnIndex = ResolveBagIndexFromMouse()
+                set quickUseSlot = ResolveQuickUseSlotIndex(BlzGetTriggerFrame())
+                if quickUseSlot <= 0 then
+                    set btnIndex = ResolveBagIndexFromMouse()
+                endif
             endif
+        endif
+        if quickUseSlot > 0 then
+            if QuickUseHoverSlot[pId] == quickUseSlot then
+                set QuickUseHoverSlot[pId] = 0
+            endif
+            set stillQuickUse = ResolveQuickUseSlotFromMouse()
+            if stillQuickUse > 0 then
+                set QuickUseHoverSlot[pId] = stillQuickUse
+            endif
+            return
         endif
         if btnIndex <= 0 then
             return
@@ -4867,6 +5036,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local mousebuttontype btn = BlzGetTriggerPlayerMouseButton()
         local integer targetIndex = LastHoveredIndex[pId]
         local integer invIndex = -1
+        local integer quickUseSlot = 0
+        local integer quickUseTargetIndex = 0
         local integer rawIdx
         local integer bagIndex
         local item bi
@@ -4960,6 +5131,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 call RequestBagInventoryInsertSync(p, invIndex)
                 return
+            endif
+
+            if SwapIndex[pId] > 0 then
+                set quickUseSlot = QuickUseHoverSlot[pId]
+                if quickUseSlot <= 0 then
+                    set quickUseSlot = ResolveQuickUseSlotFromMouse()
+                endif
+                if quickUseSlot > 0 then
+                    set quickUseTargetIndex = QuickUseSlotToDisplayIndex(p, quickUseSlot)
+                    if quickUseTargetIndex > 0 then
+                        if TryFinalizeSwapTarget(p, quickUseTargetIndex) then
+                            set DragOriginType[pId] = 0
+                            set DragOriginIndex[pId] = 0
+                            set DragActive[pId] = false
+                        endif
+                        return
+                    endif
+                endif
             endif
 
             // If not over inventory, allow bag-to-bag finalize.
@@ -5576,14 +5765,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPRIGHT, frame3, FRAMEPOINT_TOPRIGHT, -0.0100, -0.0050)
             call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_RIGHT, TEXT_JUSTIFY_TOP)
             call BlzFrameSetScale(frame4, 0.70)
+            call BlzFrameSetEnable(frame4, false)
             set frame5 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseCooldownText", frame3, "", QuickUseContext(buttonIndex))
             call BlzFrameSetSize(frame5, BlzFrameGetWidth(frame3) - 0.004, 0.012)
             call BlzFrameSetPoint(frame5, FRAMEPOINT_CENTER, frame3, FRAMEPOINT_CENTER, 0.0, 0.0005)
             call BlzFrameSetTextAlignment(frame5, TEXT_JUSTIFY_CENTER, TEXT_JUSTIFY_MIDDLE)
             call BlzFrameSetScale(frame5, 1.02)
+            call BlzFrameSetEnable(frame5, false)
             call CreateTextTooltip(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), "TasItemBagSlotButtonTooltip", QuickUseContext(buttonIndex), "")
             call BlzTriggerRegisterFrameEvent(TriggerUIQuickUse, BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), FRAMEEVENT_CONTROL_CLICK)
             call BlzTriggerRegisterFrameEvent(TriggerUIQuickUse, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_UP)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_LEAVE)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlotButtonBackdrop", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_LEAVE)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(TriggerUIHover, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(buttonIndex)), FRAMEEVENT_MOUSE_LEAVE)
             call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(buttonIndex)), "")
             call BlzFrameSetText(frame4, GetQuickUseButtonCaption(GetPlayerId(GetLocalPlayer()), buttonIndex))
             call BlzFrameSetText(frame5, "")
