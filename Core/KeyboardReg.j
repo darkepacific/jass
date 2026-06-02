@@ -12,16 +12,31 @@ function GetOwnedHeroForPlayer takes player p returns unit
     return null
 endfunction
 
-function Trig_Spacebar_Hero_Center_Actions takes nothing returns nothing
-    local player p = GetTriggerPlayer()
-    local unit hero = GetOwnedHeroForPlayer(p)
+function GetSpacebarFocusUnitForPlayer takes player p returns unit
+    local integer playerNum = GetPlayerNumber(p)
+    local unit flightPathUnit
 
-    if hero != null then
-        call SelectUnitForPlayerSingle(hero, p)
-        call PanCameraToTimedForPlayer(p, GetUnitX(hero), GetUnitY(hero), 0.00)
+    if playerNum >= 0 and playerNum <= 7 then
+        set flightPathUnit = udg_FP_Bats_n_Gryphons[playerNum]
+        if flightPathUnit != null and GetUnitTypeId(flightPathUnit) != 0 and GetWidgetLife(flightPathUnit) > 0.405 then
+            return flightPathUnit
+        endif
     endif
 
-    set hero = null
+    set flightPathUnit = null
+    return GetOwnedHeroForPlayer(p)
+endfunction
+
+function Trig_Spacebar_Hero_Center_Actions takes nothing returns nothing
+    local player p = GetTriggerPlayer()
+    local unit focusUnit = GetSpacebarFocusUnitForPlayer(p)
+
+    if focusUnit != null then
+        call SelectUnitForPlayerSingle(focusUnit, p)
+        call PanCameraToTimedForPlayer(p, GetUnitX(focusUnit), GetUnitY(focusUnit), 0.00)
+    endif
+
+    set focusUnit = null
     set p = null
 endfunction
 
