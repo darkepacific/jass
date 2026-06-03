@@ -5527,9 +5527,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle toolTip = BlzCreateFrameByType("TEXT", wantedframeName, toolTipBox, "TasTooltipText", wantedCreateContext)
         local framehandle sellIcon = BlzCreateFrameByType("BACKDROP", "TasItemBagTooltipSellIcon", toolTipBox, "", wantedCreateContext)
         local framehandle sellText = BlzCreateFrameByType("TEXT", "TasItemBagTooltipSellText", toolTipBox, "TasTooltipText", wantedCreateContext)
-        local framehandle slotButton = BlzGetFrameByName("TasItemBagSlotButton", wantedCreateContext)
-        local framehandle slotBackdrop = BlzGetFrameByName("TasItemBagSlotButtonBackdrop", wantedCreateContext)
-        local framehandle slotFrame = BlzGetFrameByName("TasItemBagSlot", wantedCreateContext)
 
         if TooltipFixedPosition then 
             call BlzFrameSetAbsPoint(toolTip, TooltipFixedPositionPoint, TooltipFixedPositionX, TooltipFixedPositionY)
@@ -5550,15 +5547,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetVisible(sellIcon, false)
         call BlzFrameSetVisible(sellText, false)
         call BlzFrameSetTooltip(frame, toolTipParent)
-        if slotButton != null and slotButton != frame then
-            call BlzFrameSetTooltip(slotButton, toolTipParent)
-        endif
-        if slotBackdrop != null and slotBackdrop != frame then
-            call BlzFrameSetTooltip(slotBackdrop, toolTipParent)
-        endif
-        if slotFrame != null and slotFrame != frame then
-            call BlzFrameSetTooltip(slotFrame, toolTipParent)
-        endif
         call BlzFrameSetSize(toolTip, TooltipWidth, 0)
         // Important: tooltip frames must not capture mouse, otherwise hover can flicker.
         call BlzFrameSetEnable(toolTipParent, false)
@@ -5568,9 +5556,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetEnable(sellText, false)
         set sellIcon = null
         set sellText = null
-        set slotButton = null
-        set slotBackdrop = null
-        set slotFrame = null
         return toolTip
     endfunction
 
