@@ -169,6 +169,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private timer QuickUseLocalTimer
         private integer QuickUseCooldownExpireAt = 0
         private integer QuickUseCooldownTotal = 0
+        private integer QuickUseCooldownGroupExpireAt = 0
         private item array ItemGainTimerItem
         private integer ItemGainTimerCount = 0
         private constant integer BAG_PAGE_SLOT_COUNT = 12
@@ -800,6 +801,23 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return GetHandleId(it)
     endfunction
 
+    private function QuickUseCooldownGroupForItemType takes integer itemType returns integer
+        if itemType == 0 then
+            return 0
+        endif
+
+        // Default to same raw item type. Keep any future shared-cooldown exceptions tiny.
+        return itemType
+    endfunction
+
+    private function QuickUseCooldownGroupId takes item it returns integer
+        if it == null or GetItemTypeId(it) == 0 then
+            return 0
+        endif
+
+        return QuickUseCooldownGroupForItemType(GetItemTypeId(it))
+    endfunction
+
     private function ClearQuickUseCooldownByHandleId takes integer handleId returns nothing
         local Table cooldownExpireAt = QuickUseCooldownExpireAt
         local Table cooldownTotal = QuickUseCooldownTotal
@@ -833,8 +851,46 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return I2R(remainingTicks) / I2R(QUICK_USE_COOLDOWN_SCALE)
     endfunction
 
+    private function ClearQuickUseCooldownByGroupId takes integer groupId returns nothing
+        local Table cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt
+
+        if groupId <= 0 or QuickUseCooldownGroupExpireAt == 0 then
+            return
+        endif
+
+        call cooldownGroupExpireAt.remove(groupId)
+    endfunction
+
+    private function GetQuickUseCooldownRemainingByGroupId takes integer groupId returns real
+        local Table cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt
+        local integer remainingTicks
+
+        if groupId <= 0 or QuickUseCooldownGroupExpireAt == 0 or not cooldownGroupExpireAt.has(groupId) then
+            return 0.0
+        endif
+
+        set remainingTicks = cooldownGroupExpireAt[groupId] - QuickUseCooldownClock
+        if remainingTicks <= 0 then
+            call ClearQuickUseCooldownByGroupId(groupId)
+            return 0.0
+        endif
+
+        return I2R(remainingTicks) / I2R(QUICK_USE_COOLDOWN_SCALE)
+    endfunction
+
     private function GetQuickUseCooldownRemaining takes item it returns real
-        return GetQuickUseCooldownRemainingByHandleId(QuickUseCooldownHandleId(it))
+        local real remaining
+
+        if it == null or GetItemTypeId(it) == 0 then
+            return 0.0
+        endif
+
+        set remaining = GetQuickUseCooldownRemainingByHandleId(QuickUseCooldownHandleId(it))
+        if remaining > 0.0 then
+            return remaining
+        endif
+
+        return GetQuickUseCooldownRemainingByGroupId(QuickUseCooldownGroupId(it))
     endfunction
 
     private function QuickUseCooldownToTicks takes real seconds returns integer
@@ -844,9 +900,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     private function SetQuickUseCooldown takes item it, real remaining, real total returns nothing
         local Table cooldownExpireAt = QuickUseCooldownExpireAt
         local Table cooldownTotal = QuickUseCooldownTotal
+        local Table cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt
         local integer handleId = QuickUseCooldownHandleId(it)
+        local integer groupId = QuickUseCooldownGroupId(it)
+        local integer expireAt
 
-        if handleId <= 0 or QuickUseCooldownExpireAt == 0 or QuickUseCooldownTotal == 0 then
+        if handleId <= 0 or QuickUseCooldownExpireAt == 0 or QuickUseCooldownTotal == 0 or QuickUseCooldownGroupExpireAt == 0 then
             return
         endif
 
@@ -855,8 +914,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
-        set cooldownExpireAt[handleId] = QuickUseCooldownClock + QuickUseCooldownToTicks(remaining)
+        set expireAt = QuickUseCooldownClock + QuickUseCooldownToTicks(remaining)
+        set cooldownExpireAt[handleId] = expireAt
         set cooldownTotal[handleId] = QuickUseCooldownToTicks(total)
+        if groupId > 0 then
+            set cooldownGroupExpireAt[groupId] = expireAt
+        endif
     endfunction
 
     private function TransferQuickUseCooldown takes item fromItem, item toItem returns nothing
@@ -950,6 +1013,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         return 0
+    endfunction
+
+    private function QuickUseItemHasAbilityId takes item it, integer abilityId returns boolean
+        local integer index = 0
+        local ability itemAbility
+
+        if it == null or GetItemTypeId(it) == 0 or abilityId == 0 then
+            return false
+        endif
+
+        loop
+            exitwhen index >= QUICK_USE_COOLDOWN_SCAN_ABILITY_COUNT
+            set itemAbility = BlzGetItemAbilityByIndex(it, index)
+            if itemAbility != null and BlzGetAbilityId(itemAbility) == abilityId then
+                set itemAbility = null
+                return true
+            endif
+            set itemAbility = null
+            set index = index + 1
+        endloop
+
+        return false
     endfunction
 
     private function StartQuickUseCooldownByAbility takes unit hero, item it, integer abilityId returns nothing
@@ -4223,6 +4308,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local integer spellAbilityId
         local integer targetAbilityId
         local integer cooldownAbilityId
+        local item trackedItem
 
         if hero == null then
             return
@@ -4246,18 +4332,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set spellAbilityId = GetSpellAbilityId()
         set targetAbilityId = QuickUseTargetAbilityIdForItemType(trackedType)
         set cooldownAbilityId = QuickUseCooldownAbilityIdForItemType(trackedType)
+        set trackedItem = QuickUseItem[pId]
         if trackedType != 0 then
             if cooldownAbilityId != 0 and cooldownAbilityId == spellAbilityId then
-                call StartQuickUseCooldownByAbility(hero, QuickUseItem[pId], spellAbilityId)
+                call StartQuickUseCooldownByAbility(hero, trackedItem, spellAbilityId)
             endif
             if targetAbilityId != 0 and targetAbilityId == spellAbilityId then
                 if cooldownAbilityId == 0 then
-                    call StartQuickUseCooldownByAbility(hero, QuickUseItem[pId], spellAbilityId)
+                    call StartQuickUseCooldownByAbility(hero, trackedItem, spellAbilityId)
                 endif
                 call QueueQuickUseRestore(pId)
+            elseif QuickUseItemHasAbilityId(trackedItem, spellAbilityId) then
+                call StartQuickUseCooldownByAbility(hero, trackedItem, spellAbilityId)
             endif
         endif
 
+        set trackedItem = null
         set hero = null
         set p = null
     endfunction
@@ -6123,6 +6213,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set QuickUseLocalTimer = CreateTimer()
         set QuickUseCooldownExpireAt = Table.create()
         set QuickUseCooldownTotal = Table.create()
+        set QuickUseCooldownGroupExpireAt = Table.create()
         set WorldDropTimer = CreateTimer()
         set PickupIntentTimer = CreateTimer()
         call TimerStart(QuickUseLocalTimer, 0.03, true, function QuickUseLocalTimerAction)
