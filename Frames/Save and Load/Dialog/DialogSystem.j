@@ -1,4 +1,4 @@
-library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, MultiPageInventorySystem, TasItemBag
+library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, MultiPageInventorySystem, TasItemBag, SaveFile, FileIO
 
     globals
         private dialog array Dialog
@@ -20,6 +20,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private boolean array ListenSell
         private integer array ListenInventoryQuickCastSlot
         private boolean array ConfigOpen
+        private constant string HOTKEY_SETTINGS_HEADER = "HOTKEYS1"
 
         private trigger trigHotkeys = CreateTrigger()
         private trigger trigCfgInventory = CreateTrigger()
@@ -30,6 +31,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private trigger trigCfgQuickUse = CreateTrigger()
         private trigger trigCfgQuickUseBack = CreateTrigger()
         private trigger trigCfgClose = CreateTrigger()
+        private trigger trigDialogButtons = CreateTrigger()
 
         private framehandle hotkeyConfigPanel = null
         private framehandle hotkeyConfigTitleText = null
@@ -140,6 +142,301 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             return "Esc"
         endif
         return "?"
+    endfunction
+
+    private function OsKeyToStoredInt takes oskeytype key returns integer
+        if key == null then
+            return 0
+        elseif key == OSKEY_A then
+            return $41
+        elseif key == OSKEY_B then
+            return $42
+        elseif key == OSKEY_C then
+            return $43
+        elseif key == OSKEY_D then
+            return $44
+        elseif key == OSKEY_E then
+            return $45
+        elseif key == OSKEY_F then
+            return $46
+        elseif key == OSKEY_G then
+            return $47
+        elseif key == OSKEY_H then
+            return $48
+        elseif key == OSKEY_I then
+            return $49
+        elseif key == OSKEY_J then
+            return $4A
+        elseif key == OSKEY_K then
+            return $4B
+        elseif key == OSKEY_L then
+            return $4C
+        elseif key == OSKEY_M then
+            return $4D
+        elseif key == OSKEY_N then
+            return $4E
+        elseif key == OSKEY_O then
+            return $4F
+        elseif key == OSKEY_P then
+            return $50
+        elseif key == OSKEY_Q then
+            return $51
+        elseif key == OSKEY_R then
+            return $52
+        elseif key == OSKEY_S then
+            return $53
+        elseif key == OSKEY_T then
+            return $54
+        elseif key == OSKEY_U then
+            return $55
+        elseif key == OSKEY_V then
+            return $56
+        elseif key == OSKEY_W then
+            return $57
+        elseif key == OSKEY_X then
+            return $58
+        elseif key == OSKEY_Y then
+            return $59
+        elseif key == OSKEY_Z then
+            return $5A
+        elseif key == OSKEY_0 then
+            return $30
+        elseif key == OSKEY_1 then
+            return $31
+        elseif key == OSKEY_2 then
+            return $32
+        elseif key == OSKEY_3 then
+            return $33
+        elseif key == OSKEY_4 then
+            return $34
+        elseif key == OSKEY_5 then
+            return $35
+        elseif key == OSKEY_6 then
+            return $36
+        elseif key == OSKEY_7 then
+            return $37
+        elseif key == OSKEY_8 then
+            return $38
+        elseif key == OSKEY_9 then
+            return $39
+        elseif key == OSKEY_NUMPAD0 then
+            return $60
+        elseif key == OSKEY_NUMPAD1 then
+            return $61
+        elseif key == OSKEY_NUMPAD2 then
+            return $62
+        elseif key == OSKEY_NUMPAD3 then
+            return $63
+        elseif key == OSKEY_NUMPAD4 then
+            return $64
+        elseif key == OSKEY_NUMPAD5 then
+            return $65
+        elseif key == OSKEY_NUMPAD6 then
+            return $66
+        elseif key == OSKEY_NUMPAD7 then
+            return $67
+        elseif key == OSKEY_NUMPAD8 then
+            return $68
+        elseif key == OSKEY_NUMPAD9 then
+            return $69
+        elseif key == OSKEY_ESCAPE then
+            return $1B
+        endif
+
+        return 0
+    endfunction
+
+    private function StoredIntToOsKey takes integer keyValue returns oskeytype
+        if (keyValue >= $30 and keyValue <= $39) or (keyValue >= $41 and keyValue <= $5A) or (keyValue >= $60 and keyValue <= $69) or keyValue == $1B then
+            return ConvertOsKeyType(keyValue)
+        endif
+        return null
+    endfunction
+
+    private function HotkeyLabelForKey takes oskeytype key returns string
+        if key == null then
+            return ""
+        endif
+        return OsKeyToString(key)
+    endfunction
+
+    private function HotkeySettingsPath takes player whichPlayer returns string
+        return SaveFile.Folder + "Settings\\Hotkeys\\" + SaveFile.Faction(whichPlayer) + "\\Hotkeys.pld"
+    endfunction
+
+    private function HotkeySettingsLegacyPath takes player whichPlayer returns string
+        return SaveFile.Folder + SaveFile.Faction(whichPlayer) + "\\Hotkeys.pld"
+    endfunction
+
+    private function HotkeySettingsModeLegacyPath takes player whichPlayer returns string
+        return SaveFile.Folder + SaveFile.ModeFolder() + "\\" + SaveFile.Faction(whichPlayer) + "\\Hotkeys.pld"
+    endfunction
+
+    private function TrimTrailingCarriageReturn takes string value returns string
+        local integer len = StringLength(value)
+        if len > 0 and SubString(value, len - 1, len) == "\r" then
+            return SubString(value, 0, len - 1)
+        endif
+        return value
+    endfunction
+
+    private function HotkeySettingsLine takes string contents, integer wantedLine returns string
+        local integer len = StringLength(contents)
+        local integer currentLine = 1
+        local integer startIndex = 0
+        local integer i = 0
+        local string ch
+        local string value
+
+        if wantedLine <= 0 then
+            return ""
+        endif
+
+        loop
+            exitwhen i >= len
+            set ch = SubString(contents, i, i + 1)
+            if ch == "\n" then
+                if currentLine == wantedLine then
+                    set value = TrimTrailingCarriageReturn(SubString(contents, startIndex, i))
+                    set ch = null
+                    return value
+                endif
+                set currentLine = currentLine + 1
+                set startIndex = i + 1
+            endif
+            set i = i + 1
+        endloop
+
+        if currentLine == wantedLine then
+            set value = TrimTrailingCarriageReturn(SubString(contents, startIndex, len))
+            set ch = null
+            return value
+        endif
+
+        set ch = null
+        return ""
+    endfunction
+
+    private function HotkeySettingsStoredInt takes string contents, integer wantedLine returns integer
+        local string value = HotkeySettingsLine(contents, wantedLine)
+        local integer keyValue
+
+        if value == "" then
+            return -1
+        endif
+
+        set keyValue = S2I(value)
+        if value != I2S(keyValue) then
+            return -1
+        endif
+
+        return keyValue
+    endfunction
+
+    private function RefreshBoundHotkeyLabels takes player whichPlayer returns nothing
+        local integer pid
+
+        if whichPlayer == null then
+            return
+        endif
+
+        set pid = GetPlayerId(whichPlayer)
+        call MPInventorySetNextPageHotkeyLabel(whichPlayer, PageHotkeyLabel[pid])
+        call TasItemBagSetToggleHotkeyLabel(whichPlayer, BagHotkeyLabel[pid])
+        call TasItemBagSetSellHotkeyLabel(whichPlayer, SellHotkeyLabel[pid])
+    endfunction
+
+    private function SaveHotkeysForPlayer takes player whichPlayer returns nothing
+        local integer pid
+        local integer slot = 1
+        local string contents
+
+        if whichPlayer == null then
+            return
+        endif
+
+        set pid = GetPlayerId(whichPlayer)
+        set contents = HOTKEY_SETTINGS_HEADER + "\n" + I2S(OsKeyToStoredInt(MenuHotkey[pid])) + "\n" + I2S(OsKeyToStoredInt(PageHotkey[pid])) + "\n" + I2S(OsKeyToStoredInt(BagHotkey[pid])) + "\n" + I2S(OsKeyToStoredInt(SellHotkey[pid]))
+        loop
+            exitwhen slot > 6
+            set contents = contents + "\n" + I2S(OsKeyToStoredInt(TasItemBagGetQuickUseHotkey(whichPlayer, slot)))
+            set slot = slot + 1
+        endloop
+
+        if GetLocalPlayer() == whichPlayer then
+            call FileIO_Write(HotkeySettingsPath(whichPlayer), contents)
+        endif
+
+        set contents = null
+    endfunction
+
+    private function LoadHotkeysForPlayer takes player whichPlayer returns nothing
+        local integer pid
+        local string contents
+        local integer keyValue
+        local oskeytype loadedKey
+        local integer slot = 1
+
+        if whichPlayer == null then
+            return
+        endif
+        if GetLocalPlayer() != whichPlayer then
+            return
+        endif
+
+        set contents = FileIO_Read(HotkeySettingsPath(whichPlayer))
+        if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
+            set contents = FileIO_Read(HotkeySettingsLegacyPath(whichPlayer))
+            if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
+                set contents = FileIO_Read(HotkeySettingsModeLegacyPath(whichPlayer))
+                if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
+                    set contents = null
+                    return
+                endif
+            endif
+        endif
+
+        set pid = GetPlayerId(whichPlayer)
+
+        set keyValue = HotkeySettingsStoredInt(contents, 2)
+        set loadedKey = StoredIntToOsKey(keyValue)
+        if loadedKey != null then
+            set MenuHotkey[pid] = loadedKey
+            set MenuHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
+        endif
+
+        set keyValue = HotkeySettingsStoredInt(contents, 3)
+        if keyValue >= 0 then
+            set loadedKey = StoredIntToOsKey(keyValue)
+            set PageHotkey[pid] = loadedKey
+            set PageHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
+        endif
+
+        set keyValue = HotkeySettingsStoredInt(contents, 4)
+        if keyValue >= 0 then
+            set loadedKey = StoredIntToOsKey(keyValue)
+            set BagHotkey[pid] = loadedKey
+            set BagHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
+        endif
+
+        set keyValue = HotkeySettingsStoredInt(contents, 5)
+        if keyValue >= 0 then
+            set loadedKey = StoredIntToOsKey(keyValue)
+            set SellHotkey[pid] = loadedKey
+            set SellHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
+        endif
+
+        loop
+            exitwhen slot > 6
+            set keyValue = HotkeySettingsStoredInt(contents, slot + 5)
+            if keyValue >= 0 then
+                call TasItemBagSetQuickUseHotkey(whichPlayer, slot, StoredIntToOsKey(keyValue))
+            endif
+            set slot = slot + 1
+        endloop
+
+        call RefreshBoundHotkeyLabels(whichPlayer)
+        set contents = null
     endfunction
 
     private function ClearListenState takes integer pid returns nothing
@@ -275,15 +572,12 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endif
 
         set Button[(pid * 12) + 2] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffcc00Select|r |cffffffffH|r|cffffcc00ot keys|r|r", 72)
-        set closeLabel = "|cffff8000|cffffffffC|rlose|r"
-        // if MenuHotkeyLabel[pid] == "" then
-        //     set closeLabel = "|cffff8000Close|r"
-        // elseif MenuHotkeyLabel[pid] == "C" then
-        //     set closeLabel = "|cffff8000|cffffffffC|rlose"
-        // else
-        //     set closeLabel = "|cffff8000(|cffffffff" + MenuHotkeyLabel[pid] + "|r) Close"
-        // endif
-        set Button[(pid * 12) + 3] = DialogAddButton(Dialog[(pid * 12) + 0], closeLabel, 67)
+        if MenuHotkeyLabel[pid] == "" then
+            set closeLabel = "|cffff8000Close|r"
+        else
+            set closeLabel = "|cffff8000Close|r |cffaaaaaa(" + MenuHotkeyLabel[pid] + ")|r"
+        endif
+        set Button[(pid * 12) + 3] = DialogAddButton(Dialog[(pid * 12) + 0], closeLabel, 0)
         call DialogDisplay(p, Dialog[(pid * 12) + 0], GetLocalPlayer() == p)
         set MenuOpen[pid] = true
         set closeLabel = null
@@ -455,9 +749,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endif
 
         call ClearListenState(pid)
-        call MPInventorySetNextPageHotkeyLabel(whichPlayer, PageHotkeyLabel[pid])
-        call TasItemBagSetToggleHotkeyLabel(whichPlayer, BagHotkeyLabel[pid])
-        call TasItemBagSetSellHotkeyLabel(whichPlayer, SellHotkeyLabel[pid])
+        call RefreshBoundHotkeyLabels(whichPlayer)
+        call SaveHotkeysForPlayer(whichPlayer)
         call ToggleHotkeyConfig(whichPlayer, true)
     endfunction
 
@@ -732,8 +1025,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set BagHotkeyLabel[i] = "X"
             set SellHotkey[i] = OSKEY_G
             set SellHotkeyLabel[i] = "G"
-            call TasItemBagSetToggleHotkeyLabel(Player(i), BagHotkeyLabel[i])
-            call TasItemBagSetSellHotkeyLabel(Player(i), SellHotkeyLabel[i])
+            call RefreshBoundHotkeyLabels(Player(i))
             set HotkeyConfigInventoryPage[i] = false
             set ConfigOpen[i] = false
             set MenuOpen[i] = false
@@ -782,18 +1074,29 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
 
     private function InitDialog takes nothing returns nothing
         local integer i = 0
-        local trigger t = CreateTrigger()
-        local User u
         
         loop
-            exitwhen i == User.AmountPlaying
-            set u = User.fromPlaying(i)
-            set Dialog[(u.id * 12) + 0] = DialogCreate()
-            call TriggerRegisterDialogEvent(t, Dialog[(u.id * 12) + 0])
+            exitwhen i == bj_MAX_PLAYER_SLOTS
+            set Dialog[(i * 12) + 0] = DialogCreate()
+            call TriggerRegisterDialogEvent(trigDialogButtons, Dialog[(i * 12) + 0])
             set i = i + 1
         endloop
-        
-        call TriggerAddCondition(t, Filter(function OnButtonClick))
+    endfunction
+
+    private function FinishHotkeyInit takes nothing returns nothing
+        local integer i = 0
+
+        call CreateHotkeyConfigUI()
+        call RegisterAllHotkeys()
+
+        loop
+            exitwhen i == bj_MAX_PLAYER_SLOTS
+            call LoadHotkeysForPlayer(Player(i))
+            set i = i + 1
+        endloop
+
+        call TriggerAddCondition(trigDialogButtons, Filter(function OnButtonClick))
+        call InitDialog()
     endfunction
 
     private function Init takes nothing returns nothing
@@ -802,8 +1105,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         local integer i = 0
 
         call InitDefaultHotkeys()
-        call CreateHotkeyConfigUI()
-        call RegisterAllHotkeys()
         
         loop
             call TriggerRegisterPlayerChatEvent(t, Player(i), "-load", true)
@@ -822,6 +1123,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         
         call TriggerAddCondition(t, Filter(function ShowMenu))
         call TriggerAddCondition(tClose, Filter(function CloseMenu))
-        call TimerStart(CreateTimer(), 0, false, function InitDialog)
+        call TimerStart(CreateTimer(), 0.01, false, function FinishHotkeyInit)
     endfunction
 endlibrary

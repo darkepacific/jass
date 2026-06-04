@@ -298,8 +298,12 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         local SaveFile savefile = SaveFile(slot)
         local string s
         local User user = User[p]
-        local integer saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
+        local integer saveNumber = 0
         local unit hero = udg_Heroes[GetPlayerHeroNumber(p)]
+
+        if (not SaveFile.exists(p, slot, 0)) then
+            set saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
+        endif
             
         if (not SaveFile.exists(p, slot, saveNumber)) then
             // call DisplayTextToPlayer(p, 0, 0, "Did not find any save data.")
