@@ -45,6 +45,7 @@ function Load_GUI takes nothing returns nothing
     local integer metaFaction
     local integer metaMode
     local integer metaHeroSlot = 0
+    local integer decodedHeroSlot = 0
     local integer altMagic
     set udg_SaveCount = 0 
    
@@ -159,23 +160,31 @@ function Load_GUI takes nothing returns nothing
     call Debug("Name: ")         
     call SaveHelper.GUILoadNext(saveCode) 
     set heroID = SaveHelper.GetHeroNameFromID(udg_SaveValue[udg_SaveCount]) 
+    if heroID == "" then
+        if metaHeroSlot > 0 then
+            set heroID = GetHeroNameForSlotAndFaction(metaHeroSlot, metaFaction)
+        elseif expectedSlot > 0 then
+            set heroID = GetHeroNameForSlotAndFaction(expectedSlot, metaFaction)
+        endif
+    endif
+    set decodedHeroSlot = GetSlotForHeroUnitID(ConvertStringToHeroUnitID(heroID))
     call Debug("Loaded Hero: " + heroID) 
 
     // Validate that the save matches the selected hero slot.
     // This prevents renaming a file (e.g. 220 -> 222) and loading the wrong class.
     if expectedSlot > 0 then
-        if GetSlotForHeroUnitID(ConvertStringToHeroUnitID(heroID)) != expectedSlot then
+        if decodedHeroSlot != expectedSlot then
             call saveCode.destroy()
             call PlayerReturnToHeroSelection(p)
             call ClearNeatMessagesForPlayer(p)
-            call NeatMessageToPlayer(p, "|cffffcc00Wrong class for this slot.|r |nThat save does not match the selected hero slot.")
+            call NeatMessageToPlayer(p, "|cffffcc00Wrong class for this slot.|r |nSelected slot " + I2S(expectedSlot) + ", decoded hero " + heroID + " maps to slot " + I2S(decodedHeroSlot) + ".")
             return
         endif
         if metaHeroSlot != expectedSlot then
             call saveCode.destroy()
             call PlayerReturnToHeroSelection(p)
             call ClearNeatMessagesForPlayer(p)
-            call NeatMessageToPlayer(p, "|cffffcc00Wrong class for this slot.|r |nThat save does not match the selected hero slot.")
+            call NeatMessageToPlayer(p, "|cffffcc00Wrong class for this slot.|r |nSelected slot " + I2S(expectedSlot) + ", embedded slot metadata is " + I2S(metaHeroSlot) + ".")
             return
         endif
     endif

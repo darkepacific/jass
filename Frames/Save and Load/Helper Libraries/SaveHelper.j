@@ -128,7 +128,33 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // endmethod
         
         static method ConvertItemId takes integer itemId returns integer
-            return LoadInteger(thistype.Hashtable, KEY_ITEMS, itemId)
+            local integer itemIndex
+            local integer i
+
+            if itemId == 0 then
+                return 0
+            endif
+
+            if udg_SaveItemType[1] == 0 and gg_trg_SaveItemList != null then
+                call TriggerExecute(gg_trg_SaveItemList)
+            endif
+
+            set itemIndex = LoadInteger(thistype.Hashtable, KEY_ITEMS, itemId)
+            if itemIndex != 0 then
+                return itemIndex
+            endif
+
+            set i = 1
+            loop
+                exitwhen i >= SaveHelper.MaxItems()
+                if udg_SaveItemType[i] == itemId then
+                    call SaveInteger(thistype.Hashtable, KEY_ITEMS, itemId, i)
+                    return i
+                endif
+                set i = i + 1
+            endloop
+
+            return 0
         endmethod
 
         // static method ConvertUnitId takes integer unitId returns integer
@@ -136,6 +162,13 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // endmethod
         
         static method GetHeroNameFromID takes integer id returns string
+            if (udg_SaveNameList[1] == null or udg_SaveNameList[1] == "") and gg_trg_SaveNameList != null then
+                call TriggerExecute(gg_trg_SaveNameList)
+            endif
+
+            if id <= 0 or id >= SaveHelper.MaxNames() then
+                return ""
+            endif
             return udg_SaveNameList[id]
         endmethod
 
@@ -144,7 +177,32 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // endmethod
         
         static method GetHeroNameID takes string name returns integer
-            return LoadInteger(thistype.Hashtable, KEY_NAMES, StringHash(name))
+            local integer heroNameId
+            local integer i = 1
+
+            if name == "" then
+                return 0
+            endif
+
+            if (udg_SaveNameList[1] == null or udg_SaveNameList[1] == "") and gg_trg_SaveNameList != null then
+                call TriggerExecute(gg_trg_SaveNameList)
+            endif
+
+            set heroNameId = LoadInteger(thistype.Hashtable, KEY_NAMES, StringHash(name))
+            if heroNameId != 0 then
+                return heroNameId
+            endif
+
+            loop
+                exitwhen i >= SaveHelper.MaxNames() or udg_SaveNameList[i] == "" or udg_SaveNameList[i] == null
+                if udg_SaveNameList[i] == name then
+                    call SaveInteger(thistype.Hashtable, KEY_NAMES, StringHash(name), i)
+                    return i
+                endif
+                set i = i + 1
+            endloop
+
+            return 0
         endmethod
 
         // static method GetHearthID takes string hearth returns integer
@@ -214,7 +272,16 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // endmethod
         
         static method Init takes nothing returns nothing // called at the end of "Save Init" trigger
-            local integer i = 0
+            local integer i = 1
+
+            if udg_SaveItemType[1] == 0 and gg_trg_SaveItemList != null then
+                call TriggerExecute(gg_trg_SaveItemList)
+            endif
+
+            if (udg_SaveNameList[1] == null or udg_SaveNameList[1] == "") and gg_trg_SaveNameList != null then
+                call TriggerExecute(gg_trg_SaveNameList)
+            endif
+
             loop
                 exitwhen i >= thistype.MaxItems() //or udg_SaveItemType[i] == 0
                 
@@ -298,6 +365,7 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         local SaveFile savefile = SaveFile(slot)
         local string s
         local User user = User[p]
+        local integer pid = GetPlayerId(p)
         local integer saveNumber = 0
         local unit hero = udg_Heroes[GetPlayerHeroNumber(p)]
 
@@ -314,12 +382,13 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         elseif (SaveHelper.IsUserLoading(user)) then
             // call DisplayTextToPlayer(p, 0, 0, "Please wait while your character synchronizes.")
         else
+            set udg_Hero_Strings[pid] = ""
+            call SaveHelper.SetUserLoading(user, true)
             // Prefix the slot so Load_GUI can validate that the save matches the selected hero slot.
             set s = I2S(slot) + "|" + savefile.getData(p, saveNumber)
             if (GetLocalPlayer() == p) then
                 call SyncString(s)
             endif
-            call SaveHelper.SetUserLoading(user, true) 
             call ClearTextMessages()
             call Debug("Synchronzing with other players... ")//+ GetPlayerName(p) + " slot: " + I2S(slot) + " saveNumber: " + I2S(saveNumber) + " string: " + s)
         endif

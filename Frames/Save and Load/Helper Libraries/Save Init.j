@@ -359,6 +359,7 @@ function Trig_Save_Init_Actions takes nothing returns nothing
     set udg_SaveValue[0] = 0
     set udg_SaveMaxValue[0] = 0
     set udg_SaveTempInt = 0
+    call InitSaveListTrigs()
     call SaveHelper.Init()
 endfunction
 

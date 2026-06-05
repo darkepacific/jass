@@ -134,7 +134,14 @@ function Save_GUI takes nothing returns nothing
     // ------------------- 
     set udg_SaveCount =(udg_SaveCount + 1) 
     set name = ConvertHeroToString(u) 
+    if name == "" then
+        set name = GetHeroNameForSlotAndFaction(GetSlotForHero(u), SaveHelper.GetFactionId(p))
+    endif
     set udg_SaveValue[udg_SaveCount] = SaveHelper.GetHeroNameID(name) 
+    if udg_SaveValue[udg_SaveCount] == 0 then
+        set name = GetHeroNameForSlotAndFaction(GetSlotForHero(u), SaveHelper.GetFactionId(p))
+        set udg_SaveValue[udg_SaveCount] = SaveHelper.GetHeroNameID(name)
+    endif
     set udg_SaveMaxValue[udg_SaveCount] = udg_SaveNameMax 
     // call BJDebugMsg("Saved Name: " + name) 
     // call BJDebugMsg("Name Number: " + I2S(udg_SaveValue[udg_SaveCount])) 

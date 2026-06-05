@@ -261,6 +261,10 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
     endfunction
 
     private function HotkeySettingsPath takes player whichPlayer returns string
+        return SaveFile.Folder + "Settings\\Hotkeys\\Hotkeys.pld"
+    endfunction
+
+    private function HotkeySettingsFactionPath takes player whichPlayer returns string
         return SaveFile.Folder + "Settings\\Hotkeys\\" + SaveFile.Faction(whichPlayer) + "\\Hotkeys.pld"
     endfunction
 
@@ -386,12 +390,15 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
 
         set contents = FileIO_Read(HotkeySettingsPath(whichPlayer))
         if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
-            set contents = FileIO_Read(HotkeySettingsLegacyPath(whichPlayer))
+            set contents = FileIO_Read(HotkeySettingsFactionPath(whichPlayer))
             if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
-                set contents = FileIO_Read(HotkeySettingsModeLegacyPath(whichPlayer))
+                set contents = FileIO_Read(HotkeySettingsLegacyPath(whichPlayer))
                 if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
-                    set contents = null
-                    return
+                    set contents = FileIO_Read(HotkeySettingsModeLegacyPath(whichPlayer))
+                    if HotkeySettingsLine(contents, 1) != HOTKEY_SETTINGS_HEADER then
+                        set contents = null
+                        return
+                    endif
                 endif
             endif
         endif
@@ -572,12 +579,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endif
 
         set Button[(pid * 12) + 2] = DialogAddButton(Dialog[(pid * 12) + 0], "|cffffcc00Select|r |cffffffffH|r|cffffcc00ot keys|r|r", 72)
-        if MenuHotkeyLabel[pid] == "" then
-            set closeLabel = "|cffff8000Close|r"
-        else
-            set closeLabel = "|cffff8000Close|r |cffaaaaaa(" + MenuHotkeyLabel[pid] + ")|r"
-        endif
-        set Button[(pid * 12) + 3] = DialogAddButton(Dialog[(pid * 12) + 0], closeLabel, 0)
+        set closeLabel = "|cffffaa00|cffffffffC|rlose|r"
+        set Button[(pid * 12) + 3] = DialogAddButton(Dialog[(pid * 12) + 0], closeLabel, 67)
         call DialogDisplay(p, Dialog[(pid * 12) + 0], GetLocalPlayer() == p)
         set MenuOpen[pid] = true
         set closeLabel = null

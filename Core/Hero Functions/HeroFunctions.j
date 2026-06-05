@@ -128,7 +128,79 @@ library HeroFunctions
             return "udg_yH_Veng_DH"   
         endif 
         
-        return "" 
+        return ""
+    endfunction
+
+    function GetHeroNameForSlotAndFaction takes integer slot, integer factionId returns string
+        local string prefix = "udg_yA_"
+
+        if factionId == 2 then
+            set prefix = "udg_yH_"
+        endif
+
+        if slot == 110 then
+            return prefix + "Blood_DK"
+        elseif slot == 111 then
+            return prefix + "Frost_DK"
+        elseif slot == 112 then
+            return prefix + "Unholy_DK"
+        elseif slot == 120 then
+            return prefix + "Demon_Hunt"
+        elseif slot == 130 then
+            return prefix + "Bal_Druid"
+        elseif slot == 131 then
+            return prefix + "Feral_Druid"
+        elseif slot == 140 then
+            return prefix + "Beast_Hunter"
+        elseif slot == 141 then
+            return prefix + "Dark_Ranger"
+        elseif slot == 142 then
+            return prefix + "Marksman_Hunter"
+        elseif slot == 150 then
+            return prefix + "Arcane_Mage"
+        elseif slot == 151 then
+            return prefix + "Fire_Mage"
+        elseif slot == 152 then
+            return prefix + "Frost_Mage"
+        elseif slot == 160 then
+            return prefix + "Brew_Monk"
+        elseif slot == 170 then
+            return prefix + "Holy_Pally"
+        elseif slot == 171 then
+            return prefix + "Prot_Pally"
+        elseif slot == 172 then
+            return prefix + "Ret_Pally"
+        elseif slot == 180 then
+            return prefix + "Disc_Priest"
+        elseif slot == 181 then
+            return prefix + "Holy_Priest"
+        elseif slot == 182 then
+            return prefix + "Shadow_Priest"
+        elseif slot == 190 then
+            return prefix + "Ass_Rogue"
+        elseif slot == 191 then
+            return prefix + "Combat_Rogue"
+        elseif slot == 192 then
+            return prefix + "Subtle_Rogue"
+        elseif slot == 200 then
+            return prefix + "Ele_Sham"
+        elseif slot == 201 then
+            return prefix + "Enhance_Shaman"
+        elseif slot == 202 then
+            return prefix + "Resto_Sham"
+        elseif slot == 211 then
+            return prefix + "Demon_Warlock"
+        elseif slot == 212 then
+            return prefix + "Destro_Warlock"
+        elseif slot == 220 then
+            return prefix + "Arms_Warr"
+        elseif slot == 221 then
+            return prefix + "Fury_Warr"
+        elseif slot == 222 then
+            return prefix + "Prot_Warr"
+        endif
+
+        return ""
     endfunction 
 
     //Used to check if the hero to be loaded is already in play
