@@ -1340,7 +1340,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call SelectUnitForPlayerSingle(hero, p)
         endif
         if trackedItemType != 0 then
-            if trackedItemType == 'I08K' or trackedItemType == 'I08S' then
+            if trackedItemType == 'I08K' or trackedItemType == 'I08S' or trackedItemType == 'I073' then
                 if it != null and GetItemTypeId(it) != 0 then
                     set prompt = "Click " + GetItemName(it) + " to use it."
                 else
@@ -1464,6 +1464,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         elseif itemType == 'I08S' then
             // Grove Acorn (Point Target)
             return 'A0F7'
+        elseif itemType == 'I073' then
+            // Kil'Jaeden's Meteor of Destruction (Point Target)
+            return 'A0GO'
         elseif itemType == 'I07G' then
             // Noxious Potion (Unit Target)
             return 'APLG'

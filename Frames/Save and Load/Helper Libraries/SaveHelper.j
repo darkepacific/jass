@@ -135,10 +135,6 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
                 return 0
             endif
 
-            if udg_SaveItemType[1] == 0 and gg_trg_SaveItemList != null then
-                call TriggerExecute(gg_trg_SaveItemList)
-            endif
-
             set itemIndex = LoadInteger(thistype.Hashtable, KEY_ITEMS, itemId)
             if itemIndex != 0 then
                 return itemIndex
@@ -162,10 +158,6 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // endmethod
         
         static method GetHeroNameFromID takes integer id returns string
-            if (udg_SaveNameList[1] == null or udg_SaveNameList[1] == "") and gg_trg_SaveNameList != null then
-                call TriggerExecute(gg_trg_SaveNameList)
-            endif
-
             if id <= 0 or id >= SaveHelper.MaxNames() then
                 return ""
             endif
@@ -182,10 +174,6 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
 
             if name == "" then
                 return 0
-            endif
-
-            if (udg_SaveNameList[1] == null or udg_SaveNameList[1] == "") and gg_trg_SaveNameList != null then
-                call TriggerExecute(gg_trg_SaveNameList)
             endif
 
             set heroNameId = LoadInteger(thistype.Hashtable, KEY_NAMES, StringHash(name))
@@ -273,14 +261,6 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         
         static method Init takes nothing returns nothing // called at the end of "Save Init" trigger
             local integer i = 1
-
-            if udg_SaveItemType[1] == 0 and gg_trg_SaveItemList != null then
-                call TriggerExecute(gg_trg_SaveItemList)
-            endif
-
-            if (udg_SaveNameList[1] == null or udg_SaveNameList[1] == "") and gg_trg_SaveNameList != null then
-                call TriggerExecute(gg_trg_SaveNameList)
-            endif
 
             loop
                 exitwhen i >= thistype.MaxItems() //or udg_SaveItemType[i] == 0

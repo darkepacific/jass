@@ -198,23 +198,15 @@ library HeroSelection requires HeroSelectionConfig, HeroDeclaration, SaveHelperL
 	endfunction
 
 	private function GetTitle takes player p, integer slot returns string
-		local integer saveNumber = 0
-
-		if not SaveFile.exists(p, slot, 0) then
-			set saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
-		endif
+		local integer saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
 		call Debug("saveNumber:" + I2S(saveNumber))
 
 		return SaveFile(slot).getTitle(p, saveNumber)		
 	endfunction
 
 	private function GetItems takes player p, integer slot returns string
-		local integer saveNumber = 0
+		local integer saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
 		local string s
-
-		if not SaveFile.exists(p, slot, 0) then
-			set saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
-		endif
 
 		set s = SaveFile(slot).getItems(p, saveNumber)
 		if s == null then
