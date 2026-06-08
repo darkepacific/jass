@@ -167,9 +167,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private unit array ItemGainTimerUnit
         private timer ItemGainTimer
         private timer QuickUseLocalTimer
-        private integer QuickUseCooldownExpireAt = 0
-        private integer QuickUseCooldownTotal = 0
-        private integer QuickUseCooldownGroupExpireAt = 0
+            private integer array QuickUseCooldownExpireAt
+            private integer array QuickUseCooldownTotal
+            private integer array QuickUseCooldownGroupExpireAt
         private item array ItemGainTimerItem
         private integer ItemGainTimerCount = 0
         private constant integer BAG_PAGE_SLOT_COUNT = 12
@@ -299,11 +299,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return "SELL (|cffffffff" + SellHotkeyText[pId] + "|r)"
     endfunction
 
-    private function GetBagToggleHintText takes integer pId returns string
+    private function GetBagToggleButtonCaption takes integer pId returns string
         if BagToggleHotkeyText[pId] == "" then
-            return "|cffc0c0c0Toggle Bag:|r |cffff8080Unbound|r"
+            return "-"
         endif
-        return "|cffc0c0c0Toggle Bag:|r |cffffffff" + BagToggleHotkeyText[pId] + "|r"
+
+        return BagToggleHotkeyText[pId]
     endfunction
 
     private function UpdateSellPopupButtonText takes player p returns nothing
@@ -320,7 +321,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
         if GetLocalPlayer() == p then
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagHintText", 0), GetBagToggleHintText(GetPlayerId(p)))
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagToggleHotkeyText", 0), GetBagToggleButtonCaption(GetPlayerId(p)))
         endif
     endfunction
 
@@ -818,99 +819,118 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return QuickUseCooldownGroupForItemType(GetItemTypeId(it))
     endfunction
 
-    private function ClearQuickUseCooldownByHandleId takes integer handleId returns nothing
-        local Table cooldownExpireAt = QuickUseCooldownExpireAt
-        local Table cooldownTotal = QuickUseCooldownTotal
+    private function ClearQuickUseCooldownByHandleId takes integer pId, integer handleId returns nothing
+        local Table cooldownExpireAt
+        local Table cooldownTotal
 
-        if handleId <= 0 or QuickUseCooldownExpireAt == 0 or QuickUseCooldownTotal == 0 then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or handleId <= 0 or QuickUseCooldownExpireAt[pId] == 0 or QuickUseCooldownTotal[pId] == 0 then
             return
         endif
+
+        set cooldownExpireAt = QuickUseCooldownExpireAt[pId]
+        set cooldownTotal = QuickUseCooldownTotal[pId]
 
         call cooldownExpireAt.remove(handleId)
         call cooldownTotal.remove(handleId)
     endfunction
 
-    private function ClearQuickUseCooldownByItem takes item it returns nothing
-        call ClearQuickUseCooldownByHandleId(QuickUseCooldownHandleId(it))
+    private function ClearQuickUseCooldownByItem takes integer pId, item it returns nothing
+        call ClearQuickUseCooldownByHandleId(pId, QuickUseCooldownHandleId(it))
     endfunction
 
-    private function GetQuickUseCooldownRemainingByHandleId takes integer handleId returns real
-        local Table cooldownExpireAt = QuickUseCooldownExpireAt
+    private function GetQuickUseCooldownRemainingByHandleId takes integer pId, integer handleId returns real
+        local Table cooldownExpireAt
         local integer remainingTicks
 
-        if handleId <= 0 or QuickUseCooldownExpireAt == 0 or not cooldownExpireAt.has(handleId) then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or handleId <= 0 or QuickUseCooldownExpireAt[pId] == 0 then
+            return 0.0
+        endif
+
+        set cooldownExpireAt = QuickUseCooldownExpireAt[pId]
+        if not cooldownExpireAt.has(handleId) then
             return 0.0
         endif
 
         set remainingTicks = cooldownExpireAt[handleId] - QuickUseCooldownClock
         if remainingTicks <= 0 then
-            call ClearQuickUseCooldownByHandleId(handleId)
+            call ClearQuickUseCooldownByHandleId(pId, handleId)
             return 0.0
         endif
 
         return I2R(remainingTicks) / I2R(QUICK_USE_COOLDOWN_SCALE)
     endfunction
 
-    private function ClearQuickUseCooldownByGroupId takes integer groupId returns nothing
-        local Table cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt
+    private function ClearQuickUseCooldownByGroupId takes integer pId, integer groupId returns nothing
+        local Table cooldownGroupExpireAt
 
-        if groupId <= 0 or QuickUseCooldownGroupExpireAt == 0 then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or groupId <= 0 or QuickUseCooldownGroupExpireAt[pId] == 0 then
             return
         endif
+
+        set cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt[pId]
 
         call cooldownGroupExpireAt.remove(groupId)
     endfunction
 
-    private function GetQuickUseCooldownRemainingByGroupId takes integer groupId returns real
-        local Table cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt
+    private function GetQuickUseCooldownRemainingByGroupId takes integer pId, integer groupId returns real
+        local Table cooldownGroupExpireAt
         local integer remainingTicks
 
-        if groupId <= 0 or QuickUseCooldownGroupExpireAt == 0 or not cooldownGroupExpireAt.has(groupId) then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or groupId <= 0 or QuickUseCooldownGroupExpireAt[pId] == 0 then
+            return 0.0
+        endif
+
+        set cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt[pId]
+        if not cooldownGroupExpireAt.has(groupId) then
             return 0.0
         endif
 
         set remainingTicks = cooldownGroupExpireAt[groupId] - QuickUseCooldownClock
         if remainingTicks <= 0 then
-            call ClearQuickUseCooldownByGroupId(groupId)
+            call ClearQuickUseCooldownByGroupId(pId, groupId)
             return 0.0
         endif
 
         return I2R(remainingTicks) / I2R(QUICK_USE_COOLDOWN_SCALE)
     endfunction
 
-    private function GetQuickUseCooldownRemaining takes item it returns real
+    private function GetQuickUseCooldownRemaining takes integer pId, item it returns real
         local real remaining
 
-        if it == null or GetItemTypeId(it) == 0 then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or it == null or GetItemTypeId(it) == 0 then
             return 0.0
         endif
 
-        set remaining = GetQuickUseCooldownRemainingByHandleId(QuickUseCooldownHandleId(it))
+        set remaining = GetQuickUseCooldownRemainingByHandleId(pId, QuickUseCooldownHandleId(it))
         if remaining > 0.0 then
             return remaining
         endif
 
-        return GetQuickUseCooldownRemainingByGroupId(QuickUseCooldownGroupId(it))
+        return GetQuickUseCooldownRemainingByGroupId(pId, QuickUseCooldownGroupId(it))
     endfunction
 
     private function QuickUseCooldownToTicks takes real seconds returns integer
         return R2I((seconds * I2R(QUICK_USE_COOLDOWN_SCALE)) + 0.5)
     endfunction
 
-    private function SetQuickUseCooldown takes item it, real remaining, real total returns nothing
-        local Table cooldownExpireAt = QuickUseCooldownExpireAt
-        local Table cooldownTotal = QuickUseCooldownTotal
-        local Table cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt
+    private function SetQuickUseCooldown takes integer pId, item it, real remaining, real total returns nothing
+        local Table cooldownExpireAt
+        local Table cooldownTotal
+        local Table cooldownGroupExpireAt
         local integer handleId = QuickUseCooldownHandleId(it)
         local integer groupId = QuickUseCooldownGroupId(it)
         local integer expireAt
 
-        if handleId <= 0 or QuickUseCooldownExpireAt == 0 or QuickUseCooldownTotal == 0 or QuickUseCooldownGroupExpireAt == 0 then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or handleId <= 0 or QuickUseCooldownExpireAt[pId] == 0 or QuickUseCooldownTotal[pId] == 0 or QuickUseCooldownGroupExpireAt[pId] == 0 then
             return
         endif
 
+        set cooldownExpireAt = QuickUseCooldownExpireAt[pId]
+        set cooldownTotal = QuickUseCooldownTotal[pId]
+        set cooldownGroupExpireAt = QuickUseCooldownGroupExpireAt[pId]
+
         if remaining <= 0.0 or total <= 0.0 then
-            call ClearQuickUseCooldownByHandleId(handleId)
+            call ClearQuickUseCooldownByHandleId(pId, handleId)
             return
         endif
 
@@ -922,35 +942,41 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
-    private function TransferQuickUseCooldown takes item fromItem, item toItem returns nothing
-        local Table cooldownTotal = QuickUseCooldownTotal
+    private function TransferQuickUseCooldown takes integer pId, item fromItem, item toItem returns nothing
+        local Table cooldownTotal
         local integer fromHandleId = QuickUseCooldownHandleId(fromItem)
         local integer toHandleId = QuickUseCooldownHandleId(toItem)
         local real fromRemaining
         local real fromTotal
         local real toRemaining
 
-        if fromHandleId <= 0 or toHandleId <= 0 or fromHandleId == toHandleId then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or fromHandleId <= 0 or toHandleId <= 0 or fromHandleId == toHandleId then
             return
         endif
 
-        set fromRemaining = GetQuickUseCooldownRemainingByHandleId(fromHandleId)
+        if QuickUseCooldownTotal[pId] == 0 then
+            return
+        endif
+
+        set cooldownTotal = QuickUseCooldownTotal[pId]
+
+        set fromRemaining = GetQuickUseCooldownRemainingByHandleId(pId, fromHandleId)
         if fromRemaining <= 0.0 then
             return
         endif
 
-        if QuickUseCooldownTotal != 0 and cooldownTotal.has(fromHandleId) then
+        if cooldownTotal.has(fromHandleId) then
             set fromTotal = I2R(cooldownTotal[fromHandleId]) / I2R(QUICK_USE_COOLDOWN_SCALE)
         else
             set fromTotal = fromRemaining
         endif
-        set toRemaining = GetQuickUseCooldownRemainingByHandleId(toHandleId)
+        set toRemaining = GetQuickUseCooldownRemainingByHandleId(pId, toHandleId)
 
         if toRemaining <= 0.0 or fromRemaining > toRemaining then
-            call SetQuickUseCooldown(toItem, fromRemaining, fromTotal)
+            call SetQuickUseCooldown(pId, toItem, fromRemaining, fromTotal)
         endif
 
-        call ClearQuickUseCooldownByHandleId(fromHandleId)
+        call ClearQuickUseCooldownByHandleId(pId, fromHandleId)
     endfunction
 
     private function GetQuickUseCooldownDurationForAbility takes unit hero, integer abilityId returns real
@@ -1037,11 +1063,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return false
     endfunction
 
-    private function StartQuickUseCooldownByAbility takes unit hero, item it, integer abilityId returns nothing
+    private function StartQuickUseCooldownByAbility takes integer pId, unit hero, item it, integer abilityId returns nothing
         local real remaining
         local real total
 
-        if hero == null or it == null or abilityId == 0 then
+        if pId < 0 or pId >= bj_MAX_PLAYERS or hero == null or it == null or abilityId == 0 then
             return
         endif
 
@@ -1055,11 +1081,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set remaining = total
         endif
 
-        call SetQuickUseCooldown(it, remaining, total)
+        call SetQuickUseCooldown(pId, it, remaining, total)
     endfunction
 
-    private function StartQuickUseCooldownFromItemUse takes unit hero, item it returns nothing
+    private function StartQuickUseCooldownFromItemUse takes integer pId, unit hero, item it returns nothing
         local integer abilityId = 0
+
+        if pId < 0 or pId >= bj_MAX_PLAYERS then
+            return
+        endif
 
         if it != null and GetItemTypeId(it) != 0 then
             set abilityId = QuickUseCooldownAbilityIdForItemType(GetItemTypeId(it))
@@ -1068,7 +1098,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set abilityId = FindQuickUseCooldownAbilityId(hero, it)
         endif
 
-        call StartQuickUseCooldownByAbility(hero, it, abilityId)
+        call StartQuickUseCooldownByAbility(pId, hero, it, abilityId)
     endfunction
 
     private function SetQuickUseSlotIconAlpha takes integer context, integer alpha returns nothing
@@ -1091,7 +1121,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return "|cffffffff" + I2S(tenths / 10) + "." + I2S(ModuloInteger(tenths, 10)) + "|r"
     endfunction
 
-    private function RenderQuickUseSlot takes integer slot, item it returns nothing
+    private function RenderQuickUseSlot takes integer pId, integer slot, item it returns nothing
         local integer context = QuickUseContext(slot)
         local real cooldownRemaining = 0.0
 
@@ -1100,11 +1130,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", context), "")
-        call BlzFrameSetText(BlzGetFrameByName("TasItemBagQuickUseHotkeyText", context), GetQuickUseButtonCaption(GetPlayerId(GetLocalPlayer()), slot))
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagQuickUseHotkeyText", context), GetQuickUseButtonCaption(pId, slot))
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagQuickUseCooldownText", context), "")
 
         if it != null then
-            set cooldownRemaining = GetQuickUseCooldownRemaining(it)
+            set cooldownRemaining = GetQuickUseCooldownRemaining(pId, it)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", context), true)
             call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", context), BlzGetItemIconPath(it), 0, true)
             call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", context), BlzGetItemIconPath(it), 0, true)
@@ -1142,6 +1172,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function RenderQuickUseBarForLocalPlayer takes player p returns nothing
+        local integer pId
         local integer otherPage
         local integer utilitySlot = 1
         local item it
@@ -1150,6 +1181,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return
         endif
 
+        set pId = GetPlayerId(p)
         set otherPage = GetOtherInventoryPage(p)
         loop
             exitwhen utilitySlot > QUICK_USE_BUTTON_COUNT
@@ -1158,7 +1190,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             else
                 set it = null
             endif
-            call RenderQuickUseSlot(utilitySlot, it)
+            call RenderQuickUseSlot(pId, utilitySlot, it)
             set utilitySlot = utilitySlot + 1
         endloop
 
@@ -2650,7 +2682,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
                 // Fully merged into hero inventory -> remove incoming
                 if incomingCharges <= 0 then
-                    call TransferQuickUseCooldown(i, existing)
+                    call TransferQuickUseCooldown(playerKey, i, existing)
                     call RemoveItem(i)
                     set existing = null
                     call RequestUIUpdate()
@@ -2692,7 +2724,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
                 // Fully merged into non-visible page -> remove incoming
                 if incomingCharges <= 0 then
-                    call TransferQuickUseCooldown(i, existing)
+                    call TransferQuickUseCooldown(playerKey, i, existing)
                     call RemoveItem(i)
                     set existing = null
                     call RequestUIUpdate()
@@ -2742,7 +2774,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
                 // Fully merged -> remove the incoming item
                 if incomingCharges <= 0 then
-                    call TransferQuickUseCooldown(i, existing)
+                    call TransferQuickUseCooldown(playerKey, i, existing)
                     call RemoveItem(i)
                     set existing = null
                     call RequestUIUpdate()
@@ -2842,6 +2874,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // Equip an item into a specific hero inventory slot. Creates a new WC3 item
     // instance, updates udg_P_Items[arrIndex] to the new handle, and destroys the old.
     private function EquipToHeroSlot takes unit hero, item it, integer invSlot, integer arrIndex returns nothing
+        local integer playerKey = GetPlayerId(GetOwningPlayer(hero))
         local integer typeId = GetItemTypeId(it)
         local integer charges = GetItemCharges(it)
         local item newItem
@@ -2853,7 +2886,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
             // Update P_Items to reference the new WC3 handle
             set udg_P_Items[arrIndex] = newItem
-            call TransferQuickUseCooldown(it, newItem)
+            call TransferQuickUseCooldown(playerKey, it, newItem)
             // Destroy the old island-parked item
             call RemoveItem(it)
             set newItem = null
@@ -3001,7 +3034,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                 elseif chargesA + chargesB <= DEFAULT_MAX_CHARGES then
                     // Fully absorb: merge all into destination, remove source
                     call SetItemCharges(i2, chargesA + chargesB)
-                    call TransferQuickUseCooldown(i, i2)
+                    call TransferQuickUseCooldown(playerKey, i, i2)
                     call RemoveItem(i)
                     set udg_P_Items[a] = null
                     if aIsActive or bIsActive then
@@ -3113,6 +3146,44 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             return TasItemBagRemoveIndex(u, slot, drop)
         endif
         return false
+    endfunction
+
+    private function ClearFrameFocusLocal takes player p, framehandle whichFrame returns nothing
+        if p == null then
+            return
+        endif
+
+        if GetLocalPlayer() == p then
+            call BlzFrameSetEnable(whichFrame, false)
+            call BlzFrameSetEnable(whichFrame, true)
+        endif
+    endfunction
+
+    private function ClearBagSlotFocusLocal takes player p, integer rawSlotIndex returns nothing
+        if rawSlotIndex <= 0 or rawSlotIndex > MAX_INTERACTIVE_SLOT then
+            return
+        endif
+
+        call ClearFrameFocusLocal(p, BlzGetFrameByName("TasItemBagSlotButton", rawSlotIndex))
+    endfunction
+
+    private function ClearQuickUseSlotFocusLocal takes player p, integer slot returns nothing
+        if slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return
+        endif
+
+        call ClearFrameFocusLocal(p, BlzGetFrameByName("TasItemBagSlotButton", QuickUseContext(slot)))
+    endfunction
+
+    private function ClearInventorySlotFocusLocal takes player p, integer invSlot returns nothing
+        if invSlot < 0 or invSlot >= bj_MAX_INVENTORY then
+            return
+        endif
+
+        call ClearFrameFocusLocal(p, BlzGetOriginFrame(ORIGIN_FRAME_ITEM_BUTTON, invSlot))
+        if InventoryHitbox[invSlot] != null then
+            call ClearFrameFocusLocal(p, InventoryHitbox[invSlot])
+        endif
     endfunction
 
     private function FrameLoseFocus takes nothing returns nothing
@@ -4293,7 +4364,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             elseif QuickUseItemNeedsExplicitTarget(usedItem) then
                 call StartQuickUseTargetResolve(pId)
             else
-                call StartQuickUseCooldownFromItemUse(hero, usedItem)
+                call StartQuickUseCooldownFromItemUse(pId, hero, usedItem)
                 call QueueQuickUseRestore(pId)
             endif
         endif
@@ -4338,15 +4409,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set trackedItem = QuickUseItem[pId]
         if trackedType != 0 then
             if cooldownAbilityId != 0 and cooldownAbilityId == spellAbilityId then
-                call StartQuickUseCooldownByAbility(hero, trackedItem, spellAbilityId)
+                call StartQuickUseCooldownByAbility(pId, hero, trackedItem, spellAbilityId)
             endif
             if targetAbilityId != 0 and targetAbilityId == spellAbilityId then
                 if cooldownAbilityId == 0 then
-                    call StartQuickUseCooldownByAbility(hero, trackedItem, spellAbilityId)
+                    call StartQuickUseCooldownByAbility(pId, hero, trackedItem, spellAbilityId)
                 endif
                 call QueueQuickUseRestore(pId)
             elseif QuickUseItemHasAbilityId(trackedItem, spellAbilityId) then
-                call StartQuickUseCooldownByAbility(hero, trackedItem, spellAbilityId)
+                call StartQuickUseCooldownByAbility(pId, hero, trackedItem, spellAbilityId)
             endif
         endif
 
@@ -4422,7 +4493,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if TasItemBagRemoveIndex(hero, bagIndex, false) then
-            call ClearQuickUseCooldownByItem(it)
+            call ClearQuickUseCooldownByItem(GetPlayerId(p), it)
             call RemoveItem(it)
             call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + goldGain)
 
@@ -5218,11 +5289,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             set DragOriginType[pId] = 0
             set DragOriginIndex[pId] = 0
             set DragActive[pId] = false
-            call FrameLoseFocus()
+            call ClearBagSlotFocusLocal(p, bagIndex)
         elseif btn == MOUSE_BUTTON_TYPE_LEFT then
             // Local inventory detection only sends intent; the synced handler performs the swap.
             if SwapIndex[pId] > 0 and invIndex >= 0 and invIndex < bj_MAX_INVENTORY then
                 call RequestBagInventoryInsertSync(p, invIndex)
+                call ClearBagSlotFocusLocal(p, SwapIndex[pId])
+                call ClearInventorySlotFocusLocal(p, invIndex)
                 return
             endif
 
@@ -5238,6 +5311,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             set DragOriginType[pId] = 0
                             set DragOriginIndex[pId] = 0
                             set DragActive[pId] = false
+                            call ClearBagSlotFocusLocal(p, SwapIndex[pId])
+                            call ClearQuickUseSlotFocusLocal(p, quickUseSlot)
                         endif
                         return
                     endif
@@ -5261,10 +5336,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
                             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
                         endif
-                        call FrameLoseFocus()
+                        call ClearBagSlotFocusLocal(p, bagIndex)
                         return
                     elseif TasItemBagSwap(udg_Heroes[GetPlayerNumber(p)], SwapIndex[pId], bagIndex) then
                         call PlaySwapConfirmSound(p)
+                        call ClearBagSlotFocusLocal(p, SwapIndex[pId])
+                        call ClearBagSlotFocusLocal(p, bagIndex)
                         set SwapIndex[pId] = 0
                         call SuppressBagPopupUntilNextFrame(pId)
                         call SwapHighlightHide(pId)
@@ -5275,7 +5352,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         set DragOriginType[pId] = 0
                         set DragOriginIndex[pId] = 0
                         set DragActive[pId] = false
-                        call FrameLoseFocus()
                         return
                     endif
                 endif
@@ -5290,6 +5366,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                         // Vendor near click — only sell if hero is in range, otherwise block.
                         if IsHeroInSellRange(p, clickShop) then
                             if SellBagIndexToShop(p, SwapIndex[pId], clickShop, false) then
+                                call ClearBagSlotFocusLocal(p, SwapIndex[pId])
                                 set SwapIndex[pId] = 0
                                 call SwapHighlightHide(pId)
                                 if GetLocalPlayer() == p then
@@ -5299,7 +5376,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
                                 set DragOriginType[pId] = 0
                                 set DragOriginIndex[pId] = 0
                                 set DragActive[pId] = false
-                                call FrameLoseFocus()
                             endif
                         else
                             call NeatErrorMessage("Move closer to the shop.", p)
@@ -5832,6 +5908,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0)
         call BlzTriggerRegisterFrameEvent(TriggerUIOpen, BlzGetFrameByName("TasItemBagSlotButton", 0), FRAMEEVENT_CONTROL_CLICK)
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", 0), true)
+        set frame4 = BlzCreateFrameByType("TEXT", "TasItemBagToggleHotkeyText", frame, "", 0)
+        call BlzFrameSetSize(frame4, BlzFrameGetWidth(frame) - 0.002, 0.009)
+        call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0.0040, -0.0050)
+        call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_TOP)
+        call BlzFrameSetScale(frame4, 0.70)
+        call BlzFrameSetEnable(frame4, false)
+        call BlzFrameSetText(frame4, GetBagToggleButtonCaption(GetPlayerId(GetLocalPlayer())))
 
         set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseLabel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
         call BlzFrameSetPoint(frame2, FRAMEPOINT_BOTTOMLEFT, frame, FRAMEPOINT_TOPLEFT, -(BlzFrameGetWidth(frame) * QUICK_USE_BUTTON_COUNT), 0.002)
@@ -5897,12 +5980,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetPoint(frame, FRAMEPOINT_CENTER, BlzFrameGetParent(frame), FRAMEPOINT_TOPRIGHT, - 0.002, - 0.002)
         call BlzTriggerRegisterFrameEvent(TriggerUIClose, frame, FRAMEEVENT_CONTROL_CLICK)
         // BlzFrameClick(BlzGetFrameByName("TasItemBagCloseButton", 0))
-
-        set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagHintText", panel, "", 0)
-        call BlzFrameSetSize(frame2, BlzFrameGetWidth(panel) - 0.045, 0.012)
-        call BlzFrameSetPoint(frame2, FRAMEPOINT_BOTTOMLEFT, panel, FRAMEPOINT_TOPLEFT, 0.008, 0.004)
-        call BlzFrameSetText(frame2, GetBagToggleHintText(GetPlayerId(GetLocalPlayer())))
-        call BlzFrameSetTextAlignment(frame2, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_MIDDLE)
 
         call BlzFrameSetLevel(BlzGetFrameByName("TasItemBagTooltipPanel", 0), 8)
         // Bag Popup (programmatic, original style)
@@ -6212,11 +6289,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
     
     private function init_function takes nothing returns nothing
+        local integer pId = 0
+
         set ItemGainTimer = CreateTimer()
         set QuickUseLocalTimer = CreateTimer()
-        set QuickUseCooldownExpireAt = Table.create()
-        set QuickUseCooldownTotal = Table.create()
-        set QuickUseCooldownGroupExpireAt = Table.create()
+        loop
+            exitwhen pId >= bj_MAX_PLAYERS
+            set QuickUseCooldownExpireAt[pId] = Table.create()
+            set QuickUseCooldownTotal[pId] = Table.create()
+            set QuickUseCooldownGroupExpireAt[pId] = Table.create()
+            set pId = pId + 1
+        endloop
         set WorldDropTimer = CreateTimer()
         set PickupIntentTimer = CreateTimer()
         call TimerStart(QuickUseLocalTimer, 0.03, true, function QuickUseLocalTimerAction)

@@ -71,7 +71,7 @@ function TalentDemonWarlock takes nothing returns nothing
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNBerserkForTrolls.blp"
 	set udg_TalentChoiceText[choice] = "Gain 1 extra Imp on Evil Imps cast"
 
-	set choice = TalentChoiceCreateImproveStatWithBoolean( 0, 400, 0, 6.0, 0.0, 11)
+	set choice = TalentChoiceCreateImproveStatWithBoolean( 0, 600, 0, 6.0, 0.0, 11)
 	set udg_TalentChoiceHead[choice] = "Demon Armor"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNDemonArmor.blp"
 
