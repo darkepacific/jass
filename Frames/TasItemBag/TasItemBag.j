@@ -1306,6 +1306,36 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzTriggerRegisterPlayerKeyEvent(TriggerUIQuickUseHotkey, p, key, 0, false)
     endfunction
 
+    private function QuickUseSlotHasActiveCooldown takes player p, integer slot returns boolean
+        local integer pId
+        local integer otherPage
+        local item it
+
+        if p == null or slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            return false
+        endif
+
+        set pId = GetPlayerId(p)
+        set otherPage = GetOtherInventoryPage(p)
+        if otherPage <= 0 then
+            return false
+        endif
+
+        set it = udg_P_Items[GetPItemsIndex(p, otherPage, slot)]
+        if it == null or GetItemTypeId(it) == 0 then
+            set it = null
+            return false
+        endif
+
+        if GetQuickUseCooldownRemaining(pId, it) > 0.0 then
+            set it = null
+            return true
+        endif
+
+        set it = null
+        return false
+    endfunction
+
     private function QuickUseHotkeyAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pId = GetPlayerId(p)
@@ -1332,7 +1362,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
 
             set QuickUseHotkeyDown[stateIndex] = true
-            if BagEnabledForPlayer(p) and ShowBagButtonForPlayer[pId] then
+            if BagEnabledForPlayer(p) and ShowBagButtonForPlayer[pId] and not QuickUseSlotHasActiveCooldown(p, slot) then
                 call RequestQuickUseSync(p, slot)
             endif
         else
@@ -1758,6 +1788,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set targetItem = udg_P_Items[GetPItemsIndex(p, otherPage, slot)]
         if targetItem == null or GetItemTypeId(targetItem) == 0 then
+            set p = null
+            set data = null
+            set hero = null
+            set targetItem = null
+            return
+        endif
+
+        if GetQuickUseCooldownRemaining(pId, targetItem) > 0.0 then
             set p = null
             set data = null
             set hero = null
@@ -3352,6 +3390,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
 
         if slot < 1 or slot > QUICK_USE_BUTTON_COUNT then
+            set p = null
+            return
+        endif
+
+        if QuickUseSlotHasActiveCooldown(p, slot) then
+            call FrameLoseFocus()
             set p = null
             return
         endif
