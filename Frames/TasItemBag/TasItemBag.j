@@ -158,6 +158,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string TOOLTIP_SELL_ICON_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp"
         private constant real TOOLTIP_SELL_ICON_SIZE = 0.010
         private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f---------------------------------|r"
+        private constant string HOTKEY_BADGE_TEXTURE = "UI/Widgets/EscMenu/Human/blank-background"
+        private constant real HOTKEY_BADGE_SIZE = 0.0105
+        private constant integer HOTKEY_BADGE_ALPHA = 140
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -167,9 +170,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private unit array ItemGainTimerUnit
         private timer ItemGainTimer
         private timer QuickUseLocalTimer
-            private integer array QuickUseCooldownExpireAt
-            private integer array QuickUseCooldownTotal
-            private integer array QuickUseCooldownGroupExpireAt
+        private integer array QuickUseCooldownExpireAt
+        private integer array QuickUseCooldownTotal
+        private integer array QuickUseCooldownGroupExpireAt
         private item array ItemGainTimerItem
         private integer ItemGainTimerCount = 0
         private constant integer BAG_PAGE_SLOT_COUNT = 12
@@ -442,10 +445,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
-    private function GetTooltipSellValue takes item it returns integer
+    function IsStackableType takes item i returns boolean
+        if i == null then
+            return false
+        endif
+        return ( GetItemType(i) == ITEM_TYPE_CHARGED or GetItemType(i) == ITEM_TYPE_MISCELLANEOUS or GetItemType(i) == ITEM_TYPE_CAMPAIGN or GetItemType(i) == ITEM_TYPE_UNKNOWN)
+    endfunction
+
+    private function GetVendorSellGoldValue takes item it returns integer
         local integer itemType
         local integer goldGain
         local integer stackCount
+        local integer defaultCharges
 
         if it == null or not IsItemPawnable(it) then
             return 0
@@ -463,9 +474,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             if stackCount > HEARTSEEKER_BASE_STACKS then
                 set goldGain = goldGain + ((goldGain * (stackCount - HEARTSEEKER_BASE_STACKS)) / HEARTSEEKER_BASE_STACKS)
             endif
+            return goldGain
+        endif
+
+        if IsStackableType(it) then
+            set stackCount = GetItemCharges(it)
+            set defaultCharges = TasItemGetCharges(itemType)
+            if stackCount > 0 and defaultCharges > 0 then
+                set goldGain = (goldGain * stackCount) / defaultCharges
+            endif
         endif
 
         return goldGain
+    endfunction
+
+    private function GetTooltipSellValue takes item it returns integer
+        return GetVendorSellGoldValue(it)
     endfunction
 
     private function BuildBagItemTooltip takes item it, boolean includeNeedText returns string
@@ -2520,13 +2544,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         return 0
     endfunction
 
-    function IsStackableType takes item i returns boolean
-        if i == null then
-            return false
-        endif
-        return ( GetItemType(i) == ITEM_TYPE_CHARGED or GetItemType(i) == ITEM_TYPE_MISCELLANEOUS or GetItemType(i) == ITEM_TYPE_CAMPAIGN or GetItemType(i) == ITEM_TYPE_UNKNOWN)
-    endfunction
-
     // Safe stack preference for picked items:
     // Merge into matching CURRENT inventory stacks first (slots 1..6 via UnitItemInSlot).
     // Returns true when the picked item was fully absorbed/removed.
@@ -4475,8 +4492,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local item it
         local texttag gainTag
         local integer goldGain
-        local integer itemType
-        local integer stackCount
         local real dx
         local real dy
         local location heroLoc
@@ -4522,19 +4537,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             endif
         endif
 
-        set itemType = GetItemTypeId(it)
-        set goldGain = TasItemGetCostGold(itemType) / 2
-        if IsStackableType(it) then
-            set stackCount = GetItemCharges(it)
-            if stackCount > 0 then
-                set goldGain = goldGain * stackCount
-            endif
-        elseif itemType == HEARTSEEKER_ITEM_ID then
-            set stackCount = GetItemCharges(it)
-            if stackCount > HEARTSEEKER_BASE_STACKS then
-                set goldGain = goldGain + ((goldGain * (stackCount - HEARTSEEKER_BASE_STACKS)) / HEARTSEEKER_BASE_STACKS)
-            endif
-        endif
+        set goldGain = GetVendorSellGoldValue(it)
 
         if TasItemBagRemoveIndex(hero, bagIndex, false) then
             call ClearQuickUseCooldownByItem(GetPlayerId(p), it)
@@ -5952,12 +5955,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzGetFrameByName("TasItemBagSlotButtonOverLayText", 0)
         call BlzTriggerRegisterFrameEvent(TriggerUIOpen, BlzGetFrameByName("TasItemBagSlotButton", 0), FRAMEEVENT_CONTROL_CLICK)
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", 0), true)
+        set frame5 = BlzCreateFrameByType("BACKDROP", "TasItemBagToggleHotkeyBackdrop", frame, "", 0)
+        call BlzFrameSetSize(frame5, HOTKEY_BADGE_SIZE, HOTKEY_BADGE_SIZE)
+        call BlzFrameSetPoint(frame5, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0.0025, -0.0035)
+        call BlzFrameSetTexture(frame5, HOTKEY_BADGE_TEXTURE, 0, true)
+        call BlzFrameSetAlpha(frame5, HOTKEY_BADGE_ALPHA)
+        call BlzFrameSetEnable(frame5, false)
+        call BlzFrameSetLevel(frame5, 4)
         set frame4 = BlzCreateFrameByType("TEXT", "TasItemBagToggleHotkeyText", frame, "", 0)
         call BlzFrameSetSize(frame4, BlzFrameGetWidth(frame) - 0.002, 0.009)
         call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPLEFT, frame, FRAMEPOINT_TOPLEFT, 0.0040, -0.0050)
         call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_TOP)
         call BlzFrameSetScale(frame4, 0.70)
         call BlzFrameSetEnable(frame4, false)
+        call BlzFrameSetLevel(frame4, 5)
         call BlzFrameSetText(frame4, GetBagToggleButtonCaption(GetPlayerId(GetLocalPlayer())))
 
         set frame2 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseLabel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
@@ -5980,12 +5991,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", QuickUseContext(buttonIndex)), false)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", QuickUseContext(buttonIndex)), false)
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", QuickUseContext(buttonIndex)), false)
+            set frame5 = BlzCreateFrameByType("BACKDROP", "TasItemBagQuickUseHotkeyBackdrop", frame3, "", QuickUseContext(buttonIndex))
+            call BlzFrameSetSize(frame5, HOTKEY_BADGE_SIZE, HOTKEY_BADGE_SIZE)
+            call BlzFrameSetPoint(frame5, FRAMEPOINT_TOPRIGHT, frame3, FRAMEPOINT_TOPRIGHT, -0.0025, -0.0035)
+            call BlzFrameSetTexture(frame5, HOTKEY_BADGE_TEXTURE, 0, true)
+            call BlzFrameSetAlpha(frame5, HOTKEY_BADGE_ALPHA)
+            call BlzFrameSetEnable(frame5, false)
+            call BlzFrameSetLevel(frame5, 4)
             set frame4 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseHotkeyText", frame3, "", QuickUseContext(buttonIndex))
             call BlzFrameSetSize(frame4, BlzFrameGetWidth(frame3) - 0.002, 0.009)
             call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPRIGHT, frame3, FRAMEPOINT_TOPRIGHT, -0.0100, -0.0050)
             call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_RIGHT, TEXT_JUSTIFY_TOP)
             call BlzFrameSetScale(frame4, 0.70)
             call BlzFrameSetEnable(frame4, false)
+            call BlzFrameSetLevel(frame4, 5)
             set frame5 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseCooldownText", frame3, "", QuickUseContext(buttonIndex))
             call BlzFrameSetSize(frame5, BlzFrameGetWidth(frame3) - 0.004, 0.012)
             call BlzFrameSetPoint(frame5, FRAMEPOINT_CENTER, frame3, FRAMEPOINT_CENTER, 0.0, 0.0005)
