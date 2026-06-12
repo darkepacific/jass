@@ -32,12 +32,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private string ShowButtonTextureDisabled = "ReplaceableTextures/CommandButtonsDisabled/DISBTNDustOfAppearance"
         private constant integer QUICK_USE_BUTTON_COUNT = 6
         private constant integer QUICK_USE_CONTEXT_START = 101
-        // Far-left hotbar control button (opens/closes the main menu).
-        // Built as a standalone TasItemBagSlot on its own create-context, well outside the
-        // 101-106 quick-use range so no quick-use loop touches it.
-        private constant integer MENU_BUTTON_CONTEXT = 200
-        // Requested computer icon for the menu toggle.
-        private constant string MENU_BUTTON_TEXTURE =  "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
        
         // Show the bag button even when the inventory UI is hidden?
         public boolean ShowButtonAlwaysVisible = false
@@ -74,6 +68,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private abilityintegerlevelfield AbilityFieldCanDrop
         public timer TimerUpdate
         private timer SuppressNextBagPopupClearTimer
+
         // Debounced UI updates (avoid constant polling).
         private boolean UIUpdateScheduled = false
         public trigger Trigger
@@ -100,7 +95,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIInventoryButton
         private trigger TriggerUIQuickUse
         private trigger TriggerUIQuickUseHotkey
-        private trigger TriggerUIMenuButton
         private trigger TriggerUIInventoryPanelHover
         private trigger TriggerUIBagCloseSync
         private trigger TriggerUIBagInsertSync
@@ -164,12 +158,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string TOOLTIP_SELL_ICON_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp"
         private constant real TOOLTIP_SELL_ICON_SIZE = 0.010
         private constant string TOOLTIP_SEPARATOR_TEXT = "|cff7f7f7f---------------------------------|r"
-        // Dark, semi-opaque box behind the hotkey labels. Raw BACKDROP frames in this map render
-        // reliably with backslash + .blp UI texture paths (proven by the tooltip gold icon and
-        // human-tooltip-background); forward-slash paths can come up blank.
-        private constant string HOTKEY_BADGE_TEXTURE = "UI\\Widgets\\ToolTips\\Human\\human-tooltip-background.blp"
-        private constant real HOTKEY_BADGE_SIZE = 0.00735
-        private constant integer HOTKEY_BADGE_ALPHA = 160
+        private constant string HOTKEY_BADGE_TEXTURE = "UI/Widgets/EscMenu/Human/blank-background"
+        private constant real HOTKEY_BADGE_SIZE = 0.0105
+        private constant integer HOTKEY_BADGE_ALPHA = 140
         private boolean SellValueCacheReady = false
         private integer VendorUnitCount = 0
         private integer array VendorUnitId
@@ -591,102 +582,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
 
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagQuickUseLabel", 0), visible)
-    endfunction
-
-    // Far-left menu button is its own TasItemBagSlot on a dedicated create-context (200),
-    // toggled alongside the quick-use bar. Its context is outside the iterated 101-106 range,
-    // so it cannot interfere with quick-use logic.
-    private function SetMenuButtonVisible takes boolean visible returns nothing
-        local framehandle menuSlot = BlzGetFrameByName("TasItemBagSlot", MENU_BUTTON_CONTEXT)
-        if menuSlot != null then
-            call BlzFrameSetVisible(menuSlot, visible)
-        endif
-        set menuSlot = null
-    endfunction
-
-    private function MenuButtonLocalAction takes nothing returns nothing
-        // Frame-click context: BlzGetTriggerFrame is valid here.
-        if GetLocalPlayer() == GetTriggerPlayer() then
-            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
-            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
-        endif
-    endfunction
-
-    // Registration seam: DialogSystem supplies the actual menu toggle.
-    // Keeps the cross-library dependency direction valid (DialogSystem requires TasItemBag).
-    function TasItemBagRegisterMenuButtonAction takes code action returns nothing
-        if TriggerUIMenuButton == null then
-            set TriggerUIMenuButton = CreateTrigger()
-            call TriggerAddAction(TriggerUIMenuButton, function MenuButtonLocalAction)
-        endif
-        call TriggerAddAction(TriggerUIMenuButton, action)
-    endfunction
-
-    private function CreateMenuButton takes nothing returns nothing
-        local framehandle anchorSlot
-        local framehandle menuSlot
-        local framehandle menuButton
-        local framehandle hotkeyBackdrop
-        local framehandle hotkeyText
-
-        if BlzGetFrameByName("TasItemBagSlot", MENU_BUTTON_CONTEXT) != null then
-            return // already built (guard against FrameLoader UI reloads)
-        endif
-
-        set anchorSlot = BlzGetFrameByName("TasItemBagSlot", QuickUseContext(1))
-        if anchorSlot == null then
-            set anchorSlot = null
-            return
-        endif
-
-        if TriggerUIMenuButton == null then
-            set TriggerUIMenuButton = CreateTrigger()
-            call TriggerAddAction(TriggerUIMenuButton, function MenuButtonLocalAction)
-        endif
-
-        set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
-        if menuSlot == null then
-            set anchorSlot = null
-            return
-        endif
-
-        set menuButton = BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", MENU_BUTTON_CONTEXT), false)
-        call BlzTriggerRegisterFrameEvent(TriggerUIMenuButton, menuButton, FRAMEEVENT_CONTROL_CLICK)
-        call BlzFrameSetEnable(menuButton, true)
-        call BlzFrameSetText(menuButton, "")
-
-        set hotkeyBackdrop = BlzCreateFrameByType("BACKDROP", "TasItemBagMenuHotkeyBackdrop", menuSlot, "", MENU_BUTTON_CONTEXT)
-        call BlzFrameSetSize(hotkeyBackdrop, HOTKEY_BADGE_SIZE, HOTKEY_BADGE_SIZE)
-        call BlzFrameSetPoint(hotkeyBackdrop, FRAMEPOINT_TOPLEFT, menuSlot, FRAMEPOINT_TOPLEFT, 0.0025, -0.0035)
-        call BlzFrameSetTexture(hotkeyBackdrop, HOTKEY_BADGE_TEXTURE, 0, true)
-        call BlzFrameSetAlpha(hotkeyBackdrop, HOTKEY_BADGE_ALPHA)
-        call BlzFrameSetEnable(hotkeyBackdrop, false)
-        call BlzFrameSetLevel(hotkeyBackdrop, 4)
-        set hotkeyText = BlzCreateFrameByType("TEXT", "TasItemBagMenuHotkeyText", menuSlot, "", MENU_BUTTON_CONTEXT)
-        call BlzFrameSetSize(hotkeyText, BlzFrameGetWidth(menuSlot) - 0.002, 0.009)
-        call BlzFrameSetPoint(hotkeyText, FRAMEPOINT_TOPLEFT, menuSlot, FRAMEPOINT_TOPLEFT, 0.0040, -0.0050)
-        call BlzFrameSetTextAlignment(hotkeyText, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_TOP)
-        call BlzFrameSetScale(hotkeyText, 0.70)
-        call BlzFrameSetEnable(hotkeyText, false)
-        call BlzFrameSetLevel(hotkeyText, 5)
-        call BlzFrameSetText(hotkeyText, "C")
-
-        call BlzFrameSetPoint(menuSlot, FRAMEPOINT_TOPRIGHT, anchorSlot, FRAMEPOINT_TOPLEFT, 0.0, 0.0)
-        call BlzFrameSetVisible(menuSlot, false)
-
-        set anchorSlot = null
-        set menuSlot = null
-        set menuButton = null
-        set hotkeyBackdrop = null
-        set hotkeyText = null
     endfunction
 
     private function QuickUseBindingIndex takes integer pId, integer slot returns integer
@@ -2117,7 +2012,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if not BagEnabledForPlayer(p) then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
             call SetQuickUseBarVisible(false)
-            call SetMenuButtonVisible(false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -2128,7 +2022,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
         call SetQuickUseBarVisible(ShowBagButtonForPlayer[pId])
-        call SetMenuButtonVisible(ShowBagButtonForPlayer[pId])
 
         call RenderQuickUseBarForLocalPlayer(p)
 
@@ -6100,15 +5993,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", QuickUseContext(buttonIndex)), false)
             set frame5 = BlzCreateFrameByType("BACKDROP", "TasItemBagQuickUseHotkeyBackdrop", frame3, "", QuickUseContext(buttonIndex))
             call BlzFrameSetSize(frame5, HOTKEY_BADGE_SIZE, HOTKEY_BADGE_SIZE)
-            call BlzFrameSetPoint(frame5, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_TOPLEFT, 0.0025, -0.0035)
+            call BlzFrameSetPoint(frame5, FRAMEPOINT_TOPRIGHT, frame3, FRAMEPOINT_TOPRIGHT, -0.0025, -0.0035)
             call BlzFrameSetTexture(frame5, HOTKEY_BADGE_TEXTURE, 0, true)
             call BlzFrameSetAlpha(frame5, HOTKEY_BADGE_ALPHA)
             call BlzFrameSetEnable(frame5, false)
             call BlzFrameSetLevel(frame5, 4)
             set frame4 = BlzCreateFrameByType("TEXT", "TasItemBagQuickUseHotkeyText", frame3, "", QuickUseContext(buttonIndex))
             call BlzFrameSetSize(frame4, BlzFrameGetWidth(frame3) - 0.002, 0.009)
-            call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPLEFT, frame3, FRAMEPOINT_TOPLEFT, 0.0040, -0.0050)
-            call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_TOP)
+            call BlzFrameSetPoint(frame4, FRAMEPOINT_TOPRIGHT, frame3, FRAMEPOINT_TOPRIGHT, -0.0100, -0.0050)
+            call BlzFrameSetTextAlignment(frame4, TEXT_JUSTIFY_RIGHT, TEXT_JUSTIFY_TOP)
             call BlzFrameSetScale(frame4, 0.70)
             call BlzFrameSetEnable(frame4, false)
             call BlzFrameSetLevel(frame4, 5)
@@ -6139,14 +6032,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
             set buttonIndex = buttonIndex + 1
         endloop
-        call CreateMenuButton()
         set frame4 = null
         set frame5 = null
         call SetQuickUseBarVisible(false)
-        call SetMenuButtonVisible(false)
-        // Bag toggle button starts hidden too (symmetric with the quick-use bar) so it never
-        // lingers visible during hero select or after a frame-loader UI reload.
-        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
         
         
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagCloseButton", panel, "ScriptDialogButton", 0)
@@ -6229,9 +6117,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Panel hover tracking
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_ENTER)
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_LEAVE)
-
-        // Keep optional hotbar controls above this point; the popup/split setup below is large enough
-        // that creating extra TasItemBagSlot frames at the tail can silently hit the JASS op-limit.
     endfunction
     
     private function InitBagAt0s takes nothing returns nothing

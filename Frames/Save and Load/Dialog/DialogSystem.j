@@ -595,22 +595,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endif
     endfunction
 
-    // Far-left hotbar menu button handler (registered into TasItemBag).
-    private function MenuButtonAction takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        local integer pid
-        if p == null then
-            return
-        endif
-        set pid = GetPlayerId(p)
-        if ConfigOpen[pid] then
-            set p = null
-            return
-        endif
-        call ToggleMenuForPlayer(p)
-        set p = null
-    endfunction
-
     private function ToggleHotkeyConfig takes player whichPlayer, boolean show returns nothing
         local integer pid = GetPlayerId(whichPlayer)
 
@@ -1116,7 +1100,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
 
         call TriggerAddCondition(trigDialogButtons, Filter(function OnButtonClick))
         call InitDialog()
-        call TasItemBagRegisterMenuButtonAction(function MenuButtonAction)
     endfunction
 
     private function Init takes nothing returns nothing
