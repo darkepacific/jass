@@ -36,6 +36,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // outside the 101-106 quick-use range so no quick-use loop touches it.
         private constant integer MENU_BUTTON_CONTEXT = 200
         private constant string MENU_BUTTON_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
+        private constant string MENU_BUTTON_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNcomputer_v14_64.blp"
        
         // Show the bag button even when the inventory UI is hidden?
         public boolean ShowButtonAlwaysVisible = false
@@ -608,7 +609,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
         call BJDebugMsg("TIB CHK 6a: menu slot handle " + I2S(GetHandleId(menuSlot))) // TEMP diagnostic (0 = create failed)
         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
+        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE_DISABLED, 0, false)
         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), false)
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), false)
