@@ -5885,6 +5885,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetHandleId(frame) == 0 then
             call BJDebugMsg("Error - Creating TasItemBagSlot")
         endif
+        call BJDebugMsg("TIB CHK 5: bag slot frames built") // TEMP diagnostic
         // Extra height for page-display separator + two rows of page items
         call BlzFrameSetSize(panel, BlzFrameGetWidth(frame) * Cols + (Cols - 1) * 0.002 + 0.02, BlzFrameGetHeight(frame) * Rows + (Rows - 1) * 0.002 + 0.012 + 0.020 + BlzFrameGetHeight(frame) + 0.002 + BlzFrameGetHeight(frame))
         call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagSlot", 1), FRAMEPOINT_TOPLEFT, panel, FRAMEPOINT_TOPLEFT, 0.006, - 0.006)
@@ -6035,8 +6036,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame4 = null
         set frame5 = null
         call SetQuickUseBarVisible(false)
-        
-        
+        call BJDebugMsg("TIB CHK 6: quick-use bar built") // TEMP diagnostic
+
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagCloseButton", panel, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.03, 0.03)
         call BlzFrameSetText(frame, "X")
@@ -6117,10 +6118,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Panel hover tracking
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_ENTER)
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_LEAVE)
+        call BJDebugMsg("TIB CHK 7: InitFrames complete") // TEMP diagnostic
     endfunction
     
     private function InitBagAt0s takes nothing returns nothing
         local integer i
+        call BJDebugMsg("TIB CHK 1: InitBagAt0s start") // TEMP diagnostic - remove after op-limit check
         set AbilityFieldDrop = ConvertAbilityIntegerLevelField('inv2')
         set AbilityFieldUse = ConvertAbilityIntegerLevelField('inv3')
         set AbilityFieldCanDrop = ConvertAbilityIntegerLevelField('inv5')
@@ -6132,7 +6135,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetSoundDuration(SwapConfirmSound, 239)
         call InitVendorUnits()
         call PrimeSellValueCache()
-        
+        call BJDebugMsg("TIB CHK 2: vendor scan + sell cache done") // TEMP diagnostic
+
         // set ItemAbilityNeed = Table.create()
         set TimerUpdate = CreateTimer()
         set SuppressNextBagPopupClearTimer = CreateTimer()
@@ -6204,6 +6208,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             exitwhen i >= bj_MAX_PLAYERS
         endloop
         call TriggerAddAction(TriggerUIQuickUseHotkey, function QuickUseHotkeyAction)
+        call BJDebugMsg("TIB CHK 3: hotkey registrations done") // TEMP diagnostic
 
         set TriggerUIBagCloseSync = CreateTrigger()
         set i = 0
@@ -6342,13 +6347,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Note: Global mouse right-click detection removed for compatibility.
 
+        call BJDebugMsg("TIB CHK 4: calling InitFrames") // TEMP diagnostic
         call InitFrames()
+        call BJDebugMsg("TIB CHK 8: init thread survived InitFrames") // TEMP diagnostic
 
         // Initial UI paint (show button state + counters)
         call RequestUIUpdate()
         static if LIBRARY_FrameLoader then
             call FrameLoaderAdd(function InitFrames)
         endif
+        call BJDebugMsg("TIB CHK 9: InitBagAt0s complete") // TEMP diagnostic
     endfunction
     
     private function init_function takes nothing returns nothing
