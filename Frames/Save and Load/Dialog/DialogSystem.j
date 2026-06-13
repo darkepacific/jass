@@ -1111,18 +1111,28 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
     private function FinishHotkeyInit takes nothing returns nothing
         local integer i = 0
 
+        call BJDebugMsg("DLG CHK A: FinishHotkeyInit start") // TEMP diagnostic
         call CreateHotkeyConfigUI()
         call RegisterAllHotkeys()
+
+        // Register the menu-button handler EARLY, right after hotkeys are set up - a point we
+        // KNOW is reached (the C key works). It used to be the last line of this function, after
+        // the LoadHotkeys loop and InitDialog; if either dies the registration was silently
+        // skipped, so the C button's trigger fired but nothing was listening. Timing is safe:
+        // the trigger exists (created in InitBagAt0s) and the menu isn't needed until clicked.
+        call TasItemBagRegisterMenuButtonAction(function MenuButtonAction)
+        call BJDebugMsg("DLG CHK B: menu button registered") // TEMP diagnostic
 
         loop
             exitwhen i == bj_MAX_PLAYER_SLOTS
             call LoadHotkeysForPlayer(Player(i))
             set i = i + 1
         endloop
+        call BJDebugMsg("DLG CHK C: hotkeys loaded") // TEMP diagnostic
 
         call TriggerAddCondition(trigDialogButtons, Filter(function OnButtonClick))
         call InitDialog()
-        call TasItemBagRegisterMenuButtonAction(function MenuButtonAction)
+        call BJDebugMsg("DLG CHK D: InitDialog done - FinishHotkeyInit fully completed") // TEMP diagnostic
     endfunction
 
     private function Init takes nothing returns nothing
