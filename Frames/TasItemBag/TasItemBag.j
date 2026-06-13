@@ -100,6 +100,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIInventoryButton
         private trigger TriggerUIQuickUse
         private trigger TriggerUIQuickUseHotkey
+        private trigger TriggerUIMenuButton
         private trigger TriggerUIInventoryPanelHover
         private trigger TriggerUIBagCloseSync
         private trigger TriggerUIBagInsertSync
@@ -600,11 +601,35 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set menuSlot = null
     endfunction
 
-    // Stage 3a: builds the frame only. Click behavior is wired in a later stage.
+    private function MenuButtonLocalAction takes nothing returns nothing
+        // Release keyboard focus so the clicked button does not swallow later key presses.
+        if GetLocalPlayer() == GetTriggerPlayer() then
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
+        endif
+    endfunction
+
+    private function EnsureMenuButtonTrigger takes nothing returns nothing
+        if TriggerUIMenuButton == null then
+            set TriggerUIMenuButton = CreateTrigger()
+            call TriggerAddAction(TriggerUIMenuButton, function MenuButtonLocalAction)
+        endif
+    endfunction
+
+    // Registration seam: DialogSystem supplies the actual menu toggle.
+    // Keeps the cross-library dependency direction valid (DialogSystem requires TasItemBag).
+    function TasItemBagRegisterMenuButtonAction takes code action returns nothing
+        call EnsureMenuButtonTrigger()
+        call TriggerAddAction(TriggerUIMenuButton, action)
+    endfunction
+
     private function CreateMenuButton takes nothing returns nothing
         local framehandle menuSlot
+        local framehandle menuButton
         local framehandle hotkeyBackdrop
         local framehandle hotkeyText
+
+        call EnsureMenuButtonTrigger()
 
         set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
         call BJDebugMsg("TIB CHK 6a: menu slot handle " + I2S(GetHandleId(menuSlot))) // TEMP diagnostic (0 = create failed)
@@ -616,8 +641,21 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), false)
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", MENU_BUTTON_CONTEXT), false)
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", MENU_BUTTON_CONTEXT), false)
+        // No charges/count on the menu button: hide the overlay and clear its default text.
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", MENU_BUTTON_CONTEXT), false)
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", MENU_BUTTON_CONTEXT), "")
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT), true)
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT), "")
+
+        // Click wiring. Registering a frame event on a NULL frame can kill the thread
+        // silently, so guard it loudly instead.
+        set menuButton = BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT)
+        if menuButton == null then
+            call BJDebugMsg("TIB ERROR: menu slot button frame is null - click not registered")
+        else
+            call BlzTriggerRegisterFrameEvent(TriggerUIMenuButton, menuButton, FRAMEEVENT_CONTROL_CLICK)
+        endif
+        call BJDebugMsg("TIB CHK 6c: menu click event registered") // TEMP diagnostic
 
         // Same hotkey badge as the quick-use slots / bag toggle button.
         set hotkeyBackdrop = BlzCreateFrameByType("BACKDROP", "TasItemBagMenuHotkeyBackdrop", menuSlot, "", MENU_BUTTON_CONTEXT)
@@ -641,6 +679,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BJDebugMsg("TIB CHK 6b: menu button decorated + anchored") // TEMP diagnostic
 
         set menuSlot = null
+        set menuButton = null
         set hotkeyBackdrop = null
         set hotkeyText = null
     endfunction
