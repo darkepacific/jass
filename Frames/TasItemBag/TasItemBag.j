@@ -602,6 +602,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function MenuButtonLocalAction takes nothing returns nothing
+        call BJDebugMsg("TIB: menu button trigger FIRED (local action)") // TEMP diagnostic
         // Release keyboard focus so the clicked button does not swallow later key presses.
         if GetLocalPlayer() == GetTriggerPlayer() then
             call BlzFrameSetEnable(BlzGetTriggerFrame(), false)

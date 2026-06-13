@@ -603,6 +603,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             return
         endif
         set pid = GetPlayerId(p)
+        call BJDebugMsg("DLG: MenuButtonAction FIRED, ConfigOpen=" + B2S(ConfigOpen[pid])) // TEMP diagnostic
         if ConfigOpen[pid] then
             set p = null
             return
