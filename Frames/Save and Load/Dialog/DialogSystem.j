@@ -599,11 +599,12 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
     private function MenuButtonAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pid
+        call BJDebugMsg("DLG: MenuButtonAction ENTERED, p null? " + B2S(p == null)) // TEMP diagnostic
         if p == null then
             return
         endif
         set pid = GetPlayerId(p)
-        call BJDebugMsg("DLG: MenuButtonAction FIRED, ConfigOpen=" + B2S(ConfigOpen[pid])) // TEMP diagnostic
+        call BJDebugMsg("DLG: ...ConfigOpen=" + B2S(ConfigOpen[pid])) // TEMP diagnostic
         if ConfigOpen[pid] then
             set p = null
             return

@@ -615,6 +615,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // so here we only add the caller's action. Creating triggers mid-InitFrames crashes the
     // init thread, so it must never happen lazily during frame construction.
     function TasItemBagRegisterMenuButtonAction takes code action returns nothing
+        call BJDebugMsg("TIB: RegisterMenuButtonAction called; trigger null? " + B2S(TriggerUIMenuButton == null)) // TEMP diagnostic
         call TriggerAddAction(TriggerUIMenuButton, action)
     endfunction
 
