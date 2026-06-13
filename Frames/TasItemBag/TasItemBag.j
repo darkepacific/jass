@@ -629,7 +629,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle hotkeyBackdrop
         local framehandle hotkeyText
 
+        call BJDebugMsg("TIB CHK 6a0: entered CreateMenuButton") // TEMP diagnostic
         call EnsureMenuButtonTrigger()
+        call BJDebugMsg("TIB CHK 6a1: trigger ensured") // TEMP diagnostic
 
         set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
         call BJDebugMsg("TIB CHK 6a: menu slot handle " + I2S(GetHandleId(menuSlot))) // TEMP diagnostic (0 = create failed)
