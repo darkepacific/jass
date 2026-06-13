@@ -609,17 +609,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endif
     endfunction
 
-    private function EnsureMenuButtonTrigger takes nothing returns nothing
-        if TriggerUIMenuButton == null then
-            set TriggerUIMenuButton = CreateTrigger()
-            call TriggerAddAction(TriggerUIMenuButton, function MenuButtonLocalAction)
-        endif
-    endfunction
-
     // Registration seam: DialogSystem supplies the actual menu toggle.
-    // Keeps the cross-library dependency direction valid (DialogSystem requires TasItemBag).
+    // The trigger itself is created up-front in InitBagAt0s alongside the other UI triggers,
+    // so here we only add the caller's action. Creating triggers mid-InitFrames crashes the
+    // init thread, so it must never happen lazily during frame construction.
     function TasItemBagRegisterMenuButtonAction takes code action returns nothing
-        call EnsureMenuButtonTrigger()
         call TriggerAddAction(TriggerUIMenuButton, action)
     endfunction
 
@@ -630,8 +624,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle hotkeyText
 
         call BJDebugMsg("TIB CHK 6a0: entered CreateMenuButton") // TEMP diagnostic
-        call EnsureMenuButtonTrigger()
-        call BJDebugMsg("TIB CHK 6a1: trigger ensured") // TEMP diagnostic
 
         set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
         call BJDebugMsg("TIB CHK 6a: menu slot handle " + I2S(GetHandleId(menuSlot))) // TEMP diagnostic (0 = create failed)
@@ -6392,6 +6384,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         set TriggerUIQuickUse = CreateTrigger()
         call TriggerAddAction(TriggerUIQuickUse, function QuickUseButtonAction)
+
+        // Menu button trigger is born here with its siblings, BEFORE InitFrames runs.
+        // Creating a trigger lazily mid-InitFrames (during frame construction) silently
+        // killed the init thread - that was the whole "button vanishes + bag breaks" bug.
+        set TriggerUIMenuButton = CreateTrigger()
+        call TriggerAddAction(TriggerUIMenuButton, function MenuButtonLocalAction)
 
         set TriggerUISwap = CreateTrigger()
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSelect)
