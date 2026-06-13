@@ -124,6 +124,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array TransferIndex
         public integer array SwapIndex
         private string array BagToggleHotkeyText
+        private string array MenuHotkeyText
         private string array SellHotkeyText
         private oskeytype array QuickUseHotkey
         private string array QuickUseHotkeyText
@@ -354,6 +355,35 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set pId = GetPlayerId(p)
         set BagToggleHotkeyText[pId] = label
         call UpdateBagToggleHintText(p)
+    endfunction
+
+    private function GetMenuButtonCaption takes integer pId returns string
+        if MenuHotkeyText[pId] == "" then
+            return "-"
+        endif
+
+        return MenuHotkeyText[pId]
+    endfunction
+
+    private function UpdateMenuHintText takes player p returns nothing
+        if p == null then
+            return
+        endif
+        if GetLocalPlayer() == p then
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagMenuHotkeyText", MENU_BUTTON_CONTEXT), GetMenuButtonCaption(GetPlayerId(p)))
+        endif
+    endfunction
+
+    // Public seam: DialogSystem pushes the bound Menu-key label here so the computer button's
+    // corner badge tracks rebinds, exactly like the bag toggle's "X" badge.
+    function TasItemBagSetMenuHotkeyLabel takes player p, string label returns nothing
+        local integer pId
+        if p == null then
+            return
+        endif
+        set pId = GetPlayerId(p)
+        set MenuHotkeyText[pId] = label
+        call UpdateMenuHintText(p)
     endfunction
 
     private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
@@ -668,7 +698,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetScale(hotkeyText, 0.70)
         call BlzFrameSetEnable(hotkeyText, false)
         call BlzFrameSetLevel(hotkeyText, 5)
-        call BlzFrameSetText(hotkeyText, "C")
+        call BlzFrameSetText(hotkeyText, GetMenuButtonCaption(GetPlayerId(GetLocalPlayer())))
 
         call BlzFrameSetPoint(menuSlot, FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(1)), FRAMEPOINT_TOPLEFT, 0.0, 0.0)
         call BlzFrameSetVisible(menuSlot, false)

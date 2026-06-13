@@ -345,6 +345,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endif
 
         set pid = GetPlayerId(whichPlayer)
+        call TasItemBagSetMenuHotkeyLabel(whichPlayer, MenuHotkeyLabel[pid])
         call MPInventorySetNextPageHotkeyLabel(whichPlayer, PageHotkeyLabel[pid])
         call TasItemBagSetToggleHotkeyLabel(whichPlayer, BagHotkeyLabel[pid])
         call TasItemBagSetSellHotkeyLabel(whichPlayer, SellHotkeyLabel[pid])
