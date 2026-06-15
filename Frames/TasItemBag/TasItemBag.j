@@ -36,13 +36,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // crafting). Each is a standalone TasItemBagSlot on its own create-context (200+index),
         // outside the 101-106 quick-use range so no quick-use loop touches it. They are never
         // tied to items; each just opens/toggles its own UI.
-        // Screen order left->right: [menu][talents][crafting][quick-use...]. Index numbering is
-        // independent of screen order (the anchor chain decides position).
+        // Screen order: [menu][talents][crafting] are anchored left of the quick-use bar; the EXTRA
+        // key is placed by absolute point on the far RIGHT (balances the left cluster). Index
+        // numbering is independent of screen position (positioning is decided in InitFrames).
         private constant integer SIDEKEY_CONTEXT_BASE = 200
         private constant integer SIDEKEY_MENU = 0
         private constant integer SIDEKEY_TALENTS = 1
         private constant integer SIDEKEY_CRAFTING = 2
-        private constant integer SIDEKEY_COUNT = 3
+        private constant integer SIDEKEY_EXTRA = 3      // far-right balancing button (placeholder content)
+        private constant integer SIDEKEY_COUNT = 4
+        // Side-key visual size: 1.0 = full (matches quick-use slots), 0.5 ~= 32x32 mini-icons.
+        // Flip to 0.5 to A/B the mini look; tune SIDEKEY_GAP if the row spacing drifts at <1.0.
+        private constant real SIDEKEY_SCALE = 1.0
+        private constant real SIDEKEY_GAP = 0.0         // extra horizontal gap between adjacent left side-keys
+        // Far-right balancing key absolute position (TOPLEFT). Nudge to taste.
+        private constant real SIDEKEY_EXTRA_X = 0.62
+        private constant real SIDEKEY_EXTRA_Y = 0.145
         private constant string SIDEKEY_MENU_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
         private constant string SIDEKEY_MENU_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNcomputer_v14_64.blp"
         // Placeholder stock icons for talents/crafting (no import needed). Swap for custom BLPs.
@@ -50,8 +59,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string SIDEKEY_TALENTS_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNStatUp.blp"
         // TODO: Add crafting icon here -- currently renders as a green square (path not found in this
         // map version). Replace with a valid stock path or an imported BLP (+ its DISBTN below).
-        private constant string SIDEKEY_CRAFTING_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNHumanBlacksmith.blp"
-        private constant string SIDEKEY_CRAFTING_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNHumanBlacksmith.blp"
+        private constant string SIDEKEY_CRAFTING_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNBlacksmith.blp"
+        private constant string SIDEKEY_CRAFTING_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNBlacksmith.blp"
+        // TODO: Add far-right (map/quests/etc.) icon here -- placeholder stock icon for now.
+        private constant string SIDEKEY_EXTRA_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNScrollOfTownPortal.blp"
+        private constant string SIDEKEY_EXTRA_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNScrollOfTownPortal.blp"
        
         // Show the bag button even when the inventory UI is hidden?
         public boolean ShowButtonAlwaysVisible = false
@@ -696,9 +708,28 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set p = null
     endfunction
 
-    // Builds one side-key button at context (200+index), anchored TOPRIGHT->TOPLEFT of the frame
-    // to its right (rightNeighborContext). Mirrors the quick-use slot decoration + hotkey badge.
-    private function CreateSideKey takes integer index, string texture, string texDisabled, integer rightNeighborContext returns nothing
+    // Far-right balancing key: placeholder until its real interface (map/quests/etc.) is built.
+    private function ExtraSideKeyAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        if p != null then
+            call DisplayTextToPlayer(p, 0, 0, "Coming soon...")
+        endif
+        set p = null
+    endfunction
+
+    // Anchors a side-key's slot TOPRIGHT->TOPLEFT of the frame to its right (left-cluster chain).
+    private function PositionSideKeyLeftOf takes integer index, integer rightNeighborContext returns nothing
+        call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(index)), FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", rightNeighborContext), FRAMEPOINT_TOPLEFT, -SIDEKEY_GAP, 0.0)
+    endfunction
+
+    // Places a side-key by absolute screen point (used for the far-right balancing key).
+    private function PositionSideKeyAbs takes integer index, real x, real y returns nothing
+        call BlzFrameSetAbsPoint(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(index)), FRAMEPOINT_TOPLEFT, x, y)
+    endfunction
+
+    // Builds + decorates one side-key button at context (200+index) and scales it by SIDEKEY_SCALE.
+    // Positioning is the caller's job (PositionSideKeyLeftOf / PositionSideKeyAbs).
+    private function CreateSideKey takes integer index, string texture, string texDisabled returns nothing
         local integer ctx = SideKeyContext(index)
         local framehandle slot
         local framehandle hotkeyBackdrop
@@ -739,7 +770,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetLevel(hotkeyText, 5)
         call BlzFrameSetText(hotkeyText, GetSideKeyCaption(index, GetPlayerId(GetLocalPlayer())))
 
-        call BlzFrameSetPoint(slot, FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", rightNeighborContext), FRAMEPOINT_TOPLEFT, 0.0, 0.0)
+        // Visual size (1.0 = full, <1.0 = mini). Position is set by the caller afterwards.
+        call BlzFrameSetScale(slot, SIDEKEY_SCALE)
         call BlzFrameSetVisible(slot, false)
 
         set slot = null
@@ -6200,11 +6232,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame4 = null
         set frame5 = null
         call SetQuickUseBarVisible(false)
-        // Side-key row, built right->left so each anchors to its right neighbor.
-        // Screen order ends up [menu][talents][crafting][quick-use...].
-        call CreateSideKey(SIDEKEY_CRAFTING, SIDEKEY_CRAFTING_TEXTURE, SIDEKEY_CRAFTING_TEXTURE_DISABLED, QuickUseContext(1))
-        call CreateSideKey(SIDEKEY_TALENTS, SIDEKEY_TALENTS_TEXTURE, SIDEKEY_TALENTS_TEXTURE_DISABLED, SideKeyContext(SIDEKEY_CRAFTING))
-        call CreateSideKey(SIDEKEY_MENU, SIDEKEY_MENU_TEXTURE, SIDEKEY_MENU_TEXTURE_DISABLED, SideKeyContext(SIDEKEY_TALENTS))
+        // Build all side-keys, then position them. Left cluster anchors to the quick-use bar
+        // (screen order [menu][talents][crafting]); the EXTRA key sits far-right to balance.
+        call CreateSideKey(SIDEKEY_MENU, SIDEKEY_MENU_TEXTURE, SIDEKEY_MENU_TEXTURE_DISABLED)
+        call CreateSideKey(SIDEKEY_TALENTS, SIDEKEY_TALENTS_TEXTURE, SIDEKEY_TALENTS_TEXTURE_DISABLED)
+        call CreateSideKey(SIDEKEY_CRAFTING, SIDEKEY_CRAFTING_TEXTURE, SIDEKEY_CRAFTING_TEXTURE_DISABLED)
+        call CreateSideKey(SIDEKEY_EXTRA, SIDEKEY_EXTRA_TEXTURE, SIDEKEY_EXTRA_TEXTURE_DISABLED)
+        call PositionSideKeyLeftOf(SIDEKEY_CRAFTING, QuickUseContext(1))
+        call PositionSideKeyLeftOf(SIDEKEY_TALENTS, SideKeyContext(SIDEKEY_CRAFTING))
+        call PositionSideKeyLeftOf(SIDEKEY_MENU, SideKeyContext(SIDEKEY_TALENTS))
+        call PositionSideKeyAbs(SIDEKEY_EXTRA, SIDEKEY_EXTRA_X, SIDEKEY_EXTRA_Y)
         // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
@@ -6467,6 +6504,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
         // Crafting is owned locally (no crafting library yet): placeholder action + K key on its trigger.
         call TriggerAddAction(SideKeyTrigger[SIDEKEY_CRAFTING], function CraftingSideKeyAction)
+        // Far-right balancing key: placeholder action (no hotkey yet).
+        call TriggerAddAction(SideKeyTrigger[SIDEKEY_EXTRA], function ExtraSideKeyAction)
         set i = 0
         loop
             call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_CRAFTING], Player(i), OSKEY_K, 0, true)
