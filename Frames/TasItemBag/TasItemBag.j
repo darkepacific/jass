@@ -632,7 +632,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     private function MenuButtonLocalAction takes nothing returns nothing
-        call BJDebugMsg("TIB: menu button trigger FIRED (local action)") // TEMP diagnostic
         // Release keyboard focus so the clicked button does not swallow later key presses.
         if GetLocalPlayer() == GetTriggerPlayer() then
             call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
@@ -645,7 +644,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // so here we only add the caller's action. Creating triggers mid-InitFrames crashes the
     // init thread, so it must never happen lazily during frame construction.
     function TasItemBagRegisterMenuButtonAction takes code action returns nothing
-        call BJDebugMsg("TIB: RegisterMenuButtonAction called; trigger null? " + B2S(TriggerUIMenuButton == null)) // TEMP diagnostic
         call TriggerAddAction(TriggerUIMenuButton, action)
     endfunction
 
@@ -655,10 +653,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local framehandle hotkeyBackdrop
         local framehandle hotkeyText
 
-        call BJDebugMsg("TIB CHK 6a0: entered CreateMenuButton") // TEMP diagnostic
 
         set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
-        call BJDebugMsg("TIB CHK 6a: menu slot handle " + I2S(GetHandleId(menuSlot))) // TEMP diagnostic (0 = create failed)
         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE_DISABLED, 0, false)
         call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
@@ -673,15 +669,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT), true)
         call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT), "")
 
-        // Click wiring. Registering a frame event on a NULL frame can kill the thread
-        // silently, so guard it loudly instead.
+        // Click toggles the menu. TriggerUIMenuButton is created up-front in InitBagAt0s
+        // (DialogSystem adds the actual toggle action via TasItemBagRegisterMenuButtonAction).
         set menuButton = BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT)
-        if menuButton == null then
-            call BJDebugMsg("TIB ERROR: menu slot button frame is null - click not registered")
-        else
-            call BlzTriggerRegisterFrameEvent(TriggerUIMenuButton, menuButton, FRAMEEVENT_CONTROL_CLICK)
-        endif
-        call BJDebugMsg("TIB CHK 6c: menu click event registered") // TEMP diagnostic
+        call BlzTriggerRegisterFrameEvent(TriggerUIMenuButton, menuButton, FRAMEEVENT_CONTROL_CLICK)
 
         // Same hotkey badge as the quick-use slots / bag toggle button.
         set hotkeyBackdrop = BlzCreateFrameByType("BACKDROP", "TasItemBagMenuHotkeyBackdrop", menuSlot, "", MENU_BUTTON_CONTEXT)
@@ -702,7 +693,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         call BlzFrameSetPoint(menuSlot, FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(1)), FRAMEPOINT_TOPLEFT, 0.0, 0.0)
         call BlzFrameSetVisible(menuSlot, false)
-        call BJDebugMsg("TIB CHK 6b: menu button decorated + anchored") // TEMP diagnostic
 
         set menuSlot = null
         set menuButton = null
@@ -6013,7 +6003,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if GetHandleId(frame) == 0 then
             call BJDebugMsg("Error - Creating TasItemBagSlot")
         endif
-        call BJDebugMsg("TIB CHK 5: bag slot frames built") // TEMP diagnostic
         // Extra height for page-display separator + two rows of page items
         call BlzFrameSetSize(panel, BlzFrameGetWidth(frame) * Cols + (Cols - 1) * 0.002 + 0.02, BlzFrameGetHeight(frame) * Rows + (Rows - 1) * 0.002 + 0.012 + 0.020 + BlzFrameGetHeight(frame) + 0.002 + BlzFrameGetHeight(frame))
         call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagSlot", 1), FRAMEPOINT_TOPLEFT, panel, FRAMEPOINT_TOPLEFT, 0.006, - 0.006)
@@ -6164,7 +6153,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame4 = null
         set frame5 = null
         call SetQuickUseBarVisible(false)
-        call BJDebugMsg("TIB CHK 6: quick-use bar built") // TEMP diagnostic
         call CreateMenuButton()
         call SetMenuButtonVisible(false)
 
@@ -6248,12 +6236,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Panel hover tracking
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_ENTER)
         call BlzTriggerRegisterFrameEvent(TriggerUIPanelHover, panel, FRAMEEVENT_MOUSE_LEAVE)
-        call BJDebugMsg("TIB CHK 7: InitFrames complete") // TEMP diagnostic
     endfunction
     
     private function InitBagAt0s takes nothing returns nothing
         local integer i
-        call BJDebugMsg("TIB CHK 1: InitBagAt0s start") // TEMP diagnostic - remove after op-limit check
         set AbilityFieldDrop = ConvertAbilityIntegerLevelField('inv2')
         set AbilityFieldUse = ConvertAbilityIntegerLevelField('inv3')
         set AbilityFieldCanDrop = ConvertAbilityIntegerLevelField('inv5')
@@ -6265,7 +6251,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call SetSoundDuration(SwapConfirmSound, 239)
         call InitVendorUnits()
         call PrimeSellValueCache()
-        call BJDebugMsg("TIB CHK 2: vendor scan + sell cache done") // TEMP diagnostic
 
         // set ItemAbilityNeed = Table.create()
         set TimerUpdate = CreateTimer()
@@ -6338,7 +6323,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             exitwhen i >= bj_MAX_PLAYERS
         endloop
         call TriggerAddAction(TriggerUIQuickUseHotkey, function QuickUseHotkeyAction)
-        call BJDebugMsg("TIB CHK 3: hotkey registrations done") // TEMP diagnostic
 
         set TriggerUIBagCloseSync = CreateTrigger()
         set i = 0
@@ -6483,16 +6467,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
         // Note: Global mouse right-click detection removed for compatibility.
 
-        call BJDebugMsg("TIB CHK 4: calling InitFrames") // TEMP diagnostic
         call InitFrames()
-        call BJDebugMsg("TIB CHK 8: init thread survived InitFrames") // TEMP diagnostic
 
         // Initial UI paint (show button state + counters)
         call RequestUIUpdate()
         static if LIBRARY_FrameLoader then
             call FrameLoaderAdd(function InitFrames)
         endif
-        call BJDebugMsg("TIB CHK 9: InitBagAt0s complete") // TEMP diagnostic
     endfunction
     
     private function init_function takes nothing returns nothing

@@ -600,12 +600,10 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
     private function MenuButtonAction takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pid
-        call BJDebugMsg("DLG: MenuButtonAction ENTERED, p null? " + B2S(p == null)) // TEMP diagnostic
         if p == null then
             return
         endif
         set pid = GetPlayerId(p)
-        call BJDebugMsg("DLG: ...ConfigOpen=" + B2S(ConfigOpen[pid])) // TEMP diagnostic
         if ConfigOpen[pid] then
             set p = null
             return
@@ -1112,7 +1110,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
     private function FinishHotkeyInit takes nothing returns nothing
         local integer i = 0
 
-        call BJDebugMsg("DLG CHK A: FinishHotkeyInit start") // TEMP diagnostic
         call CreateHotkeyConfigUI()
         call RegisterAllHotkeys()
 
@@ -1122,18 +1119,15 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         // skipped, so the C button's trigger fired but nothing was listening. Timing is safe:
         // the trigger exists (created in InitBagAt0s) and the menu isn't needed until clicked.
         call TasItemBagRegisterMenuButtonAction(function MenuButtonAction)
-        call BJDebugMsg("DLG CHK B: menu button registered") // TEMP diagnostic
 
         loop
             exitwhen i == bj_MAX_PLAYER_SLOTS
             call LoadHotkeysForPlayer(Player(i))
             set i = i + 1
         endloop
-        call BJDebugMsg("DLG CHK C: hotkeys loaded") // TEMP diagnostic
 
         call TriggerAddCondition(trigDialogButtons, Filter(function OnButtonClick))
         call InitDialog()
-        call BJDebugMsg("DLG CHK D: InitDialog done - FinishHotkeyInit fully completed") // TEMP diagnostic
     endfunction
 
     private function Init takes nothing returns nothing
