@@ -47,7 +47,8 @@ function Trig_Keyboard_Reg_Actions takes nothing returns nothing
     loop
         exitwhen x > 13
         if GetPlayerController(Player(x)) == MAP_CONTROL_USER and GetPlayerSlotState(Player(x)) == PLAYER_SLOT_STATE_PLAYING then
-            call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Crafting, Player(x), OSKEY_K, 0, true)
+            // OSKEY_K crafting is now handled by the crafting side-key (TasItemBag). The old
+            // gg_trg_Crafting GUI trigger is orphaned and can be deleted in the World Editor.
             call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Endless_Rage_Press_R, Player(x), OSKEY_R, 0, true)
             call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Cloak_of_Shadows_Press_F, Player(x), OSKEY_F, 0, true)
             call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Pain_Suppression_Press_F, Player(x), OSKEY_F, 0, true)

@@ -32,11 +32,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private string ShowButtonTextureDisabled = "ReplaceableTextures/CommandButtonsDisabled/DISBTNDustOfAppearance"
         private constant integer QUICK_USE_BUTTON_COUNT = 6
         private constant integer QUICK_USE_CONTEXT_START = 101
-        // Far-left menu toggle button: a standalone TasItemBagSlot on its own create-context,
-        // outside the 101-106 quick-use range so no quick-use loop touches it.
-        private constant integer MENU_BUTTON_CONTEXT = 200
-        private constant string MENU_BUTTON_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
-        private constant string MENU_BUTTON_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNcomputer_v14_64.blp"
+        // Side-key buttons: a row of toggle buttons left of the quick-use bar (menu, talents,
+        // crafting). Each is a standalone TasItemBagSlot on its own create-context (200+index),
+        // outside the 101-106 quick-use range so no quick-use loop touches it. They are never
+        // tied to items; each just opens/toggles its own UI.
+        // Screen order left->right: [menu][talents][crafting][quick-use...]. Index numbering is
+        // independent of screen order (the anchor chain decides position).
+        private constant integer SIDEKEY_CONTEXT_BASE = 200
+        private constant integer SIDEKEY_MENU = 0
+        private constant integer SIDEKEY_TALENTS = 1
+        private constant integer SIDEKEY_CRAFTING = 2
+        private constant integer SIDEKEY_COUNT = 3
+        private constant string SIDEKEY_MENU_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
+        private constant string SIDEKEY_MENU_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNcomputer_v14_64.blp"
+        // Placeholder stock icons for talents/crafting (no import needed). Swap for custom BLPs.
+        private constant string SIDEKEY_TALENTS_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNStatUp.blp"
+        private constant string SIDEKEY_TALENTS_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNStatUp.blp"
+        private constant string SIDEKEY_CRAFTING_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNHumanBlacksmith.blp"
+        private constant string SIDEKEY_CRAFTING_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNHumanBlacksmith.blp"
        
         // Show the bag button even when the inventory UI is hidden?
         public boolean ShowButtonAlwaysVisible = false
@@ -100,7 +113,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public trigger TriggerUIInventoryButton
         private trigger TriggerUIQuickUse
         private trigger TriggerUIQuickUseHotkey
-        private trigger TriggerUIMenuButton
+        private trigger array SideKeyTrigger
         private trigger TriggerUIInventoryPanelHover
         private trigger TriggerUIBagCloseSync
         private trigger TriggerUIBagInsertSync
@@ -124,7 +137,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         public integer array TransferIndex
         public integer array SwapIndex
         private string array BagToggleHotkeyText
-        private string array MenuHotkeyText
+        private string array SideKeyLabelText // indexed [keyIndex * bj_MAX_PLAYERS + pId]
         private string array SellHotkeyText
         private oskeytype array QuickUseHotkey
         private string array QuickUseHotkeyText
@@ -357,33 +370,46 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call UpdateBagToggleHintText(p)
     endfunction
 
-    private function GetMenuButtonCaption takes integer pId returns string
-        if MenuHotkeyText[pId] == "" then
+    private function SideKeyContext takes integer index returns integer
+        return SIDEKEY_CONTEXT_BASE + index
+    endfunction
+
+    private function SideKeyLabelIndex takes integer index, integer pId returns integer
+        return index * bj_MAX_PLAYERS + pId
+    endfunction
+
+    private function GetSideKeyCaption takes integer index, integer pId returns string
+        if SideKeyLabelText[SideKeyLabelIndex(index, pId)] == "" then
             return "-"
         endif
 
-        return MenuHotkeyText[pId]
+        return SideKeyLabelText[SideKeyLabelIndex(index, pId)]
     endfunction
 
-    private function UpdateMenuHintText takes player p returns nothing
+    private function UpdateSideKeyHint takes integer index, player p returns nothing
         if p == null then
             return
         endif
         if GetLocalPlayer() == p then
-            call BlzFrameSetText(BlzGetFrameByName("TasItemBagMenuHotkeyText", MENU_BUTTON_CONTEXT), GetMenuButtonCaption(GetPlayerId(p)))
+            call BlzFrameSetText(BlzGetFrameByName("TasItemBagSideKeyHotkeyText", SideKeyContext(index)), GetSideKeyCaption(index, GetPlayerId(p)))
         endif
     endfunction
 
-    // Public seam: DialogSystem pushes the bound Menu-key label here so the computer button's
-    // corner badge tracks rebinds, exactly like the bag toggle's "X" badge.
-    function TasItemBagSetMenuHotkeyLabel takes player p, string label returns nothing
+    // Public seam: an owning system pushes a side-key's corner badge label here (e.g. DialogSystem
+    // pushes the bound Menu key), exactly like the bag toggle's "X" badge.
+    function TasItemBagSetSideKeyLabel takes integer index, player p, string label returns nothing
         local integer pId
         if p == null then
             return
         endif
         set pId = GetPlayerId(p)
-        set MenuHotkeyText[pId] = label
-        call UpdateMenuHintText(p)
+        set SideKeyLabelText[SideKeyLabelIndex(index, pId)] = label
+        call UpdateSideKeyHint(index, p)
+    endfunction
+
+    // Back-compat wrapper: DialogSystem still calls this for the menu badge, unchanged.
+    function TasItemBagSetMenuHotkeyLabel takes player p, string label returns nothing
+        call TasItemBagSetSideKeyLabel(SIDEKEY_MENU, p, label)
     endfunction
 
     private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
@@ -623,79 +649,98 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     endfunction
 
     // Far-left menu toggle button, shown/hidden together with the quick-use bar.
-    private function SetMenuButtonVisible takes boolean visible returns nothing
-        local framehandle menuSlot = BlzGetFrameByName("TasItemBagSlot", MENU_BUTTON_CONTEXT)
-        if menuSlot != null then
-            call BlzFrameSetVisible(menuSlot, visible)
-        endif
-        set menuSlot = null
+    // Show/hide the whole side-key row, together with the quick-use bar.
+    private function SetSideKeysVisible takes boolean visible returns nothing
+        local integer i = 0
+        loop
+            exitwhen i >= SIDEKEY_COUNT
+            call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(i)), visible)
+            set i = i + 1
+        endloop
     endfunction
 
-    private function MenuButtonLocalAction takes nothing returns nothing
-        // Release keyboard focus so the clicked button does not swallow later key presses.
-        if GetLocalPlayer() == GetTriggerPlayer() then
-            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
-            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
+    // Shared across all side-keys: release keyboard focus after a click so the button does not
+    // swallow later key presses. Guards against the no-frame case (these triggers also receive
+    // key events, e.g. crafting's K, where BlzGetTriggerFrame is null).
+    private function SideKeyLocalAction takes nothing returns nothing
+        local framehandle f = BlzGetTriggerFrame()
+        if f != null and GetLocalPlayer() == GetTriggerPlayer() then
+            call BlzFrameSetEnable(f, false)
+            call BlzFrameSetEnable(f, true)
         endif
+        set f = null
     endfunction
 
-    // Registration seam: DialogSystem supplies the actual menu toggle.
-    // The trigger itself is created up-front in InitBagAt0s alongside the other UI triggers,
-    // so here we only add the caller's action. Creating triggers mid-InitFrames crashes the
-    // init thread, so it must never happen lazily during frame construction.
+    // Registration seam: an owning library supplies the toggle action for a side-key.
+    // The triggers are created up-front in InitBagAt0s alongside the other UI triggers, so here we
+    // only add the caller's action. Creating triggers mid-InitFrames crashes the init thread, so it
+    // must never happen lazily during frame construction.
+    function TasItemBagRegisterSideKeyAction takes integer index, code action returns nothing
+        call TriggerAddAction(SideKeyTrigger[index], action)
+    endfunction
+
+    // Back-compat wrapper: DialogSystem still registers the menu toggle through this, unchanged.
     function TasItemBagRegisterMenuButtonAction takes code action returns nothing
-        call TriggerAddAction(TriggerUIMenuButton, action)
+        call TasItemBagRegisterSideKeyAction(SIDEKEY_MENU, action)
     endfunction
 
-    private function CreateMenuButton takes nothing returns nothing
-        local framehandle menuSlot
-        local framehandle menuButton
+    // Crafting has no UI yet: placeholder action (also fired by the K key). Replace this when the
+    // real crafting system is built and registers its own toggle on SIDEKEY_CRAFTING.
+    private function CraftingSideKeyAction takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        if p != null then
+            call DisplayTextToPlayer(p, 0, 0, "Crafting coming soon...")
+        endif
+        set p = null
+    endfunction
+
+    // Builds one side-key button at context (200+index), anchored TOPRIGHT->TOPLEFT of the frame
+    // to its right (rightNeighborContext). Mirrors the quick-use slot decoration + hotkey badge.
+    private function CreateSideKey takes integer index, string texture, string texDisabled, integer rightNeighborContext returns nothing
+        local integer ctx = SideKeyContext(index)
+        local framehandle slot
         local framehandle hotkeyBackdrop
         local framehandle hotkeyText
 
+        set slot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, ctx)
+        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", ctx), texture, 0, false)
+        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", ctx), texDisabled, 0, false)
+        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", ctx), texture, 0, false)
+        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", ctx), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", ctx), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", ctx), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", ctx), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", ctx), false)
+        // No charges/count on side-keys: hide the overlay and clear its default text.
+        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", ctx), false)
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", ctx), "")
+        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", ctx), true)
+        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", ctx), "")
 
-        set menuSlot = BlzCreateFrame("TasItemBagSlot", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), 0, MENU_BUTTON_CONTEXT)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE_DISABLED, 0, false)
-        call BlzFrameSetTexture(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), MENU_BUTTON_TEXTURE, 0, false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdrop", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropDisabled", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonBackdropPushed", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLay", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", MENU_BUTTON_CONTEXT), false)
-        // No charges/count on the menu button: hide the overlay and clear its default text.
-        call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlotButtonOverLay", MENU_BUTTON_CONTEXT), false)
-        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButtonOverLayText", MENU_BUTTON_CONTEXT), "")
-        call BlzFrameSetEnable(BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT), true)
-        call BlzFrameSetText(BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT), "")
-
-        // Click toggles the menu. TriggerUIMenuButton is created up-front in InitBagAt0s
-        // (DialogSystem adds the actual toggle action via TasItemBagRegisterMenuButtonAction).
-        set menuButton = BlzGetFrameByName("TasItemBagSlotButton", MENU_BUTTON_CONTEXT)
-        call BlzTriggerRegisterFrameEvent(TriggerUIMenuButton, menuButton, FRAMEEVENT_CONTROL_CLICK)
+        // Click fires this side-key's trigger; the owning library adds the toggle action.
+        call BlzTriggerRegisterFrameEvent(SideKeyTrigger[index], BlzGetFrameByName("TasItemBagSlotButton", ctx), FRAMEEVENT_CONTROL_CLICK)
 
         // Same hotkey badge as the quick-use slots / bag toggle button.
-        set hotkeyBackdrop = BlzCreateFrameByType("BACKDROP", "TasItemBagMenuHotkeyBackdrop", menuSlot, "", MENU_BUTTON_CONTEXT)
+        set hotkeyBackdrop = BlzCreateFrameByType("BACKDROP", "TasItemBagSideKeyHotkeyBackdrop", slot, "", ctx)
         call BlzFrameSetSize(hotkeyBackdrop, HOTKEY_BADGE_SIZE, HOTKEY_BADGE_SIZE)
-        call BlzFrameSetPoint(hotkeyBackdrop, FRAMEPOINT_TOPLEFT, menuSlot, FRAMEPOINT_TOPLEFT, 0.0025, -0.0035)
+        call BlzFrameSetPoint(hotkeyBackdrop, FRAMEPOINT_TOPLEFT, slot, FRAMEPOINT_TOPLEFT, 0.0025, -0.0035)
         call BlzFrameSetTexture(hotkeyBackdrop, HOTKEY_BADGE_TEXTURE, 0, true)
         call BlzFrameSetAlpha(hotkeyBackdrop, HOTKEY_BADGE_ALPHA)
         call BlzFrameSetEnable(hotkeyBackdrop, false)
         call BlzFrameSetLevel(hotkeyBackdrop, 4)
-        set hotkeyText = BlzCreateFrameByType("TEXT", "TasItemBagMenuHotkeyText", menuSlot, "", MENU_BUTTON_CONTEXT)
-        call BlzFrameSetSize(hotkeyText, BlzFrameGetWidth(menuSlot) - 0.002, 0.009)
-        call BlzFrameSetPoint(hotkeyText, FRAMEPOINT_TOPLEFT, menuSlot, FRAMEPOINT_TOPLEFT, 0.0040, -0.0050)
+        set hotkeyText = BlzCreateFrameByType("TEXT", "TasItemBagSideKeyHotkeyText", slot, "", ctx)
+        call BlzFrameSetSize(hotkeyText, BlzFrameGetWidth(slot) - 0.002, 0.009)
+        call BlzFrameSetPoint(hotkeyText, FRAMEPOINT_TOPLEFT, slot, FRAMEPOINT_TOPLEFT, 0.0040, -0.0050)
         call BlzFrameSetTextAlignment(hotkeyText, TEXT_JUSTIFY_LEFT, TEXT_JUSTIFY_TOP)
         call BlzFrameSetScale(hotkeyText, 0.70)
         call BlzFrameSetEnable(hotkeyText, false)
         call BlzFrameSetLevel(hotkeyText, 5)
-        call BlzFrameSetText(hotkeyText, GetMenuButtonCaption(GetPlayerId(GetLocalPlayer())))
+        call BlzFrameSetText(hotkeyText, GetSideKeyCaption(index, GetPlayerId(GetLocalPlayer())))
 
-        call BlzFrameSetPoint(menuSlot, FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", QuickUseContext(1)), FRAMEPOINT_TOPLEFT, 0.0, 0.0)
-        call BlzFrameSetVisible(menuSlot, false)
+        call BlzFrameSetPoint(slot, FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", rightNeighborContext), FRAMEPOINT_TOPLEFT, 0.0, 0.0)
+        call BlzFrameSetVisible(slot, false)
 
-        set menuSlot = null
-        set menuButton = null
+        set slot = null
         set hotkeyBackdrop = null
         set hotkeyText = null
     endfunction
@@ -2128,7 +2173,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         if not BagEnabledForPlayer(p) then
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), false)
             call SetQuickUseBarVisible(false)
-            call SetMenuButtonVisible(false)
+            call SetSideKeysVisible(false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagPopUpPanel", 0), false)
             call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSplitPanel", 0), false)
@@ -2139,7 +2184,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetScale(BlzGetFrameByName("TasItemBagTooltipPanel", 0), TooltipScale)
         call BlzFrameSetVisible(BlzGetFrameByName("TasItemBagSlot", 0), ShowBagButtonForPlayer[pId])
         call SetQuickUseBarVisible(ShowBagButtonForPlayer[pId])
-        call SetMenuButtonVisible(ShowBagButtonForPlayer[pId])
+        call SetSideKeysVisible(ShowBagButtonForPlayer[pId])
 
         call RenderQuickUseBarForLocalPlayer(p)
 
@@ -6153,8 +6198,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set frame4 = null
         set frame5 = null
         call SetQuickUseBarVisible(false)
-        call CreateMenuButton()
-        call SetMenuButtonVisible(false)
+        // Side-key row, built right->left so each anchors to its right neighbor.
+        // Screen order ends up [menu][talents][crafting][quick-use...].
+        call CreateSideKey(SIDEKEY_CRAFTING, SIDEKEY_CRAFTING_TEXTURE, SIDEKEY_CRAFTING_TEXTURE_DISABLED, QuickUseContext(1))
+        call CreateSideKey(SIDEKEY_TALENTS, SIDEKEY_TALENTS_TEXTURE, SIDEKEY_TALENTS_TEXTURE_DISABLED, SideKeyContext(SIDEKEY_CRAFTING))
+        call CreateSideKey(SIDEKEY_MENU, SIDEKEY_MENU_TEXTURE, SIDEKEY_MENU_TEXTURE_DISABLED, SideKeyContext(SIDEKEY_TALENTS))
+        // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
+        call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
+        call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
+        call SetSideKeysVisible(false)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagCloseButton", panel, "ScriptDialogButton", 0)
         call BlzFrameSetSize(frame, 0.03, 0.03)
@@ -6401,11 +6453,24 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set TriggerUIQuickUse = CreateTrigger()
         call TriggerAddAction(TriggerUIQuickUse, function QuickUseButtonAction)
 
-        // Menu button trigger is born here with its siblings, BEFORE InitFrames runs.
+        // Side-key triggers are born here with their siblings, BEFORE InitFrames runs.
         // Creating a trigger lazily mid-InitFrames (during frame construction) silently
         // killed the init thread - that was the whole "button vanishes + bag breaks" bug.
-        set TriggerUIMenuButton = CreateTrigger()
-        call TriggerAddAction(TriggerUIMenuButton, function MenuButtonLocalAction)
+        set i = 0
+        loop
+            exitwhen i >= SIDEKEY_COUNT
+            set SideKeyTrigger[i] = CreateTrigger()
+            call TriggerAddAction(SideKeyTrigger[i], function SideKeyLocalAction)
+            set i = i + 1
+        endloop
+        // Crafting is owned locally (no crafting library yet): placeholder action + K key on its trigger.
+        call TriggerAddAction(SideKeyTrigger[SIDEKEY_CRAFTING], function CraftingSideKeyAction)
+        set i = 0
+        loop
+            call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_CRAFTING], Player(i), OSKEY_K, 0, true)
+            set i = i + 1
+            exitwhen i >= bj_MAX_PLAYERS
+        endloop
 
         set TriggerUISwap = CreateTrigger()
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSelect)
