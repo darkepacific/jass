@@ -79,12 +79,33 @@ While the native dialog menu is open it is modal — the computer button can't b
 it. Close = dialog Close button / C / ESC. True click-to-close parity would need the menu
 converted from a native dialog to a frame panel (like `hotkeyConfigPanel`).
 
-## Adding the next button (crafting/talents)
-- New context constant (201/202) + BTN/DISBTN texture constants.
-- Clone `CreateMenuButton` (or generalize it to take context/texture/anchor + left-neighbor).
-- Create its trigger in `InitBagAt0s`; register the frame click in the create function.
-- Add a `SetXVisible` call beside both `SetMenuButtonVisible` sites in `RenderBagFramesForPlayer`.
-- Register behavior from the owning library via a `TasItemBagRegisterXButtonAction` seam.
-- If rebindable: label array + setter + a line in `RefreshBoundHotkeyLabels` + a Listen/ApplyKey
-  branch in DialogSystem's hotkey config.
-- Re-paste BOTH files into the map.
+## UPDATE (June 2026): now a generalized "side-key" subsystem
+The bespoke menu button was generalized into an index-based **side-key** system in `TasItemBag.j`
+(menu=0, talents=1, crafting=2; contexts `200+index`; screen order `[menu][talents][crafting]`).
+The menu still works via thin back-compat wrappers (`TasItemBagRegisterMenuButtonAction`,
+`TasItemBagSetMenuHotkeyLabel`), so `DialogSystem.j` was untouched.
+- **Talents** side-key reuses TalentGrid's existing `ShowActionFunc` toggle — `TalentGridJUI` now
+  `uses TasItemBag` and registers it on side-key 1 via a 0.10s deferred timer (so TasItemBag's
+  triggers exist first — same null-trigger trap as before).
+- **Crafting** side-key is a placeholder: prints "Crafting coming soon..." and owns the `K` key.
+  The old `gg_trg_Crafting` K registration was removed from `KeyboardReg.j:50`; the GUI trigger is
+  now orphaned (delete it in the editor whenever).
+
+### Adding a 4th side-key (the easy path now)
+- Bump `SIDEKEY_COUNT`, add a `SIDEKEY_FOO=3` index + BTN/DISBTN texture constants.
+- Add one `CreateSideKey(SIDEKEY_FOO, …, rightNeighbor)` call in `InitFrames` and re-chain anchors.
+- The trigger loop in `InitBagAt0s` already creates `SideKeyTrigger[0..COUNT-1]` — nothing to add
+  there unless it needs its own hotkey.
+- Owning library: `uses TasItemBag`, register its toggle via
+  `TasItemBagRegisterSideKeyAction(SIDEKEY_FOO, function …)` (deferred if from a library init).
+- Static badge: `TasItemBagSetSideKeyLabel(SIDEKEY_FOO, GetLocalPlayer(), "X")` in `InitFrames`.
+- Re-paste every changed file into the map.
+
+### Future work
+- Make Talents/Crafting hotkeys **rebindable** like Menu: add Talents/Crafting rows to DialogSystem's
+  "Set Hotkeys" config (Listen/ApplyKey branches + save slots), and push their labels through
+  `RefreshBoundHotkeyLabels` via `TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS/CRAFTING, …)` — replacing
+  the static `N`/`K`. Talents' `N` key currently lives in `TalentGrid.j` (hardcoded); crafting's `K`
+  in `TasItemBag.j`'s `InitBagAt0s`.
+- Build the real Crafting UI; its library then `uses TasItemBag` and registers its own toggle on
+  `SIDEKEY_CRAFTING`, replacing the placeholder action.
