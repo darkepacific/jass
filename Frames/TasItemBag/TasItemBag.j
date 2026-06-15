@@ -50,7 +50,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant real SIDEKEY_SCALE = 1.0
         private constant real SIDEKEY_GAP = 0.0         // extra horizontal gap between adjacent left side-keys
         // Far-right balancing key absolute position (TOPLEFT). Nudge to taste.
-        private constant real SIDEKEY_EXTRA_X = 0.62
+        private constant real SIDEKEY_EXTRA_X = 0.585
         private constant real SIDEKEY_EXTRA_Y = 0.145
         private constant string SIDEKEY_MENU_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
         private constant string SIDEKEY_MENU_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNcomputer_v14_64.blp"
@@ -62,8 +62,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string SIDEKEY_CRAFTING_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNBlacksmith.blp"
         private constant string SIDEKEY_CRAFTING_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNBlacksmith.blp"
         // TODO: Add far-right (map/quests/etc.) icon here -- placeholder stock icon for now.
-        private constant string SIDEKEY_EXTRA_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNScrollOfTownPortal.blp"
-        private constant string SIDEKEY_EXTRA_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNScrollOfTownPortal.blp"
+        private constant string SIDEKEY_EXTRA_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNMap.blp"
+        private constant string SIDEKEY_EXTRA_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNMap.blp"
        
         // Show the bag button even when the inventory UI is hidden?
         public boolean ShowButtonAlwaysVisible = false
@@ -725,6 +725,22 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // Places a side-key by absolute screen point (used for the far-right balancing key).
     private function PositionSideKeyAbs takes integer index, real x, real y returns nothing
         call BlzFrameSetAbsPoint(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(index)), FRAMEPOINT_TOPLEFT, x, y)
+    endfunction
+
+    // Moves a side-key's hotkey badge from the default top-left corner to the top-right corner.
+    private function MoveSideKeyBadgeTopRight takes integer index returns nothing
+        local integer ctx = SideKeyContext(index)
+        local framehandle slot = BlzGetFrameByName("TasItemBagSlot", ctx)
+        local framehandle badge = BlzGetFrameByName("TasItemBagSideKeyHotkeyBackdrop", ctx)
+        local framehandle text = BlzGetFrameByName("TasItemBagSideKeyHotkeyText", ctx)
+        call BlzFrameClearAllPoints(badge)
+        call BlzFrameSetPoint(badge, FRAMEPOINT_TOPRIGHT, slot, FRAMEPOINT_TOPRIGHT, -0.0025, -0.0035)
+        call BlzFrameClearAllPoints(text)
+        call BlzFrameSetPoint(text, FRAMEPOINT_TOPRIGHT, slot, FRAMEPOINT_TOPRIGHT, -0.0040, -0.0050)
+        call BlzFrameSetTextAlignment(text, TEXT_JUSTIFY_RIGHT, TEXT_JUSTIFY_TOP)
+        set slot = null
+        set badge = null
+        set text = null
     endfunction
 
     // Builds + decorates one side-key button at context (200+index) and scales it by SIDEKEY_SCALE.
@@ -6245,6 +6261,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
+        // Far-right key: Y hotkey, badge shown in the TOP-RIGHT corner (differs from the others).
+        call TasItemBagSetSideKeyLabel(SIDEKEY_EXTRA, GetLocalPlayer(), "Y")
+        call MoveSideKeyBadgeTopRight(SIDEKEY_EXTRA)
         call SetSideKeysVisible(false)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagCloseButton", panel, "ScriptDialogButton", 0)
@@ -6504,8 +6523,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
         // Crafting is owned locally (no crafting library yet): placeholder action + K key on its trigger.
         call TriggerAddAction(SideKeyTrigger[SIDEKEY_CRAFTING], function CraftingSideKeyAction)
-        // Far-right balancing key: placeholder action (no hotkey yet).
+        // Far-right balancing key: placeholder action + Y key on its trigger.
         call TriggerAddAction(SideKeyTrigger[SIDEKEY_EXTRA], function ExtraSideKeyAction)
+        set i = 0
+        loop
+            call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_EXTRA], Player(i), OSKEY_Y, 0, true)
+            set i = i + 1
+            exitwhen i >= bj_MAX_PLAYERS
+        endloop
         set i = 0
         loop
             call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_CRAFTING], Player(i), OSKEY_K, 0, true)
