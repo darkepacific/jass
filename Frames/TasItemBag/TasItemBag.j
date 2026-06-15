@@ -46,12 +46,16 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer SIDEKEY_EXTRA = 3      // far-right balancing button (placeholder content)
         private constant integer SIDEKEY_COUNT = 4
         // Side-key visual size: 1.0 = full (matches quick-use slots), 0.5 ~= 32x32 mini-icons.
-        // Flip to 0.5 to A/B the mini look; tune SIDEKEY_GAP if the row spacing drifts at <1.0.
-        private constant real SIDEKEY_SCALE = 1.0
-        private constant real SIDEKEY_GAP = 0.0         // extra horizontal gap between adjacent left side-keys
-        // Far-right balancing key absolute position (TOPLEFT). Nudge to taste.
-        private constant real SIDEKEY_EXTRA_X = 0.585
-        private constant real SIDEKEY_EXTRA_Y = 0.145
+        private constant real SIDEKEY_SCALE = 0.5
+        // All four side-keys sit in one contiguous row, placed by absolute point (so the slot scale
+        // doesn't fight the anchor chain). Order left->right: [menu][talents][crafting][Y].
+        // ROW_X = leftmost icon's TOPLEFT x; STEP = horizontal spacing per icon (~rendered width at
+        // SCALE). Nudge ROW_X/ROW_Y to center the row over the hero portrait; nudge STEP for tightness.
+        private constant real SIDEKEY_ROW_X = 0.175
+        private constant real SIDEKEY_ROW_Y = 0.158
+        private constant real SIDEKEY_STEP = 0.0155
+        // The hotkey badge box is kept at full size even when the icon is scaled down (letters don't
+        // shrink, so the box shouldn't either) -- see CreateSideKey: size = HOTKEY_BADGE_SIZE / SCALE.
         private constant string SIDEKEY_MENU_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
         private constant string SIDEKEY_MENU_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNcomputer_v14_64.blp"
         // Placeholder stock icons for talents/crafting (no import needed). Swap for custom BLPs.
@@ -717,18 +721,13 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         set p = null
     endfunction
 
-    // Anchors a side-key's slot TOPRIGHT->TOPLEFT of the frame to its right (left-cluster chain).
-    private function PositionSideKeyLeftOf takes integer index, integer rightNeighborContext returns nothing
-        call BlzFrameSetPoint(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(index)), FRAMEPOINT_TOPRIGHT, BlzGetFrameByName("TasItemBagSlot", rightNeighborContext), FRAMEPOINT_TOPLEFT, -SIDEKEY_GAP, 0.0)
-    endfunction
-
-    // Places a side-key by absolute screen point (used for the far-right balancing key).
+    // Places a side-key by absolute screen point (the row is laid out this way).
     private function PositionSideKeyAbs takes integer index, real x, real y returns nothing
         call BlzFrameSetAbsPoint(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(index)), FRAMEPOINT_TOPLEFT, x, y)
     endfunction
 
     // Builds + decorates one side-key button at context (200+index) and scales it by SIDEKEY_SCALE.
-    // Positioning is the caller's job (PositionSideKeyLeftOf / PositionSideKeyAbs).
+    // Positioning is the caller's job (PositionSideKeyAbs).
     private function CreateSideKey takes integer index, string texture, string texDisabled returns nothing
         local integer ctx = SideKeyContext(index)
         local framehandle slot
@@ -753,9 +752,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Click fires this side-key's trigger; the owning library adds the toggle action.
         call BlzTriggerRegisterFrameEvent(SideKeyTrigger[index], BlzGetFrameByName("TasItemBagSlotButton", ctx), FRAMEEVENT_CONTROL_CLICK)
 
-        // Same hotkey badge as the quick-use slots / bag toggle button.
+        // Same hotkey badge as the quick-use slots / bag toggle button. The box size is divided by
+        // SIDEKEY_SCALE so the parent slot's scale cancels out and it renders at full size (the
+        // letters don't shrink, so the box shouldn't either).
         set hotkeyBackdrop = BlzCreateFrameByType("BACKDROP", "TasItemBagSideKeyHotkeyBackdrop", slot, "", ctx)
-        call BlzFrameSetSize(hotkeyBackdrop, HOTKEY_BADGE_SIZE, HOTKEY_BADGE_SIZE)
+        call BlzFrameSetSize(hotkeyBackdrop, HOTKEY_BADGE_SIZE / SIDEKEY_SCALE, HOTKEY_BADGE_SIZE / SIDEKEY_SCALE)
         call BlzFrameSetPoint(hotkeyBackdrop, FRAMEPOINT_TOPLEFT, slot, FRAMEPOINT_TOPLEFT, 0.0025, -0.0035)
         call BlzFrameSetTexture(hotkeyBackdrop, HOTKEY_BADGE_TEXTURE, 0, true)
         call BlzFrameSetAlpha(hotkeyBackdrop, HOTKEY_BADGE_ALPHA)
@@ -6238,10 +6239,12 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call CreateSideKey(SIDEKEY_TALENTS, SIDEKEY_TALENTS_TEXTURE, SIDEKEY_TALENTS_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_CRAFTING, SIDEKEY_CRAFTING_TEXTURE, SIDEKEY_CRAFTING_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_EXTRA, SIDEKEY_EXTRA_TEXTURE, SIDEKEY_EXTRA_TEXTURE_DISABLED)
-        call PositionSideKeyLeftOf(SIDEKEY_CRAFTING, QuickUseContext(1))
-        call PositionSideKeyLeftOf(SIDEKEY_TALENTS, SideKeyContext(SIDEKEY_CRAFTING))
-        call PositionSideKeyLeftOf(SIDEKEY_MENU, SideKeyContext(SIDEKEY_TALENTS))
-        call PositionSideKeyAbs(SIDEKEY_EXTRA, SIDEKEY_EXTRA_X, SIDEKEY_EXTRA_Y)
+        // One contiguous row [menu][talents][crafting][Y], placed by absolute point and centered
+        // (via SIDEKEY_ROW_X/Y) over the hero portrait. STEP is the per-icon horizontal spacing.
+        call PositionSideKeyAbs(SIDEKEY_MENU, SIDEKEY_ROW_X, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_TALENTS, SIDEKEY_ROW_X + SIDEKEY_STEP, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_CRAFTING, SIDEKEY_ROW_X + 2.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_EXTRA, SIDEKEY_ROW_X + 3.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
         // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
