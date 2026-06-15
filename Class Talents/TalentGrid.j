@@ -1,4 +1,4 @@
-library TalentGridJUI uses TalentJUI, GenericFunctions
+library TalentGridJUI uses TalentJUI, GenericFunctions, TasItemBag
 // TalentGrid for Talent Lui 1.36
 // By Tasyen
 //===========================================================================
@@ -428,6 +428,13 @@ library TalentGridJUI uses TalentJUI, GenericFunctions
         set p = null
     endfunction
 
+    // Wire the hotbar "talents" side-key (TasItemBag) to the existing N-key toggle (ShowActionFunc).
+    // Registered from a short timer so it runs AFTER TasItemBag has created the side-key triggers in
+    // its 0s init (registering earlier would hit a null trigger). Side-key index 1 = talents.
+    private function RegisterTalentSideKey takes nothing returns nothing
+        call TasItemBagRegisterSideKeyAction(1, function ShowActionFunc)
+    endfunction
+
     function TalentGridCreate takes nothing returns nothing
         local integer rows = RowsAmount 
         local integer cols = ColsAmount
@@ -573,6 +580,7 @@ library TalentGridJUI uses TalentJUI, GenericFunctions
 
         call BlzFrameSetVisible(parent, false)
         call BlzFrameSetVisible(FrameShow, false)
+        call TimerStart(CreateTimer(), 0.10, false, function RegisterTalentSideKey)
     endfunction
 
     function OpenQuestLog takes nothing returns nothing
