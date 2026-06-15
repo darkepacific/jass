@@ -51,8 +51,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // doesn't fight the anchor chain). Order left->right: [menu][talents][crafting][Y].
         // ROW_X = leftmost icon's TOPLEFT x; STEP = horizontal spacing per icon (~rendered width at
         // SCALE). Nudge ROW_X/ROW_Y to center the row over the hero portrait; nudge STEP for tightness.
-        private constant real SIDEKEY_ROW_X = 0.175
-        private constant real SIDEKEY_ROW_Y = 0.158
+        private constant real SIDEKEY_ROW_X = 0.195
+        private constant real SIDEKEY_ROW_Y = 0.140
         private constant real SIDEKEY_STEP = 0.0155
         // The hotkey badge box is kept at full size even when the icon is scaled down (letters don't
         // shrink, so the box shouldn't either) -- see CreateSideKey: size = HOTKEY_BADGE_SIZE / SCALE.
