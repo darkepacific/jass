@@ -48,6 +48,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Placeholder stock icons for talents/crafting (no import needed). Swap for custom BLPs.
         private constant string SIDEKEY_TALENTS_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNStatUp.blp"
         private constant string SIDEKEY_TALENTS_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNStatUp.blp"
+        // TODO: Add crafting icon here -- currently renders as a green square (path not found in this
+        // map version). Replace with a valid stock path or an imported BLP (+ its DISBTN below).
         private constant string SIDEKEY_CRAFTING_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNHumanBlacksmith.blp"
         private constant string SIDEKEY_CRAFTING_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNHumanBlacksmith.blp"
        
