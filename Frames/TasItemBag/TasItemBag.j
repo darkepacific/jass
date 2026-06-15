@@ -727,22 +727,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call BlzFrameSetAbsPoint(BlzGetFrameByName("TasItemBagSlot", SideKeyContext(index)), FRAMEPOINT_TOPLEFT, x, y)
     endfunction
 
-    // Moves a side-key's hotkey badge from the default top-left corner to the top-right corner.
-    private function MoveSideKeyBadgeTopRight takes integer index returns nothing
-        local integer ctx = SideKeyContext(index)
-        local framehandle slot = BlzGetFrameByName("TasItemBagSlot", ctx)
-        local framehandle badge = BlzGetFrameByName("TasItemBagSideKeyHotkeyBackdrop", ctx)
-        local framehandle text = BlzGetFrameByName("TasItemBagSideKeyHotkeyText", ctx)
-        call BlzFrameClearAllPoints(badge)
-        call BlzFrameSetPoint(badge, FRAMEPOINT_TOPRIGHT, slot, FRAMEPOINT_TOPRIGHT, -0.0025, -0.0035)
-        call BlzFrameClearAllPoints(text)
-        call BlzFrameSetPoint(text, FRAMEPOINT_TOPRIGHT, slot, FRAMEPOINT_TOPRIGHT, -0.0040, -0.0050)
-        call BlzFrameSetTextAlignment(text, TEXT_JUSTIFY_RIGHT, TEXT_JUSTIFY_TOP)
-        set slot = null
-        set badge = null
-        set text = null
-    endfunction
-
     // Builds + decorates one side-key button at context (200+index) and scales it by SIDEKEY_SCALE.
     // Positioning is the caller's job (PositionSideKeyLeftOf / PositionSideKeyAbs).
     private function CreateSideKey takes integer index, string texture, string texDisabled returns nothing
@@ -6261,9 +6245,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
-        // Far-right key: Y hotkey, badge shown in the TOP-RIGHT corner (differs from the others).
+        // Far-right key: Y hotkey, badge in the default top-left corner (matches the other side-keys).
         call TasItemBagSetSideKeyLabel(SIDEKEY_EXTRA, GetLocalPlayer(), "Y")
-        call MoveSideKeyBadgeTopRight(SIDEKEY_EXTRA)
         call SetSideKeysVisible(false)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagCloseButton", panel, "ScriptDialogButton", 0)
