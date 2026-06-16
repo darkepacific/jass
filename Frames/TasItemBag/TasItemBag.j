@@ -51,9 +51,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // doesn't fight the anchor chain). Order left->right: [menu][talents][crafting][Y].
         // ROW_X = leftmost icon's TOPLEFT x; STEP = horizontal spacing per icon (~rendered width at
         // SCALE). Nudge ROW_X/ROW_Y to center the row over the hero portrait; nudge STEP for tightness.
-        private constant real SIDEKEY_ROW_X = 0.218
+        private constant real SIDEKEY_ROW_X = 0.220
         private constant real SIDEKEY_ROW_Y = 0.135
-        private constant real SIDEKEY_STEP = 0.0166
+        private constant real SIDEKEY_STEP = 0.0168
         // The hotkey badge box is kept at full size even when the icon is scaled down (letters don't
         // shrink, so the box shouldn't either) -- see CreateSideKey: size = HOTKEY_BADGE_SIZE / SCALE.
         private constant string SIDEKEY_MENU_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
@@ -428,6 +428,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
     // Back-compat wrapper: DialogSystem still calls this for the menu badge, unchanged.
     function TasItemBagSetMenuHotkeyLabel takes player p, string label returns nothing
         call TasItemBagSetSideKeyLabel(SIDEKEY_MENU, p, label)
+    endfunction
+
+    // DialogSystem pushes the bound talents key here so the talents mini-key badge tracks rebinds.
+    function TasItemBagSetTalentHotkeyLabel takes player p, string label returns nothing
+        call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, p, label)
     endfunction
 
     private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
@@ -6245,8 +6250,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call PositionSideKeyAbs(SIDEKEY_TALENTS, SIDEKEY_ROW_X + SIDEKEY_STEP, SIDEKEY_ROW_Y)
         call PositionSideKeyAbs(SIDEKEY_CRAFTING, SIDEKEY_ROW_X + 2.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
         call PositionSideKeyAbs(SIDEKEY_EXTRA, SIDEKEY_ROW_X + 3.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
-        // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
-        call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
+        // Static badge for crafting (menu + talents badges are driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
         // Far-right key: Y hotkey, badge in the default top-left corner (matches the other side-keys).
         call TasItemBagSetSideKeyLabel(SIDEKEY_EXTRA, GetLocalPlayer(), "Y")

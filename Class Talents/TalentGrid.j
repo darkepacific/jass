@@ -428,6 +428,22 @@ library TalentGridJUI uses TalentJUI, GenericFunctions, TasItemBag
         set p = null
     endfunction
 
+    // Public toggle for an explicit player (no reliance on GetTriggerPlayer). Used by DialogSystem's
+    // rebindable talents hotkey. Local-player-guarded, so no desync.
+    function TalentGridToggleForPlayer takes player p returns nothing
+        if GetLocalPlayer() == p then
+            if (not BlzFrameIsVisible(FrameParent)) then
+                call BlzFrameSetVisible(FrameParent, true)
+                call BlzFrameSetVisible(FrameShow, false)
+                call TalentGridUpdate(p)
+                call PlaySoundBJ( gg_snd_QuestActivateWhat1)
+            else
+                call BlzFrameSetVisible(FrameParent, false)
+                call TalentGridUpdate(p)
+            endif
+        endif
+    endfunction
+
     // Wire the hotbar "talents" side-key (TasItemBag) to the existing N-key toggle (ShowActionFunc).
     // Registered from a short timer so it runs AFTER TasItemBag has created the side-key triggers in
     // its 0s init (registering earlier would hit a null trigger). Side-key index 1 = talents.
@@ -476,7 +492,8 @@ library TalentGridJUI uses TalentJUI, GenericFunctions, TasItemBag
         loop
             exitwhen x > 13
             if GetPlayerController(Player(x)) == MAP_CONTROL_USER and GetPlayerSlotState(Player(x)) == PLAYER_SLOT_STATE_PLAYING then
-                call BlzTriggerRegisterPlayerKeyEvent(ShowTrigger, Player(x), OSKEY_N, 0, true)
+                // Talents hotkey (default N) is now owned by DialogSystem's "Set Hot Keys" config,
+                // which routes it to TalentGridToggleForPlayer. (Was: register OSKEY_N here.)
                 // call BlzTriggerRegisterPlayerKeyEvent(QuestLogTrigger, Player(x), OSKEY_L, 0, true)
                 call BlzTriggerRegisterPlayerKeyEvent(CloseTrigger, Player(x), OSKEY_ESCAPE, 0, true)
                 call TriggerRegisterPlayerUnitEventSimple( CloseTrigger, Player(x), EVENT_PLAYER_HERO_LEVEL )
