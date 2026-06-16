@@ -1,4 +1,4 @@
-library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, MultiPageInventorySystem, TasItemBag, SaveFile, FileIO, TalentGridJUI
+library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, MultiPageInventorySystem, TasItemBag, SaveFile, FileIO
 
     globals
         private dialog array Dialog
@@ -9,18 +9,15 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private oskeytype array PageHotkey
         private oskeytype array BagHotkey
         private oskeytype array SellHotkey
-        private oskeytype array TalentHotkey
         private string array MenuHotkeyLabel
         private string array PageHotkeyLabel
         private string array BagHotkeyLabel
         private string array SellHotkeyLabel
-        private string array TalentHotkeyLabel
         private boolean array HotkeyConfigInventoryPage
         private boolean array ListenMenu
         private boolean array ListenPage
         private boolean array ListenBag
         private boolean array ListenSell
-        private boolean array ListenTalent
         private integer array ListenInventoryQuickCastSlot
         private boolean array ConfigOpen
         private constant string HOTKEY_SETTINGS_HEADER = "HOTKEYS1"
@@ -31,7 +28,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private trigger trigCfgPage = CreateTrigger()
         private trigger trigCfgBag = CreateTrigger()
         private trigger trigCfgSell = CreateTrigger()
-        private trigger trigCfgTalent = CreateTrigger()
         private trigger trigCfgQuickUse = CreateTrigger()
         private trigger trigCfgQuickUseBack = CreateTrigger()
         private trigger trigCfgClose = CreateTrigger()
@@ -45,7 +41,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private framehandle hotkeyConfigBtnPage = null
         private framehandle hotkeyConfigBtnBag = null
         private framehandle hotkeyConfigBtnSell = null
-        private framehandle hotkeyConfigBtnTalent = null
         private framehandle array hotkeyConfigBtnQuickUse
         private framehandle hotkeyConfigBtnQuickUseBack = null
     endglobals
@@ -351,7 +346,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
 
         set pid = GetPlayerId(whichPlayer)
         call TasItemBagSetMenuHotkeyLabel(whichPlayer, MenuHotkeyLabel[pid])
-        call TasItemBagSetTalentHotkeyLabel(whichPlayer, TalentHotkeyLabel[pid])
         call MPInventorySetNextPageHotkeyLabel(whichPlayer, PageHotkeyLabel[pid])
         call TasItemBagSetToggleHotkeyLabel(whichPlayer, BagHotkeyLabel[pid])
         call TasItemBagSetSellHotkeyLabel(whichPlayer, SellHotkeyLabel[pid])
@@ -373,8 +367,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set contents = contents + "\n" + I2S(OsKeyToStoredInt(TasItemBagGetQuickUseHotkey(whichPlayer, slot)))
             set slot = slot + 1
         endloop
-        // Talent key is appended last (line 12) so older save files (11 lines) still load cleanly.
-        set contents = contents + "\n" + I2S(OsKeyToStoredInt(TalentHotkey[pid]))
 
         if GetLocalPlayer() == whichPlayer then
             call FileIO_Write(HotkeySettingsPath(whichPlayer), contents)
@@ -451,14 +443,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set slot = slot + 1
         endloop
 
-        // Talent key (line 12). Absent in older files -> -1 -> keep the default set at init.
-        set keyValue = HotkeySettingsStoredInt(contents, 12)
-        if keyValue >= 0 then
-            set loadedKey = StoredIntToOsKey(keyValue)
-            set TalentHotkey[pid] = loadedKey
-            set TalentHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
-        endif
-
         call RefreshBoundHotkeyLabels(whichPlayer)
         set contents = null
     endfunction
@@ -468,7 +452,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set ListenPage[pid] = false
         set ListenBag[pid] = false
         set ListenSell[pid] = false
-        set ListenTalent[pid] = false
         set ListenInventoryQuickCastSlot[pid] = 0
     endfunction
 
@@ -489,7 +472,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         local string pageCap
         local string bagCap
         local string sellCap
-        local string talentCap
         local string hintText
 
         if MenuHotkeyLabel[pid] == "" then
@@ -512,11 +494,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         else
             set sellCap = "Set Sell (" + SellHotkeyLabel[pid] + ")"
         endif
-        if TalentHotkeyLabel[pid] == "" then
-            set talentCap = "Set Talents (Unbound)"
-        else
-            set talentCap = "Set Talents (" + TalentHotkeyLabel[pid] + ")"
-        endif
 
         if ListenMenu[pid] then
             set hintText = "|cffffee88Press a key for: Main Menu|r"
@@ -526,8 +503,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set hintText = "|cffffee88Press a key for: Bag Toggle|r"
         elseif ListenSell[pid] then
             set hintText = "|cffffee88Press a key for: Sell Mode|r"
-        elseif ListenTalent[pid] then
-            set hintText = "|cffffee88Press a key for: Talents|r"
         elseif ListenInventoryQuickCastSlot[pid] > 0 then
             set hintText = "|cffffee88Press a key for: Inventory Quick Cast Slot " + I2S(ListenInventoryQuickCastSlot[pid]) + "|r"
         elseif HotkeyConfigInventoryPage[pid] then
@@ -547,7 +522,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             call BlzFrameSetVisible(hotkeyConfigBtnPage, not HotkeyConfigInventoryPage[pid])
             call BlzFrameSetVisible(hotkeyConfigBtnBag, not HotkeyConfigInventoryPage[pid])
             call BlzFrameSetVisible(hotkeyConfigBtnSell, not HotkeyConfigInventoryPage[pid])
-            call BlzFrameSetVisible(hotkeyConfigBtnTalent, not HotkeyConfigInventoryPage[pid])
 
             loop
                 exitwhen slot > 6
@@ -569,7 +543,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 call BlzFrameSetText(hotkeyConfigBtnPage, pageCap)
                 call BlzFrameSetText(hotkeyConfigBtnBag, bagCap)
                 call BlzFrameSetText(hotkeyConfigBtnSell, sellCap)
-                call BlzFrameSetText(hotkeyConfigBtnTalent, talentCap)
             endif
 
             call BlzFrameSetText(hotkeyConfigHintText, hintText)
@@ -658,7 +631,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set ListenPage[pid] = whichAction == 2
         set ListenBag[pid] = whichAction == 3
         set ListenSell[pid] = whichAction == 4
-        set ListenTalent[pid] = whichAction == 5
         if whichAction >= 101 and whichAction <= 106 then
             set ListenInventoryQuickCastSlot[pid] = whichAction - 100
         endif
@@ -703,11 +675,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
-            if TalentHotkey[pid] == key then
-                set TalentHotkey[pid] = null
-                set TalentHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Talents (duplicate).|r")
-            endif
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif ListenPage[pid] then
             if MenuHotkey[pid] == key then
@@ -729,11 +696,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkey[pid] = null
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
-            endif
-            if TalentHotkey[pid] == key then
-                set TalentHotkey[pid] = null
-                set TalentHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Talents (duplicate).|r")
             endif
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif ListenBag[pid] then
@@ -757,11 +719,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
-            if TalentHotkey[pid] == key then
-                set TalentHotkey[pid] = null
-                set TalentHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Talents (duplicate).|r")
-            endif
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif ListenSell[pid] then
             if MenuHotkey[pid] == key then
@@ -783,38 +740,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set BagHotkey[pid] = null
                 set BagHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Bag (duplicate).|r")
-            endif
-            if TalentHotkey[pid] == key then
-                set TalentHotkey[pid] = null
-                set TalentHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Talents (duplicate).|r")
-            endif
-            call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
-        elseif ListenTalent[pid] then
-            if MenuHotkey[pid] == key then
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00That key is reserved for Menu. Pick a different Talents key.|r")
-                call ClearListenState(pid)
-                call ToggleHotkeyConfig(whichPlayer, true)
-                return
-            endif
-            if TalentHotkey[pid] != key then
-                set TalentHotkey[pid] = key
-                set TalentHotkeyLabel[pid] = label
-            endif
-            if PageHotkey[pid] == key then
-                set PageHotkey[pid] = null
-                set PageHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Swap Page (duplicate).|r")
-            endif
-            if BagHotkey[pid] == key then
-                set BagHotkey[pid] = null
-                set BagHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Bag (duplicate).|r")
-            endif
-            if SellHotkey[pid] == key then
-                set SellHotkey[pid] = null
-                set SellHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif quickUseSlot > 0 then
@@ -840,11 +765,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
-            if TalentHotkey[pid] == key then
-                set TalentHotkey[pid] = null
-                set TalentHotkeyLabel[pid] = ""
-                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Talents (duplicate).|r")
-            endif
             call UnbindDuplicateQuickUseKey(whichPlayer, key, quickUseSlot)
         endif
 
@@ -867,7 +787,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             return
         endif
 
-        if ListenMenu[pid] or ListenPage[pid] or ListenBag[pid] or ListenSell[pid] or ListenTalent[pid] or ListenInventoryQuickCastSlot[pid] > 0 then
+        if ListenMenu[pid] or ListenPage[pid] or ListenBag[pid] or ListenSell[pid] or ListenInventoryQuickCastSlot[pid] > 0 then
             call ApplyKey(p, key)
             set p = null
             return
@@ -886,8 +806,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             call TasItemBagToggleForPlayer(p, false)
         elseif SellHotkey[pid] != null and key == SellHotkey[pid] then
             call TasItemBagSellSelectedForPlayer(p)
-        elseif TalentHotkey[pid] != null and key == TalentHotkey[pid] then
-            call TalentGridToggleForPlayer(p)
         endif
 
         set p = null
@@ -984,12 +902,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call StartListen(GetTriggerPlayer(), 4)
     endfunction
 
-    private function ConfigBtnTalentClick takes nothing returns nothing
-        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 223), false)
-        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 223), true)
-        call StartListen(GetTriggerPlayer(), 5)
-    endfunction
-
     private function ConfigBtnQuickUseClick takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local framehandle clicked = BlzGetTriggerFrame()
@@ -1039,7 +951,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set hotkeyConfigBtnPage = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 212)
         set hotkeyConfigBtnBag = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 213)
         set hotkeyConfigBtnSell = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 214)
-        set hotkeyConfigBtnTalent = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 223)
         set hotkeyConfigBtnClose = BlzCreateFrameByType("GLUETEXTBUTTON", "DlgHotkeyCfgCloseButton", hotkeyConfigPanel, "ScriptDialogButton", 0)
 
         loop
@@ -1049,7 +960,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endloop
         set hotkeyConfigBtnQuickUseBack = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 222)
 
-        call BlzFrameSetSize(hotkeyConfigPanel, 0.26, 0.265)
+        call BlzFrameSetSize(hotkeyConfigPanel, 0.26, 0.235)
         call BlzFrameSetAbsPoint(hotkeyConfigPanel, FRAMEPOINT_CENTER, 0.40, 0.30)
         call BlzFrameSetVisible(hotkeyConfigPanel, false)
         call BlzFrameSetAlpha(hotkeyConfigPanel, 235)
@@ -1065,7 +976,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetPoint(hotkeyConfigBtnPage, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnMenu, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
         call BlzFrameSetPoint(hotkeyConfigBtnBag, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnPage, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
         call BlzFrameSetPoint(hotkeyConfigBtnSell, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnBag, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
-        call BlzFrameSetPoint(hotkeyConfigBtnTalent, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnSell, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
 
         call BlzFrameSetPoint(hotkeyConfigBtnQuickUse[1], FRAMEPOINT_TOPLEFT, hotkeyConfigPanel, FRAMEPOINT_TOPLEFT, 0.01, -0.035)
         call BlzFrameSetPoint(hotkeyConfigBtnQuickUse[2], FRAMEPOINT_TOPLEFT, hotkeyConfigBtnQuickUse[1], FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
@@ -1080,7 +990,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetSize(hotkeyConfigBtnPage, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnBag, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnSell, 0.24, 0.022)
-        call BlzFrameSetSize(hotkeyConfigBtnTalent, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[1], 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[2], 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[3], 0.24, 0.022)
@@ -1096,7 +1005,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzTriggerRegisterFrameEvent(trigCfgPage, hotkeyConfigBtnPage, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigCfgBag, hotkeyConfigBtnBag, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigCfgSell, hotkeyConfigBtnSell, FRAMEEVENT_CONTROL_CLICK)
-        call BlzTriggerRegisterFrameEvent(trigCfgTalent, hotkeyConfigBtnTalent, FRAMEEVENT_CONTROL_CLICK)
         set slot = 1
         loop
             exitwhen slot > 6
@@ -1110,7 +1018,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call TriggerAddAction(trigCfgPage, function ConfigBtnPageClick)
         call TriggerAddAction(trigCfgBag, function ConfigBtnBagClick)
         call TriggerAddAction(trigCfgSell, function ConfigBtnSellClick)
-        call TriggerAddAction(trigCfgTalent, function ConfigBtnTalentClick)
         call TriggerAddAction(trigCfgQuickUse, function ConfigBtnQuickUseClick)
         call TriggerAddAction(trigCfgQuickUseBack, function ConfigBtnQuickUseBackClick)
         call TriggerAddAction(trigCfgClose, function ConfigBtnCloseClick)
@@ -1138,8 +1045,6 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set BagHotkeyLabel[i] = "X"
             set SellHotkey[i] = OSKEY_G
             set SellHotkeyLabel[i] = "G"
-            set TalentHotkey[i] = OSKEY_N
-            set TalentHotkeyLabel[i] = "N"
             call RefreshBoundHotkeyLabels(Player(i))
             set HotkeyConfigInventoryPage[i] = false
             set ConfigOpen[i] = false
