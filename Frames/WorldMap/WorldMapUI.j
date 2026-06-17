@@ -17,8 +17,8 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant integer MAP_FRAME_LEVEL = 50   // above the hotbar / inventory
         // X close button offset from the panel's top-right corner (CENTER anchor). Less-negative =
         // up + right, toward/outside the corner. Will likely want a final tweak after the image regen.
-        private constant real MAP_CLOSE_OFF_X = -0.006
-        private constant real MAP_CLOSE_OFF_Y = -0.006
+        private constant real MAP_CLOSE_OFF_X = -0.007
+        private constant real MAP_CLOSE_OFF_Y = -0.007
 
         // --- Hero markers (you + allies) ---
         private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
@@ -32,12 +32,13 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MAP_INNER_TOP    = 0.925
         // Pushes blips away from the map center (>1 = further out, scaled by distance from center,
         // so the effect is biggest at the edges). Fixes "icons sit too close to the center".
-        private constant real MAP_SPREAD       = 1.20
+        private constant real MAP_SPREAD       = 1.21
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
         private trigger MapCloseTrigger = null
-        private framehandle array Marker        // one per udg_Heroes[0..7]
+        private framehandle array Marker        // one per udg_Heroes[0..7] (BUTTON: hover + click)
+        private framehandle array MarkerIcon    // hero-icon BACKDROP child of each Marker
         private framehandle TooltipPanel = null // shared hover tooltip (player name)
         private framehandle TooltipText = null
         private trigger HoverTrigger = null
@@ -64,6 +65,12 @@ library WorldMapUI initializer Init uses TasItemBag
 
     // X button click and ESC both just hide it (local-guarded -> no desync).
     private function MapCloseAction takes nothing returns nothing
+        // A frame click grabs keyboard focus and swallows later key input; release it. ESC has no
+        // trigger frame, so guard on that.
+        if GetLocalPlayer() == GetTriggerPlayer() and BlzGetTriggerFrame() != null then
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
+        endif
         call MapSetVisibleLocal(GetTriggerPlayer(), false)
     endfunction
 
@@ -100,11 +107,12 @@ library WorldMapUI initializer Init uses TasItemBag
         set f = null
     endfunction
 
-    // Left-click on the open map -> pan the LOCAL player's camera to the matching world point.
-    // BlzGetTriggerPlayerMouseX/Y are frame-space coords (same as TasItemBag uses for slot hit-tests).
-    // This is the exact inverse of the marker map, so clicking where a hero blip sits jumps the camera
-    // to that hero. Everything is inside the GetLocalPlayer guard, and the camera is local state, so
-    // there is no desync. Doubles as a calibration tool: click a landmark, see where the camera lands.
+    // CONTROL_CLICK on the panel or a marker -> pan the LOCAL player's camera to that world point.
+    // Handled as a FRAME event (not the global mouse-up, which the BUTTON swallows). BlzGetTriggerPlayerMouseX/Y
+    // give frame-space coords here (proven by TasItemBag's ResolveQuickUseSlotFromMouse, called the same way).
+    // This is the exact inverse of the marker map, so clicking a hero's blip jumps to that hero. The frame
+    // event is local-only and the camera is local state -> no desync. Also a calibration tool: click a
+    // landmark, see where the camera lands. The defocus stops the clicked frame from eating later key input.
     private function MapClickPanAction takes nothing returns nothing
         local real mx
         local real my
@@ -112,7 +120,12 @@ library WorldMapUI initializer Init uses TasItemBag
         local real fy
         local real nx
         local real ny
-        if MapPanel != null and GetLocalPlayer() == GetTriggerPlayer() and BlzFrameIsVisible(MapPanel) and BlzGetTriggerPlayerMouseButton() == MOUSE_BUTTON_TYPE_LEFT then
+        if MapPanel == null or GetLocalPlayer() != GetTriggerPlayer() then
+            return
+        endif
+        call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
+        call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
+        if BlzFrameIsVisible(MapPanel) then
             set mx = BlzGetTriggerPlayerMouseX()
             set my = BlzGetTriggerPlayerMouseY()
             set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
@@ -136,6 +149,12 @@ library WorldMapUI initializer Init uses TasItemBag
         call BlzFrameSetSize(MapPanel, MAP_SIZE, MAP_SIZE)
         call BlzFrameSetAbsPoint(MapPanel, FRAMEPOINT_CENTER, MAP_CENTER_X, MAP_CENTER_Y)
         call BlzFrameSetLevel(MapPanel, MAP_FRAME_LEVEL)
+        if ClickTrigger == null then
+            set ClickTrigger = CreateTrigger()
+            call TriggerAddAction(ClickTrigger, function MapClickPanAction)
+        endif
+        // Click anywhere on the panel (between markers) pans to that point + releases focus.
+        call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_CONTROL_CLICK)
 
         set backdrop = BlzCreateFrameByType("BACKDROP", "WorldMapBackdrop", MapPanel, "", 0)
         call BlzFrameSetAllPoints(backdrop, MapPanel)
@@ -150,12 +169,18 @@ library WorldMapUI initializer Init uses TasItemBag
         endif
         loop
             exitwhen i > 7
-            set Marker[i] = BlzCreateFrameByType("BACKDROP", "WorldMapHeroMarker", MapPanel, "", i)
+            // BUTTON (so it reliably fires hover + click on top of the panel); the hero icon is a
+            // BACKDROP child filling it (a bare BUTTON can't show a texture itself).
+            set Marker[i] = BlzCreateFrameByType("BUTTON", "WorldMapHeroMarker", MapPanel, "", i)
             call BlzFrameSetSize(Marker[i], MARKER_SIZE, MARKER_SIZE)
             call BlzFrameSetLevel(Marker[i], 2)
+            set MarkerIcon[i] = BlzCreateFrameByType("BACKDROP", "WorldMapHeroMarkerIcon", Marker[i], "", i)
+            call BlzFrameSetAllPoints(MarkerIcon[i], Marker[i])
+            call BlzFrameSetEnable(MarkerIcon[i], false)
             call BlzFrameSetVisible(Marker[i], false)
             call BlzTriggerRegisterFrameEvent(HoverTrigger, Marker[i], FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(HoverTrigger, Marker[i], FRAMEEVENT_MOUSE_LEAVE)
+            call BlzTriggerRegisterFrameEvent(ClickTrigger, Marker[i], FRAMEEVENT_CONTROL_CLICK)
             set i = i + 1
         endloop
 
@@ -223,7 +248,7 @@ library WorldMapUI initializer Init uses TasItemBag
                     endif
                     call BlzFrameClearAllPoints(Marker[i])
                     call BlzFrameSetPoint(Marker[i], FRAMEPOINT_CENTER, MapPanel, FRAMEPOINT_BOTTOMLEFT, (MAP_INNER_LEFT + nx * (MAP_INNER_RIGHT - MAP_INNER_LEFT)) * MAP_SIZE, (MAP_INNER_BOTTOM + ny * (MAP_INNER_TOP - MAP_INNER_BOTTOM)) * MAP_SIZE)
-                    call BlzFrameSetTexture(Marker[i], BlzGetAbilityIcon(GetUnitTypeId(h)), 0, true)
+                    call BlzFrameSetTexture(MarkerIcon[i], BlzGetAbilityIcon(GetUnitTypeId(h)), 0, true)
                     call BlzFrameSetVisible(Marker[i], true)
                 else
                     call BlzFrameSetVisible(Marker[i], false)
@@ -263,15 +288,6 @@ library WorldMapUI initializer Init uses TasItemBag
         endloop
         call TriggerAddAction(esc, function MapCloseAction)
         set esc = null
-
-        set ClickTrigger = CreateTrigger()
-        set i = 0
-        loop
-            exitwhen i >= bj_MAX_PLAYER_SLOTS
-            call TriggerRegisterPlayerEvent(ClickTrigger, Player(i), EVENT_PLAYER_MOUSE_UP)
-            set i = i + 1
-        endloop
-        call TriggerAddAction(ClickTrigger, function MapClickPanAction)
 
         call TimerStart(CreateTimer(), 0.10, false, function Setup)
         // Recreate frames after a saved game loads (frames don't survive load in this engine).
