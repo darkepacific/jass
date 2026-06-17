@@ -51,9 +51,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // doesn't fight the anchor chain). Order left->right: [menu][talents][crafting][Y].
         // ROW_X = leftmost icon's TOPLEFT x; STEP = horizontal spacing per icon (~rendered width at
         // SCALE). Nudge ROW_X/ROW_Y to center the row over the hero portrait; nudge STEP for tightness.
-        private constant real SIDEKEY_ROW_X = 0.218
+        private constant real SIDEKEY_ROW_X = 0.220
         private constant real SIDEKEY_ROW_Y = 0.135
-        private constant real SIDEKEY_STEP = 0.0166
+        private constant real SIDEKEY_STEP = 0.017
         // The hotkey badge box is kept at full size even when the icon is scaled down (letters don't
         // shrink, so the box shouldn't either) -- see CreateSideKey: size = HOTKEY_BADGE_SIZE / SCALE.
         private constant string SIDEKEY_MENU_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNcomputer_v14_64.blp"
@@ -708,15 +708,6 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         local player p = GetTriggerPlayer()
         if p != null then
             call DisplayTextToPlayer(p, 0, 0, "Crafting coming soon...")
-        endif
-        set p = null
-    endfunction
-
-    // Far-right balancing key: placeholder until its real interface (map/quests/etc.) is built.
-    private function ExtraSideKeyAction takes nothing returns nothing
-        local player p = GetTriggerPlayer()
-        if p != null then
-            call DisplayTextToPlayer(p, 0, 0, "Coming soon...")
         endif
         set p = null
     endfunction
@@ -6509,8 +6500,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         endloop
         // Crafting is owned locally (no crafting library yet): placeholder action + K key on its trigger.
         call TriggerAddAction(SideKeyTrigger[SIDEKEY_CRAFTING], function CraftingSideKeyAction)
-        // Far-right balancing key: placeholder action + Y key on its trigger.
-        call TriggerAddAction(SideKeyTrigger[SIDEKEY_EXTRA], function ExtraSideKeyAction)
+        // Far-right "Y" side-key: its toggle action is supplied by the WorldMapUI library (opens the
+        // full map). Here we only register the Y key on its trigger; the action is added via the seam.
         set i = 0
         loop
             call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_EXTRA], Player(i), OSKEY_Y, 0, true)
