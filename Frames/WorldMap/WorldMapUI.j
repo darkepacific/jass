@@ -41,6 +41,7 @@ library WorldMapUI initializer Init uses TasItemBag
         private framehandle TooltipPanel = null // shared hover tooltip (player name)
         private framehandle TooltipText = null
         private trigger HoverTrigger = null
+        private trigger ClickTrigger = null
         private timer MarkerTimer = null
         private real WorldMinX
         private real WorldMaxX
@@ -97,6 +98,31 @@ library WorldMapUI initializer Init uses TasItemBag
             set i = i + 1
         endloop
         set f = null
+    endfunction
+
+    // Left-click on the open map -> pan the LOCAL player's camera to the matching world point.
+    // BlzGetTriggerPlayerMouseX/Y are frame-space coords (same as TasItemBag uses for slot hit-tests).
+    // This is the exact inverse of the marker map, so clicking where a hero blip sits jumps the camera
+    // to that hero. Everything is inside the GetLocalPlayer guard, and the camera is local state, so
+    // there is no desync. Doubles as a calibration tool: click a landmark, see where the camera lands.
+    private function MapClickPanAction takes nothing returns nothing
+        local real mx
+        local real my
+        local real fx
+        local real fy
+        local real nx
+        local real ny
+        if MapPanel != null and GetLocalPlayer() == GetTriggerPlayer() and BlzFrameIsVisible(MapPanel) and BlzGetTriggerPlayerMouseButton() == MOUSE_BUTTON_TYPE_LEFT then
+            set mx = BlzGetTriggerPlayerMouseX()
+            set my = BlzGetTriggerPlayerMouseY()
+            set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
+            set fy = (my - (MAP_CENTER_Y - MAP_SIZE * 0.5)) / MAP_SIZE
+            if fx >= 0.0 and fx <= 1.0 and fy >= 0.0 and fy <= 1.0 then
+                set nx = 0.5 + ((fx - MAP_INNER_LEFT) / (MAP_INNER_RIGHT - MAP_INNER_LEFT) - 0.5) / MAP_SPREAD
+                set ny = 0.5 + ((fy - MAP_INNER_BOTTOM) / (MAP_INNER_TOP - MAP_INNER_BOTTOM) - 0.5) / MAP_SPREAD
+                call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
+            endif
+        endif
     endfunction
 
     // Builds (or rebuilds, after a save-game load) the frames. Safe to run more than once: it just
@@ -237,6 +263,15 @@ library WorldMapUI initializer Init uses TasItemBag
         endloop
         call TriggerAddAction(esc, function MapCloseAction)
         set esc = null
+
+        set ClickTrigger = CreateTrigger()
+        set i = 0
+        loop
+            exitwhen i >= bj_MAX_PLAYER_SLOTS
+            call TriggerRegisterPlayerEvent(ClickTrigger, Player(i), EVENT_PLAYER_MOUSE_UP)
+            set i = i + 1
+        endloop
+        call TriggerAddAction(ClickTrigger, function MapClickPanAction)
 
         call TimerStart(CreateTimer(), 0.10, false, function Setup)
         // Recreate frames after a saved game loads (frames don't survive load in this engine).
