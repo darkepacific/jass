@@ -15,6 +15,10 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MAP_CENTER_X = 0.40
         private constant real MAP_CENTER_Y = 0.34
         private constant integer MAP_FRAME_LEVEL = 50   // above the hotbar / inventory
+        // X close button offset from the panel's top-right corner (CENTER anchor). Less-negative =
+        // up + right, toward/outside the corner. Will likely want a final tweak after the image regen.
+        private constant real MAP_CLOSE_OFF_X = -0.006
+        private constant real MAP_CLOSE_OFF_Y = -0.006
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
@@ -58,7 +62,7 @@ library WorldMapUI initializer Init uses TasItemBag
         set MapCloseButton = BlzCreateFrameByType("GLUETEXTBUTTON", "WorldMapCloseButton", MapPanel, "ScriptDialogButton", 0)
         call BlzFrameSetSize(MapCloseButton, 0.03, 0.03)
         call BlzFrameSetText(MapCloseButton, "X")
-        call BlzFrameSetPoint(MapCloseButton, FRAMEPOINT_CENTER, MapPanel, FRAMEPOINT_TOPRIGHT, -0.014, -0.014)
+        call BlzFrameSetPoint(MapCloseButton, FRAMEPOINT_CENTER, MapPanel, FRAMEPOINT_TOPRIGHT, MAP_CLOSE_OFF_X, MAP_CLOSE_OFF_Y)
         if MapCloseTrigger == null then
             set MapCloseTrigger = CreateTrigger()
             call TriggerAddAction(MapCloseTrigger, function MapCloseAction)
