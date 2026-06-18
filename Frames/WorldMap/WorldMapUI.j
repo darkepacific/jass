@@ -17,8 +17,8 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant integer MAP_FRAME_LEVEL = 50   // above the hotbar / inventory
         // X close button offset from the panel's top-right corner (CENTER anchor). Less-negative =
         // up + right, toward/outside the corner. Will likely want a final tweak after the image regen.
-        private constant real MAP_CLOSE_OFF_X = -0.009
-        private constant real MAP_CLOSE_OFF_Y = -0.009
+        private constant real MAP_CLOSE_OFF_X = -0.012
+        private constant real MAP_CLOSE_OFF_Y = -0.012
 
         // --- Hero markers (you + allies) ---
         private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
@@ -133,8 +133,14 @@ library WorldMapUI initializer Init uses TasItemBag
             set f = null
             return
         endif
-        call BlzFrameSetEnable(f, false)
-        call BlzFrameSetEnable(f, true)
+        // Release keyboard focus. A click on a child cell leaves focus on the PANEL container (not the
+        // cell), so defocusing only the clicked frame isn't enough - drop the panel's focus too.
+        call BlzFrameSetEnable(MapPanel, false)
+        call BlzFrameSetEnable(MapPanel, true)
+        if f != MapPanel then
+            call BlzFrameSetEnable(f, false)
+            call BlzFrameSetEnable(f, true)
+        endif
         if not BlzFrameIsVisible(MapPanel) then
             set f = null
             return
