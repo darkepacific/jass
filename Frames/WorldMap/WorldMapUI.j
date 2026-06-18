@@ -125,16 +125,28 @@ library WorldMapUI initializer Init uses TasItemBag
         endif
         call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
         call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
+        // --- DEBUG: which frame event actually fired ---
+        if BlzGetTriggerFrameEvent() == FRAMEEVENT_MOUSE_UP then
+            call BJDebugMsg("WMAP: MOUSE_UP fired")
+        elseif BlzGetTriggerFrameEvent() == FRAMEEVENT_CONTROL_CLICK then
+            call BJDebugMsg("WMAP: CONTROL_CLICK fired")
+        else
+            call BJDebugMsg("WMAP: other event fired")
+        endif
         // Mouse coords are only valid on MOUSE_UP; CONTROL_CLICK fires too (for the defocus above).
         if BlzFrameIsVisible(MapPanel) and BlzGetTriggerFrameEvent() == FRAMEEVENT_MOUSE_UP then
             set mx = BlzGetTriggerPlayerMouseX()
             set my = BlzGetTriggerPlayerMouseY()
             set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
             set fy = (my - (MAP_CENTER_Y - MAP_SIZE * 0.5)) / MAP_SIZE
+            call BJDebugMsg("WMAP: mx=" + R2S(mx) + " my=" + R2S(my) + " fx=" + R2S(fx) + " fy=" + R2S(fy))
             if fx >= 0.0 and fx <= 1.0 and fy >= 0.0 and fy <= 1.0 then
                 set nx = 0.5 + ((fx - MAP_INNER_LEFT) / (MAP_INNER_RIGHT - MAP_INNER_LEFT) - 0.5) / MAP_SPREAD
                 set ny = 0.5 + ((fy - MAP_INNER_BOTTOM) / (MAP_INNER_TOP - MAP_INNER_BOTTOM) - 0.5) / MAP_SPREAD
+                call BJDebugMsg("WMAP: PAN to " + R2S(WorldMinX + nx * (WorldMaxX - WorldMinX)) + ", " + R2S(WorldMinY + ny * (WorldMaxY - WorldMinY)))
                 call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
+            else
+                call BJDebugMsg("WMAP: out of bounds, no pan")
             endif
         endif
     endfunction
