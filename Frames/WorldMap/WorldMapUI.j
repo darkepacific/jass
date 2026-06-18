@@ -26,8 +26,8 @@ library WorldMapUI initializer Init uses TasItemBag
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
-        private constant real MAP_INNER_LEFT   = 0.075
-        private constant real MAP_INNER_RIGHT  = 0.925
+        private constant real MAP_INNER_LEFT   = 0.060
+        private constant real MAP_INNER_RIGHT  = 0.910
         private constant real MAP_INNER_BOTTOM = 0.075
         private constant real MAP_INNER_TOP    = 0.925
         // Pushes blips away from the map center (>1 = further out, scaled by distance from center,
@@ -37,7 +37,7 @@ library WorldMapUI initializer Init uses TasItemBag
         // gives no cursor position on a custom frame click - only WHICH frame fired - so each cell is
         // itself a known map point, and clicking it pans there. Higher N = finer panning + more frames
         // (static/invisible: no in-game perf cost, only a touch of load time + frame budget).
-        private constant integer MAP_GRID_N    = 20
+        private constant integer MAP_GRID_N    = 30
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
@@ -274,9 +274,10 @@ library WorldMapUI initializer Init uses TasItemBag
         set backdrop = null
     endfunction
 
-    // Repositions/shows the hero icons for the LOCAL player + allies, while the map is open.
-    // GetUnitX/Y etc. are sync-safe reads; the GetLocalPlayer ally check only drives local frame
-    // visibility, so there is no desync. Heroes live in udg_Heroes[0..7] (slot order, not playerId).
+    // Repositions/shows the hero icons while the map is open: the LOCAL player + allies always, plus
+    // any ENEMY hero the local player currently has vision of (IsUnitVisible -> hides again once it
+    // slips back into fog). GetUnitX/Y are sync-safe reads; the GetLocalPlayer vision/ally checks only
+    // drive local frame visibility, so there is no desync. Heroes live in udg_Heroes[0..7] (slot order).
     private function UpdateMarkers takes nothing returns nothing
         local integer i = 0
         local unit h
@@ -291,7 +292,7 @@ library WorldMapUI initializer Init uses TasItemBag
             set h = udg_Heroes[i]
             if h != null and GetUnitTypeId(h) != 0 and GetWidgetLife(h) > 0.405 then
                 set owner = GetOwningPlayer(h)
-                if owner == GetLocalPlayer() or GetPlayerAlliance(GetLocalPlayer(), owner, ALLIANCE_PASSIVE) then
+                if owner == GetLocalPlayer() or GetPlayerAlliance(GetLocalPlayer(), owner, ALLIANCE_PASSIVE) or IsUnitVisible(h, GetLocalPlayer()) then
                     set nx = (GetUnitX(h) - WorldMinX) / (WorldMaxX - WorldMinX)
                     set ny = (GetUnitY(h) - WorldMinY) / (WorldMaxY - WorldMinY)
                     set nx = 0.5 + (nx - 0.5) * MAP_SPREAD
