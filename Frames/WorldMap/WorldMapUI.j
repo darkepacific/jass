@@ -25,6 +25,8 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
         private constant integer BOSS_MARKER_MAX = 16 // simultaneous quest/boss icons (WorldMapAddUnit)
         private constant integer STATIC_MARKER_MAX = 16 // simultaneous fixed icons (WorldMapAddStatic)
+        private constant real TOOLTIP_W = 0.10    // hover tooltip width (smaller = tighter)
+        private constant real TOOLTIP_H = 0.032   // hover tooltip height (fits the 2-line hero label)
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
@@ -369,7 +371,7 @@ library WorldMapUI initializer Init uses TasItemBag
         // Shared hover tooltip (player name), drawn above everything (level 6). Non-interactive so it
         // never intercepts the hover; MarkerHoverAction positions it above the hovered marker.
         set TooltipPanel = BlzCreateFrameByType("BACKDROP", "WorldMapTooltip", MapPanel, "", 0)
-        call BlzFrameSetSize(TooltipPanel, 0.14, 0.032)   // two lines: player name + class name
+        call BlzFrameSetSize(TooltipPanel, TOOLTIP_W, TOOLTIP_H)
         call BlzFrameSetTexture(TooltipPanel, "UI\\Widgets\\ToolTips\\Human\\human-tooltip-background.blp", 0, true)
         call BlzFrameSetLevel(TooltipPanel, 6)
         call BlzFrameSetEnable(TooltipPanel, false)
