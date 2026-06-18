@@ -22,7 +22,7 @@ library WorldMapUI initializer Init uses TasItemBag
 
         // --- Hero markers (you + allies) ---
         private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
-        private constant real MARKER_UPDATE = 0.40    // reposition interval (s) while the map is open
+        private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
@@ -35,7 +35,6 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MAP_SPREAD       = 1.21
 
         private framehandle MapPanel = null
-        private framehandle MapHitbox = null    // disabled BUTTON overlay - the frame that fires MOUSE_UP
         private framehandle MapCloseButton = null
         private trigger MapCloseTrigger = null
         private framehandle array Marker        // one per udg_Heroes[0..7] (BUTTON: hover + click)
@@ -43,7 +42,8 @@ library WorldMapUI initializer Init uses TasItemBag
         private framehandle TooltipPanel = null // shared hover tooltip (player name)
         private framehandle TooltipText = null
         private trigger HoverTrigger = null
-        private trigger ClickTrigger = null
+        private trigger ClickTrigger = null      // frame CONTROL_CLICK -> focus release
+        private trigger MouseUpTrigger = null    // global EVENT_PLAYER_MOUSE_UP -> the pan
         private timer MarkerTimer = null
         private real WorldMinX
         private real WorldMaxX
@@ -108,13 +108,21 @@ library WorldMapUI initializer Init uses TasItemBag
         set f = null
     endfunction
 
-    // CONTROL_CLICK on the panel or a marker -> pan the LOCAL player's camera to that world point.
-    // Handled as a FRAME event (not the global mouse-up, which the BUTTON swallows). BlzGetTriggerPlayerMouseX/Y
-    // give frame-space coords here (proven by TasItemBag's ResolveQuickUseSlotFromMouse, called the same way).
-    // This is the exact inverse of the marker map, so clicking a hero's blip jumps to that hero. The frame
-    // event is local-only and the camera is local state -> no desync. Also a calibration tool: click a
-    // landmark, see where the camera lands. The defocus stops the clicked frame from eating later key input.
-    private function MapClickPanAction takes nothing returns nothing
+    // Clicking a frame grabs keyboard focus (swallowing later key input). Frame CONTROL_CLICK fires
+    // reliably on the panel/markers (unlike MOUSE_UP), so use it purely to release that focus.
+    private function MapDefocusAction takes nothing returns nothing
+        if GetLocalPlayer() == GetTriggerPlayer() then
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
+            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
+        endif
+    endfunction
+
+    // The PAN. Driven by the global EVENT_PLAYER_MOUSE_UP player event - the only place
+    // BlzGetTriggerPlayerMouseX/Y are valid (they return 0 on a frame CONTROL_CLICK). This is exactly
+    // how the bag reads the cursor (IsMouseInsideBagPanel / GlobalMouseUpAction). Coords are frame-space
+    // (same units as MAP_CENTER); we inverse-map them to a world point and pan the LOCAL camera. All
+    // local-guarded, camera is local state -> no desync. Inverse of the marker map: click a blip, jump to it.
+    private function MapMouseUpAction takes nothing returns nothing
         local real mx
         local real my
         local real fx
@@ -124,24 +132,18 @@ library WorldMapUI initializer Init uses TasItemBag
         if MapPanel == null or GetLocalPlayer() != GetTriggerPlayer() then
             return
         endif
-        call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
-        call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
-        // Pan on whatever event fired (CONTROL_CLICK is the one that actually fires on the panel).
-        // BlzGetTriggerPlayerMouseX/Y are valid here - the bag reads them on CONTROL_CLICK too.
-        if BlzFrameIsVisible(MapPanel) then
-            set mx = BlzGetTriggerPlayerMouseX()
-            set my = BlzGetTriggerPlayerMouseY()
-            set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
-            set fy = (my - (MAP_CENTER_Y - MAP_SIZE * 0.5)) / MAP_SIZE
-            call BJDebugMsg("WMAP: mx=" + R2S(mx) + " my=" + R2S(my) + " fx=" + R2S(fx) + " fy=" + R2S(fy))
-            if fx >= 0.0 and fx <= 1.0 and fy >= 0.0 and fy <= 1.0 then
-                set nx = 0.5 + ((fx - MAP_INNER_LEFT) / (MAP_INNER_RIGHT - MAP_INNER_LEFT) - 0.5) / MAP_SPREAD
-                set ny = 0.5 + ((fy - MAP_INNER_BOTTOM) / (MAP_INNER_TOP - MAP_INNER_BOTTOM) - 0.5) / MAP_SPREAD
-                call BJDebugMsg("WMAP: PAN to " + R2S(WorldMinX + nx * (WorldMaxX - WorldMinX)) + ", " + R2S(WorldMinY + ny * (WorldMaxY - WorldMinY)))
-                call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
-            else
-                call BJDebugMsg("WMAP: out of bounds fx/fy")
-            endif
+        if not BlzFrameIsVisible(MapPanel) or BlzGetTriggerPlayerMouseButton() != MOUSE_BUTTON_TYPE_LEFT then
+            return
+        endif
+        set mx = BlzGetTriggerPlayerMouseX()
+        set my = BlzGetTriggerPlayerMouseY()
+        set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
+        set fy = (my - (MAP_CENTER_Y - MAP_SIZE * 0.5)) / MAP_SIZE
+        call BJDebugMsg("WMAP up: mx=" + R2S(mx) + " my=" + R2S(my) + " fx=" + R2S(fx) + " fy=" + R2S(fy))
+        if fx >= 0.0 and fx <= 1.0 and fy >= 0.0 and fy <= 1.0 then
+            set nx = 0.5 + ((fx - MAP_INNER_LEFT) / (MAP_INNER_RIGHT - MAP_INNER_LEFT) - 0.5) / MAP_SPREAD
+            set ny = 0.5 + ((fy - MAP_INNER_BOTTOM) / (MAP_INNER_TOP - MAP_INNER_BOTTOM) - 0.5) / MAP_SPREAD
+            call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
         endif
     endfunction
 
@@ -158,24 +160,15 @@ library WorldMapUI initializer Init uses TasItemBag
         call BlzFrameSetLevel(MapPanel, MAP_FRAME_LEVEL)
         if ClickTrigger == null then
             set ClickTrigger = CreateTrigger()
-            call TriggerAddAction(ClickTrigger, function MapClickPanAction)
+            call TriggerAddAction(ClickTrigger, function MapDefocusAction)
         endif
-        // The enabled panel BUTTON fires CONTROL_CLICK (drives the focus-release) but NOT MOUSE_UP.
+        // CONTROL_CLICK fires reliably on the panel; used only to release keyboard focus. The actual
+        // pan is the global MOUSE_UP trigger (set up in Init), which is where the mouse coords are valid.
         call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_CONTROL_CLICK)
 
         set backdrop = BlzCreateFrameByType("BACKDROP", "WorldMapBackdrop", MapPanel, "", 0)
         call BlzFrameSetAllPoints(backdrop, MapPanel)
         call BlzFrameSetTexture(backdrop, MAP_TEXTURE, 0, true)
-
-        // A *disabled*, transparent BUTTON over the image is what actually fires MOUSE_UP (the only
-        // event where BlzGetTriggerPlayerMouseX/Y are valid) - same trick the bag's InventoryHitbox
-        // uses. Level 1: above the image, below the markers (level 2), so marker hover still works.
-        set MapHitbox = BlzCreateFrameByType("BUTTON", "WorldMapHitbox", MapPanel, "", 0)
-        call BlzFrameSetAllPoints(MapHitbox, MapPanel)
-        call BlzFrameSetEnable(MapHitbox, false)
-        call BlzFrameSetAlpha(MapHitbox, 0)
-        call BlzFrameSetLevel(MapHitbox, 1)
-        call BlzTriggerRegisterFrameEvent(ClickTrigger, MapHitbox, FRAMEEVENT_MOUSE_UP)
 
         // Hero markers, one per udg_Heroes slot, drawn above the map image (level 2) and positioned
         // / shown each tick by UpdateMarkers. Children of MapPanel, so they hide and move with it.
@@ -305,6 +298,18 @@ library WorldMapUI initializer Init uses TasItemBag
         endloop
         call TriggerAddAction(esc, function MapCloseAction)
         set esc = null
+
+        // The pan: global player MOUSE_UP is the only event where BlzGetTriggerPlayerMouseX/Y are valid
+        // (same event the bag's GlobalMouseUpAction uses). Fires for clicks anywhere; the handler bails
+        // unless the map is open and the cursor is inside it.
+        set MouseUpTrigger = CreateTrigger()
+        set i = 0
+        loop
+            exitwhen i >= bj_MAX_PLAYER_SLOTS
+            call TriggerRegisterPlayerEvent(MouseUpTrigger, Player(i), EVENT_PLAYER_MOUSE_UP)
+            set i = i + 1
+        endloop
+        call TriggerAddAction(MouseUpTrigger, function MapMouseUpAction)
 
         call TimerStart(CreateTimer(), 0.10, false, function Setup)
         // Recreate frames after a saved game loads (frames don't survive load in this engine).
