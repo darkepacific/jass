@@ -125,7 +125,8 @@ library WorldMapUI initializer Init uses TasItemBag
         endif
         call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
         call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
-        if BlzFrameIsVisible(MapPanel) then
+        // Mouse coords are only valid on MOUSE_UP; CONTROL_CLICK fires too (for the defocus above).
+        if BlzFrameIsVisible(MapPanel) and BlzGetTriggerFrameEvent() == FRAMEEVENT_MOUSE_UP then
             set mx = BlzGetTriggerPlayerMouseX()
             set my = BlzGetTriggerPlayerMouseY()
             set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
@@ -153,8 +154,11 @@ library WorldMapUI initializer Init uses TasItemBag
             set ClickTrigger = CreateTrigger()
             call TriggerAddAction(ClickTrigger, function MapClickPanAction)
         endif
-        // Click anywhere on the panel (between markers) pans to that point + releases focus.
+        // Click anywhere on the panel (between markers) pans to that point + releases focus. Both
+        // events: CONTROL_CLICK drives the focus-release, MOUSE_UP is where BlzGetTriggerPlayerMouseX/Y
+        // are actually valid (CONTROL_CLICK has no mouse coords) - same split the bag's slots use.
         call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_MOUSE_UP)
 
         set backdrop = BlzCreateFrameByType("BACKDROP", "WorldMapBackdrop", MapPanel, "", 0)
         call BlzFrameSetAllPoints(backdrop, MapPanel)
@@ -181,6 +185,7 @@ library WorldMapUI initializer Init uses TasItemBag
             call BlzTriggerRegisterFrameEvent(HoverTrigger, Marker[i], FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(HoverTrigger, Marker[i], FRAMEEVENT_MOUSE_LEAVE)
             call BlzTriggerRegisterFrameEvent(ClickTrigger, Marker[i], FRAMEEVENT_CONTROL_CLICK)
+            call BlzTriggerRegisterFrameEvent(ClickTrigger, Marker[i], FRAMEEVENT_MOUSE_UP)
             set i = i + 1
         endloop
 
