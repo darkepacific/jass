@@ -24,6 +24,7 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
         private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
         private constant integer BOSS_MARKER_MAX = 16 // simultaneous quest/boss icons (WorldMapAddUnit)
+        private constant integer STATIC_MARKER_MAX = 16 // simultaneous fixed icons (WorldMapAddStatic)
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
@@ -48,6 +49,12 @@ library WorldMapUI initializer Init uses TasItemBag
         private unit array BossUnit             // quest/boss units added via WorldMapAddUnit
         private framehandle array BossMarker     // BOSS_MARKER_MAX-frame pool (BUTTON: hover + click)
         private framehandle array BossMarkerIcon // unit-icon BACKDROP child of each BossMarker
+        private string array StaticName          // fixed markers (WorldMapAddStatic); name is the key + tooltip
+        private real array StaticX
+        private real array StaticY
+        private string array StaticIcon          // icon path (BlzGetAbilityIcon of the passed unit type)
+        private framehandle array StaticMarker   // STATIC_MARKER_MAX-frame pool (BUTTON: hover + click)
+        private framehandle array StaticMarkerIcon
         private framehandle TooltipPanel = null // shared hover tooltip (player name)
         private framehandle TooltipText = null
         private framehandle array GridCell       // MAP_GRID_N^2 invisible click cells (click-to-pan)
@@ -139,6 +146,18 @@ library WorldMapUI initializer Init uses TasItemBag
             endif
             set i = i + 1
         endloop
+        set i = 0
+        loop
+            exitwhen i >= STATIC_MARKER_MAX
+            if f == StaticMarker[i] then
+                if StaticName[i] != null then
+                    call ShowMarkerTooltip(StaticMarker[i], StaticName[i])
+                endif
+                set f = null
+                return
+            endif
+            set i = i + 1
+        endloop
         set f = null
     endfunction
 
@@ -196,6 +215,18 @@ library WorldMapUI initializer Init uses TasItemBag
                     call PanCameraToTimed(GetUnitX(h), GetUnitY(h), 0.0)
                 endif
                 set h = null
+                set f = null
+                return
+            endif
+            set k = k + 1
+        endloop
+        set k = 0
+        loop
+            exitwhen k >= STATIC_MARKER_MAX
+            if f == StaticMarker[k] then
+                if StaticName[k] != null then
+                    call PanCameraToTimed(StaticX[k], StaticY[k], 0.0)
+                endif
                 set f = null
                 return
             endif
@@ -305,6 +336,23 @@ library WorldMapUI initializer Init uses TasItemBag
             set i = i + 1
         endloop
 
+        // Fixed/static marker pool (WorldMapAddStatic) - same construction, positioned from stored x/y.
+        set i = 0
+        loop
+            exitwhen i >= STATIC_MARKER_MAX
+            set StaticMarker[i] = BlzCreateFrameByType("BUTTON", "WorldMapStaticMarker", MapPanel, "", i)
+            call BlzFrameSetSize(StaticMarker[i], MARKER_SIZE, MARKER_SIZE)
+            call BlzFrameSetLevel(StaticMarker[i], 2)
+            set StaticMarkerIcon[i] = BlzCreateFrameByType("BACKDROP", "WorldMapStaticMarkerIcon", StaticMarker[i], "", i)
+            call BlzFrameSetAllPoints(StaticMarkerIcon[i], StaticMarker[i])
+            call BlzFrameSetEnable(StaticMarkerIcon[i], false)
+            call BlzFrameSetVisible(StaticMarker[i], false)
+            call BlzTriggerRegisterFrameEvent(HoverTrigger, StaticMarker[i], FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(HoverTrigger, StaticMarker[i], FRAMEEVENT_MOUSE_LEAVE)
+            call BlzTriggerRegisterFrameEvent(ClickTrigger, StaticMarker[i], FRAMEEVENT_CONTROL_CLICK)
+            set i = i + 1
+        endloop
+
         // Standard X close button in the top-right corner (mirrors the bag/talent frames). Level 5
         // keeps it above the markers so it stays clickable even if a blip lands in the corner.
         set MapCloseButton = BlzCreateFrameByType("GLUETEXTBUTTON", "WorldMapCloseButton", MapPanel, "ScriptDialogButton", 0)
@@ -335,10 +383,10 @@ library WorldMapUI initializer Init uses TasItemBag
         set backdrop = null
     endfunction
 
-    // Maps a unit's world position into the map frame (normalize -> spread -> clamp) and shows its icon.
-    private function PlaceMarker takes framehandle mk, framehandle icon, unit h returns nothing
-        local real nx = (GetUnitX(h) - WorldMinX) / (WorldMaxX - WorldMinX)
-        local real ny = (GetUnitY(h) - WorldMinY) / (WorldMaxY - WorldMinY)
+    // Maps a world point into the map frame (normalize -> spread -> clamp), sets the icon, shows it.
+    private function PlaceMarkerXY takes framehandle mk, framehandle icon, real wx, real wy, string iconPath returns nothing
+        local real nx = (wx - WorldMinX) / (WorldMaxX - WorldMinX)
+        local real ny = (wy - WorldMinY) / (WorldMaxY - WorldMinY)
         set nx = 0.5 + (nx - 0.5) * MAP_SPREAD
         set ny = 0.5 + (ny - 0.5) * MAP_SPREAD
         if nx < 0.0 then
@@ -353,8 +401,13 @@ library WorldMapUI initializer Init uses TasItemBag
         endif
         call BlzFrameClearAllPoints(mk)
         call BlzFrameSetPoint(mk, FRAMEPOINT_CENTER, MapPanel, FRAMEPOINT_BOTTOMLEFT, (MAP_INNER_LEFT + nx * (MAP_INNER_RIGHT - MAP_INNER_LEFT)) * MAP_SIZE, (MAP_INNER_BOTTOM + ny * (MAP_INNER_TOP - MAP_INNER_BOTTOM)) * MAP_SIZE)
-        call BlzFrameSetTexture(icon, BlzGetAbilityIcon(GetUnitTypeId(h)), 0, true)
+        call BlzFrameSetTexture(icon, iconPath, 0, true)
         call BlzFrameSetVisible(mk, true)
+    endfunction
+
+    // Convenience wrapper for a live unit: pulls its current position + icon.
+    private function PlaceMarker takes framehandle mk, framehandle icon, unit h returns nothing
+        call PlaceMarkerXY(mk, icon, GetUnitX(h), GetUnitY(h), BlzGetAbilityIcon(GetUnitTypeId(h)))
     endfunction
 
     // Repositions/shows the icons while the map is open. Heroes: the LOCAL player + allies always, plus
@@ -391,6 +444,16 @@ library WorldMapUI initializer Init uses TasItemBag
                 call PlaceMarker(BossMarker[i], BossMarkerIcon[i], h)
             else
                 call BlzFrameSetVisible(BossMarker[i], false)
+            endif
+            set i = i + 1
+        endloop
+        set i = 0
+        loop
+            exitwhen i >= STATIC_MARKER_MAX
+            if StaticName[i] != null then
+                call PlaceMarkerXY(StaticMarker[i], StaticMarkerIcon[i], StaticX[i], StaticY[i], StaticIcon[i])
+            else
+                call BlzFrameSetVisible(StaticMarker[i], false)
             endif
             set i = i + 1
         endloop
@@ -433,6 +496,53 @@ library WorldMapUI initializer Init uses TasItemBag
                 set BossUnit[i] = null
                 if BossMarker[i] != null then
                     call BlzFrameSetVisible(BossMarker[i], false)
+                endif
+                return
+            endif
+            set i = i + 1
+        endloop
+    endfunction
+
+    // PUBLIC: add a FIXED icon at a world point (x,y) with a display name, its image pulled from the
+    // given unit type's icon - for bosses that have not spawned yet (no live unit needed). It never
+    // moves. Calling again with the same name updates the existing marker's spot/icon (safe to refresh).
+    // Hover shows the name; click pans to it. No-ops if the pool (STATIC_MARKER_MAX) is full.
+    function WorldMapAddStatic takes string name, real x, real y, integer unitType returns nothing
+        local integer i = 0
+        local integer free = -1
+        if name == null then
+            return
+        endif
+        loop
+            exitwhen i >= STATIC_MARKER_MAX
+            if StaticName[i] == name then
+                set StaticX[i] = x
+                set StaticY[i] = y
+                set StaticIcon[i] = BlzGetAbilityIcon(unitType)
+                return
+            endif
+            if free < 0 and StaticName[i] == null then
+                set free = i
+            endif
+            set i = i + 1
+        endloop
+        if free >= 0 then
+            set StaticName[free] = name
+            set StaticX[free] = x
+            set StaticY[free] = y
+            set StaticIcon[free] = BlzGetAbilityIcon(unitType)
+        endif
+    endfunction
+
+    // PUBLIC: remove a fixed marker previously added via WorldMapAddStatic (matched by name).
+    function WorldMapRemoveStatic takes string name returns nothing
+        local integer i = 0
+        loop
+            exitwhen i >= STATIC_MARKER_MAX
+            if StaticName[i] == name then
+                set StaticName[i] = null
+                if StaticMarker[i] != null then
+                    call BlzFrameSetVisible(StaticMarker[i], false)
                 endif
                 return
             endif
