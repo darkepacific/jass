@@ -35,6 +35,7 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MAP_SPREAD       = 1.21
 
         private framehandle MapPanel = null
+        private framehandle MapHitbox = null    // disabled BUTTON overlay - the frame that fires MOUSE_UP
         private framehandle MapCloseButton = null
         private trigger MapCloseTrigger = null
         private framehandle array Marker        // one per udg_Heroes[0..7] (BUTTON: hover + click)
@@ -166,15 +167,22 @@ library WorldMapUI initializer Init uses TasItemBag
             set ClickTrigger = CreateTrigger()
             call TriggerAddAction(ClickTrigger, function MapClickPanAction)
         endif
-        // Click anywhere on the panel (between markers) pans to that point + releases focus. Both
-        // events: CONTROL_CLICK drives the focus-release, MOUSE_UP is where BlzGetTriggerPlayerMouseX/Y
-        // are actually valid (CONTROL_CLICK has no mouse coords) - same split the bag's slots use.
+        // The enabled panel BUTTON fires CONTROL_CLICK (drives the focus-release) but NOT MOUSE_UP.
         call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_CONTROL_CLICK)
-        call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_MOUSE_UP)
 
         set backdrop = BlzCreateFrameByType("BACKDROP", "WorldMapBackdrop", MapPanel, "", 0)
         call BlzFrameSetAllPoints(backdrop, MapPanel)
         call BlzFrameSetTexture(backdrop, MAP_TEXTURE, 0, true)
+
+        // A *disabled*, transparent BUTTON over the image is what actually fires MOUSE_UP (the only
+        // event where BlzGetTriggerPlayerMouseX/Y are valid) - same trick the bag's InventoryHitbox
+        // uses. Level 1: above the image, below the markers (level 2), so marker hover still works.
+        set MapHitbox = BlzCreateFrameByType("BUTTON", "WorldMapHitbox", MapPanel, "", 0)
+        call BlzFrameSetAllPoints(MapHitbox, MapPanel)
+        call BlzFrameSetEnable(MapHitbox, false)
+        call BlzFrameSetAlpha(MapHitbox, 0)
+        call BlzFrameSetLevel(MapHitbox, 1)
+        call BlzTriggerRegisterFrameEvent(ClickTrigger, MapHitbox, FRAMEEVENT_MOUSE_UP)
 
         // Hero markers, one per udg_Heroes slot, drawn above the map image (level 2) and positioned
         // / shown each tick by UpdateMarkers. Children of MapPanel, so they hide and move with it.
@@ -197,7 +205,6 @@ library WorldMapUI initializer Init uses TasItemBag
             call BlzTriggerRegisterFrameEvent(HoverTrigger, Marker[i], FRAMEEVENT_MOUSE_ENTER)
             call BlzTriggerRegisterFrameEvent(HoverTrigger, Marker[i], FRAMEEVENT_MOUSE_LEAVE)
             call BlzTriggerRegisterFrameEvent(ClickTrigger, Marker[i], FRAMEEVENT_CONTROL_CLICK)
-            call BlzTriggerRegisterFrameEvent(ClickTrigger, Marker[i], FRAMEEVENT_MOUSE_UP)
             set i = i + 1
         endloop
 
