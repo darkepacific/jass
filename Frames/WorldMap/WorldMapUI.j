@@ -23,16 +23,17 @@ library WorldMapUI initializer Init uses TasItemBag
         // --- Hero markers (you + allies) ---
         private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
         private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
+        private constant integer BOSS_MARKER_MAX = 16 // simultaneous quest/boss icons (WorldMapAddUnit)
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
-        private constant real MAP_INNER_LEFT   = 0.060
-        private constant real MAP_INNER_RIGHT  = 0.910
+        private constant real MAP_INNER_LEFT   = 0.075
+        private constant real MAP_INNER_RIGHT  = 0.925
         private constant real MAP_INNER_BOTTOM = 0.075
         private constant real MAP_INNER_TOP    = 0.925
         // Pushes blips away from the map center (>1 = further out, scaled by distance from center,
         // so the effect is biggest at the edges). Fixes "icons sit too close to the center".
-        private constant real MAP_SPREAD       = 1.21
+        private constant real MAP_SPREAD       = 1.23
         // Click-to-pan grid: an N x N lattice of invisible click cells over the playable area. WC3
         // gives no cursor position on a custom frame click - only WHICH frame fired - so each cell is
         // itself a known map point, and clicking it pans there. Higher N = finer panning + more frames
@@ -44,6 +45,9 @@ library WorldMapUI initializer Init uses TasItemBag
         private trigger MapCloseTrigger = null
         private framehandle array Marker        // one per udg_Heroes[0..7] (BUTTON: hover + click)
         private framehandle array MarkerIcon    // hero-icon BACKDROP child of each Marker
+        private unit array BossUnit             // quest/boss units added via WorldMapAddUnit
+        private framehandle array BossMarker     // BOSS_MARKER_MAX-frame pool (BUTTON: hover + click)
+        private framehandle array BossMarkerIcon // unit-icon BACKDROP child of each BossMarker
         private framehandle TooltipPanel = null // shared hover tooltip (player name)
         private framehandle TooltipText = null
         private framehandle array GridCell       // MAP_GRID_N^2 invisible click cells (click-to-pan)
@@ -80,12 +84,22 @@ library WorldMapUI initializer Init uses TasItemBag
         call MapSetVisibleLocal(GetTriggerPlayer(), false)
     endfunction
 
-    // Hover over a hero marker -> show the owning player's name in a tooltip above it; un-hover hides
-    // it. MOUSE_ENTER/LEAVE are local frame events, so this is per-client (no desync).
+    // Sets the shared tooltip's text and anchors it just above the given marker, then shows it.
+    private function ShowMarkerTooltip takes framehandle mk, string txt returns nothing
+        call BlzFrameSetText(TooltipText, txt)
+        call BlzFrameClearAllPoints(TooltipPanel)
+        call BlzFrameSetPoint(TooltipPanel, FRAMEPOINT_BOTTOM, mk, FRAMEPOINT_TOP, 0.0, 0.004)
+        call BlzFrameSetVisible(TooltipPanel, true)
+    endfunction
+
+    // Hover over a marker -> tooltip above it; un-hover hides it. Hero markers show the player name +
+    // unit/class name (two lines); boss markers show the unit's proper name (class name if it has none).
+    // MOUSE_ENTER/LEAVE are local frame events, so this is per-client (no desync).
     private function MarkerHoverAction takes nothing returns nothing
         local framehandle f = BlzGetTriggerFrame()
         local integer i = 0
         local unit h
+        local string s
         if TooltipPanel == null then
             return
         endif
@@ -99,10 +113,25 @@ library WorldMapUI initializer Init uses TasItemBag
             if f == Marker[i] then
                 set h = udg_Heroes[i]
                 if h != null and GetUnitTypeId(h) != 0 then
-                    call BlzFrameSetText(TooltipText, GetPlayerName(GetOwningPlayer(h)))
-                    call BlzFrameClearAllPoints(TooltipPanel)
-                    call BlzFrameSetPoint(TooltipPanel, FRAMEPOINT_BOTTOM, Marker[i], FRAMEPOINT_TOP, 0.0, 0.004)
-                    call BlzFrameSetVisible(TooltipPanel, true)
+                    call ShowMarkerTooltip(Marker[i], GetPlayerName(GetOwningPlayer(h)) + "|n" + GetUnitName(h))
+                endif
+                set h = null
+                set f = null
+                return
+            endif
+            set i = i + 1
+        endloop
+        set i = 0
+        loop
+            exitwhen i >= BOSS_MARKER_MAX
+            if f == BossMarker[i] then
+                set h = BossUnit[i]
+                if h != null and GetUnitTypeId(h) != 0 then
+                    set s = GetHeroProperName(h)
+                    if s == null then
+                        set s = GetUnitName(h)
+                    endif
+                    call ShowMarkerTooltip(BossMarker[i], s)
                 endif
                 set h = null
                 set f = null
@@ -149,6 +178,20 @@ library WorldMapUI initializer Init uses TasItemBag
             exitwhen k > 7
             if f == Marker[k] then
                 set h = udg_Heroes[k]
+                if h != null and GetUnitTypeId(h) != 0 then
+                    call PanCameraToTimed(GetUnitX(h), GetUnitY(h), 0.0)
+                endif
+                set h = null
+                set f = null
+                return
+            endif
+            set k = k + 1
+        endloop
+        set k = 0
+        loop
+            exitwhen k >= BOSS_MARKER_MAX
+            if f == BossMarker[k] then
+                set h = BossUnit[k]
                 if h != null and GetUnitTypeId(h) != 0 then
                     call PanCameraToTimed(GetUnitX(h), GetUnitY(h), 0.0)
                 endif
@@ -244,6 +287,24 @@ library WorldMapUI initializer Init uses TasItemBag
             set i = i + 1
         endloop
 
+        // Quest/boss marker pool (assigned on demand by WorldMapAddUnit). Same construction as the hero
+        // markers; hover shows the proper name, click pans to the unit. Hidden until a unit is assigned.
+        set i = 0
+        loop
+            exitwhen i >= BOSS_MARKER_MAX
+            set BossMarker[i] = BlzCreateFrameByType("BUTTON", "WorldMapBossMarker", MapPanel, "", i)
+            call BlzFrameSetSize(BossMarker[i], MARKER_SIZE, MARKER_SIZE)
+            call BlzFrameSetLevel(BossMarker[i], 2)
+            set BossMarkerIcon[i] = BlzCreateFrameByType("BACKDROP", "WorldMapBossMarkerIcon", BossMarker[i], "", i)
+            call BlzFrameSetAllPoints(BossMarkerIcon[i], BossMarker[i])
+            call BlzFrameSetEnable(BossMarkerIcon[i], false)
+            call BlzFrameSetVisible(BossMarker[i], false)
+            call BlzTriggerRegisterFrameEvent(HoverTrigger, BossMarker[i], FRAMEEVENT_MOUSE_ENTER)
+            call BlzTriggerRegisterFrameEvent(HoverTrigger, BossMarker[i], FRAMEEVENT_MOUSE_LEAVE)
+            call BlzTriggerRegisterFrameEvent(ClickTrigger, BossMarker[i], FRAMEEVENT_CONTROL_CLICK)
+            set i = i + 1
+        endloop
+
         // Standard X close button in the top-right corner (mirrors the bag/talent frames). Level 5
         // keeps it above the markers so it stays clickable even if a blip lands in the corner.
         set MapCloseButton = BlzCreateFrameByType("GLUETEXTBUTTON", "WorldMapCloseButton", MapPanel, "ScriptDialogButton", 0)
@@ -260,7 +321,7 @@ library WorldMapUI initializer Init uses TasItemBag
         // Shared hover tooltip (player name), drawn above everything (level 6). Non-interactive so it
         // never intercepts the hover; MarkerHoverAction positions it above the hovered marker.
         set TooltipPanel = BlzCreateFrameByType("BACKDROP", "WorldMapTooltip", MapPanel, "", 0)
-        call BlzFrameSetSize(TooltipPanel, 0.12, 0.022)
+        call BlzFrameSetSize(TooltipPanel, 0.14, 0.032)   // two lines: player name + class name
         call BlzFrameSetTexture(TooltipPanel, "UI\\Widgets\\ToolTips\\Human\\human-tooltip-background.blp", 0, true)
         call BlzFrameSetLevel(TooltipPanel, 6)
         call BlzFrameSetEnable(TooltipPanel, false)
@@ -274,16 +335,36 @@ library WorldMapUI initializer Init uses TasItemBag
         set backdrop = null
     endfunction
 
-    // Repositions/shows the hero icons while the map is open: the LOCAL player + allies always, plus
-    // any ENEMY hero the local player currently has vision of (IsUnitVisible -> hides again once it
-    // slips back into fog). GetUnitX/Y are sync-safe reads; the GetLocalPlayer vision/ally checks only
-    // drive local frame visibility, so there is no desync. Heroes live in udg_Heroes[0..7] (slot order).
+    // Maps a unit's world position into the map frame (normalize -> spread -> clamp) and shows its icon.
+    private function PlaceMarker takes framehandle mk, framehandle icon, unit h returns nothing
+        local real nx = (GetUnitX(h) - WorldMinX) / (WorldMaxX - WorldMinX)
+        local real ny = (GetUnitY(h) - WorldMinY) / (WorldMaxY - WorldMinY)
+        set nx = 0.5 + (nx - 0.5) * MAP_SPREAD
+        set ny = 0.5 + (ny - 0.5) * MAP_SPREAD
+        if nx < 0.0 then
+            set nx = 0.0
+        elseif nx > 1.0 then
+            set nx = 1.0
+        endif
+        if ny < 0.0 then
+            set ny = 0.0
+        elseif ny > 1.0 then
+            set ny = 1.0
+        endif
+        call BlzFrameClearAllPoints(mk)
+        call BlzFrameSetPoint(mk, FRAMEPOINT_CENTER, MapPanel, FRAMEPOINT_BOTTOMLEFT, (MAP_INNER_LEFT + nx * (MAP_INNER_RIGHT - MAP_INNER_LEFT)) * MAP_SIZE, (MAP_INNER_BOTTOM + ny * (MAP_INNER_TOP - MAP_INNER_BOTTOM)) * MAP_SIZE)
+        call BlzFrameSetTexture(icon, BlzGetAbilityIcon(GetUnitTypeId(h)), 0, true)
+        call BlzFrameSetVisible(mk, true)
+    endfunction
+
+    // Repositions/shows the icons while the map is open. Heroes: the LOCAL player + allies always, plus
+    // any ENEMY hero the local player currently sees (IsUnitVisible -> hides again in fog). Boss/quest
+    // units (WorldMapAddUnit): always shown while alive. GetUnitX/Y are sync-safe reads; the GetLocalPlayer
+    // vision/ally checks only drive local frame visibility, so there is no desync.
     private function UpdateMarkers takes nothing returns nothing
         local integer i = 0
         local unit h
         local player owner
-        local real nx
-        local real ny
         if MapPanel == null or not BlzFrameIsVisible(MapPanel) then
             return
         endif
@@ -293,24 +374,7 @@ library WorldMapUI initializer Init uses TasItemBag
             if h != null and GetUnitTypeId(h) != 0 and GetWidgetLife(h) > 0.405 then
                 set owner = GetOwningPlayer(h)
                 if owner == GetLocalPlayer() or GetPlayerAlliance(GetLocalPlayer(), owner, ALLIANCE_PASSIVE) or IsUnitVisible(h, GetLocalPlayer()) then
-                    set nx = (GetUnitX(h) - WorldMinX) / (WorldMaxX - WorldMinX)
-                    set ny = (GetUnitY(h) - WorldMinY) / (WorldMaxY - WorldMinY)
-                    set nx = 0.5 + (nx - 0.5) * MAP_SPREAD
-                    set ny = 0.5 + (ny - 0.5) * MAP_SPREAD
-                    if nx < 0.0 then
-                        set nx = 0.0
-                    elseif nx > 1.0 then
-                        set nx = 1.0
-                    endif
-                    if ny < 0.0 then
-                        set ny = 0.0
-                    elseif ny > 1.0 then
-                        set ny = 1.0
-                    endif
-                    call BlzFrameClearAllPoints(Marker[i])
-                    call BlzFrameSetPoint(Marker[i], FRAMEPOINT_CENTER, MapPanel, FRAMEPOINT_BOTTOMLEFT, (MAP_INNER_LEFT + nx * (MAP_INNER_RIGHT - MAP_INNER_LEFT)) * MAP_SIZE, (MAP_INNER_BOTTOM + ny * (MAP_INNER_TOP - MAP_INNER_BOTTOM)) * MAP_SIZE)
-                    call BlzFrameSetTexture(MarkerIcon[i], BlzGetAbilityIcon(GetUnitTypeId(h)), 0, true)
-                    call BlzFrameSetVisible(Marker[i], true)
+                    call PlaceMarker(Marker[i], MarkerIcon[i], h)
                 else
                     call BlzFrameSetVisible(Marker[i], false)
                 endif
@@ -319,8 +383,61 @@ library WorldMapUI initializer Init uses TasItemBag
             endif
             set i = i + 1
         endloop
+        set i = 0
+        loop
+            exitwhen i >= BOSS_MARKER_MAX
+            set h = BossUnit[i]
+            if h != null and GetUnitTypeId(h) != 0 and GetWidgetLife(h) > 0.405 then
+                call PlaceMarker(BossMarker[i], BossMarkerIcon[i], h)
+            else
+                call BlzFrameSetVisible(BossMarker[i], false)
+            endif
+            set i = i + 1
+        endloop
         set h = null
         set owner = null
+    endfunction
+
+    // PUBLIC: add a unit's icon to the world map (e.g. a quest boss). Hover shows its proper name (or
+    // class name if it has none); click pans to it. Idempotent - a unit already shown is ignored, and
+    // it silently no-ops if the pool (BOSS_MARKER_MAX) is full. Call WorldMapRemoveUnit to take it off.
+    function WorldMapAddUnit takes unit u returns nothing
+        local integer i = 0
+        if u == null then
+            return
+        endif
+        loop
+            exitwhen i >= BOSS_MARKER_MAX
+            if BossUnit[i] == u then
+                return
+            endif
+            set i = i + 1
+        endloop
+        set i = 0
+        loop
+            exitwhen i >= BOSS_MARKER_MAX
+            if BossUnit[i] == null then
+                set BossUnit[i] = u
+                return
+            endif
+            set i = i + 1
+        endloop
+    endfunction
+
+    // PUBLIC: remove a unit previously added via WorldMapAddUnit and hide its icon.
+    function WorldMapRemoveUnit takes unit u returns nothing
+        local integer i = 0
+        loop
+            exitwhen i >= BOSS_MARKER_MAX
+            if BossUnit[i] == u then
+                set BossUnit[i] = null
+                if BossMarker[i] != null then
+                    call BlzFrameSetVisible(BossMarker[i], false)
+                endif
+                return
+            endif
+            set i = i + 1
+        endloop
     endfunction
 
     // Runs once, after TasItemBag has created its side-key triggers in its 0s init (registering
