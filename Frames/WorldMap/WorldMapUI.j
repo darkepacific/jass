@@ -33,6 +33,11 @@ library WorldMapUI initializer Init uses TasItemBag
         // Pushes blips away from the map center (>1 = further out, scaled by distance from center,
         // so the effect is biggest at the edges). Fixes "icons sit too close to the center".
         private constant real MAP_SPREAD       = 1.21
+        // Click-to-pan grid: an N x N lattice of invisible click cells over the playable area. WC3
+        // gives no cursor position on a custom frame click - only WHICH frame fired - so each cell is
+        // itself a known map point, and clicking it pans there. Higher N = finer panning + more frames
+        // (static/invisible: no in-game perf cost, only a touch of load time + frame budget).
+        private constant integer MAP_GRID_N    = 20
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
@@ -41,9 +46,9 @@ library WorldMapUI initializer Init uses TasItemBag
         private framehandle array MarkerIcon    // hero-icon BACKDROP child of each Marker
         private framehandle TooltipPanel = null // shared hover tooltip (player name)
         private framehandle TooltipText = null
+        private framehandle array GridCell       // MAP_GRID_N^2 invisible click cells (click-to-pan)
         private trigger HoverTrigger = null
-        private trigger ClickTrigger = null      // frame CONTROL_CLICK -> focus release
-        private trigger MouseUpTrigger = null    // global EVENT_PLAYER_MOUSE_UP -> the pan
+        private trigger ClickTrigger = null      // frame CONTROL_CLICK -> defocus + pan
         private timer MarkerTimer = null
         private real WorldMinX
         private real WorldMaxX
@@ -108,43 +113,60 @@ library WorldMapUI initializer Init uses TasItemBag
         set f = null
     endfunction
 
-    // Clicking a frame grabs keyboard focus (swallowing later key input). Frame CONTROL_CLICK fires
-    // reliably on the panel/markers (unlike MOUSE_UP), so use it purely to release that focus.
-    private function MapDefocusAction takes nothing returns nothing
-        if GetLocalPlayer() == GetTriggerPlayer() then
-            call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
-            call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
-        endif
-    endfunction
-
-    // The PAN. Driven by the global EVENT_PLAYER_MOUSE_UP player event - the only place
-    // BlzGetTriggerPlayerMouseX/Y are valid (they return 0 on a frame CONTROL_CLICK). This is exactly
-    // how the bag reads the cursor (IsMouseInsideBagPanel / GlobalMouseUpAction). Coords are frame-space
-    // (same units as MAP_CENTER); we inverse-map them to a world point and pan the LOCAL camera. All
-    // local-guarded, camera is local state -> no desync. Inverse of the marker map: click a blip, jump to it.
-    private function MapMouseUpAction takes nothing returns nothing
-        local real mx
-        local real my
-        local real fx
-        local real fy
+    // Every click on the map comes through here (panel border, a hero marker, or a grid cell - all on
+    // ClickTrigger). We can't read the cursor's position on a custom frame, but we DO know which frame
+    // fired, so we resolve the pan target by identity:
+    //   - a hero marker  -> pan straight to that hero (exact)
+    //   - a grid cell     -> pan to that cell's mapped world point (inverse of the marker map)
+    //   - the bare panel  -> nothing but the focus release (border clicks)
+    // Always release keyboard focus first (a frame click grabs it, swallowing later key input). Frame
+    // event is local-only and the camera is local state -> no desync.
+    private function MapClickAction takes nothing returns nothing
+        local framehandle f = BlzGetTriggerFrame()
+        local integer k = 0
+        local integer col
+        local integer row
         local real nx
         local real ny
+        local unit h
         if MapPanel == null or GetLocalPlayer() != GetTriggerPlayer() then
+            set f = null
             return
         endif
-        if not BlzFrameIsVisible(MapPanel) or BlzGetTriggerPlayerMouseButton() != MOUSE_BUTTON_TYPE_LEFT then
+        call BlzFrameSetEnable(f, false)
+        call BlzFrameSetEnable(f, true)
+        if not BlzFrameIsVisible(MapPanel) then
+            set f = null
             return
         endif
-        set mx = BlzGetTriggerPlayerMouseX()
-        set my = BlzGetTriggerPlayerMouseY()
-        set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
-        set fy = (my - (MAP_CENTER_Y - MAP_SIZE * 0.5)) / MAP_SIZE
-        call BJDebugMsg("WMAP up: mx=" + R2S(mx) + " my=" + R2S(my) + " fx=" + R2S(fx) + " fy=" + R2S(fy))
-        if fx >= 0.0 and fx <= 1.0 and fy >= 0.0 and fy <= 1.0 then
-            set nx = 0.5 + ((fx - MAP_INNER_LEFT) / (MAP_INNER_RIGHT - MAP_INNER_LEFT) - 0.5) / MAP_SPREAD
-            set ny = 0.5 + ((fy - MAP_INNER_BOTTOM) / (MAP_INNER_TOP - MAP_INNER_BOTTOM) - 0.5) / MAP_SPREAD
-            call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
-        endif
+        loop
+            exitwhen k > 7
+            if f == Marker[k] then
+                set h = udg_Heroes[k]
+                if h != null and GetUnitTypeId(h) != 0 then
+                    call PanCameraToTimed(GetUnitX(h), GetUnitY(h), 0.0)
+                endif
+                set h = null
+                set f = null
+                return
+            endif
+            set k = k + 1
+        endloop
+        set k = 0
+        loop
+            exitwhen k >= MAP_GRID_N * MAP_GRID_N
+            if f == GridCell[k] then
+                set col = k - (k / MAP_GRID_N) * MAP_GRID_N
+                set row = k / MAP_GRID_N
+                set nx = 0.5 + (((I2R(col) + 0.5) / I2R(MAP_GRID_N)) - 0.5) / MAP_SPREAD
+                set ny = 0.5 + (((I2R(row) + 0.5) / I2R(MAP_GRID_N)) - 0.5) / MAP_SPREAD
+                call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
+                set f = null
+                return
+            endif
+            set k = k + 1
+        endloop
+        set f = null
     endfunction
 
     // Builds (or rebuilds, after a save-game load) the frames. Safe to run more than once: it just
@@ -152,6 +174,10 @@ library WorldMapUI initializer Init uses TasItemBag
     private function CreateMapUI takes nothing returns nothing
         local framehandle backdrop
         local integer i = 0
+        local integer col
+        local integer row
+        local real cellFracX = (MAP_INNER_RIGHT - MAP_INNER_LEFT) / I2R(MAP_GRID_N)
+        local real cellFracY = (MAP_INNER_TOP - MAP_INNER_BOTTOM) / I2R(MAP_GRID_N)
         // A BUTTON container captures mouse input so clicks on the open map don't fall through to the
         // game world behind it (ordering your hero around). The BACKDROP child draws the map image.
         set MapPanel = BlzCreateFrameByType("BUTTON", "WorldMapPanel", BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0), "", 0)
@@ -160,15 +186,33 @@ library WorldMapUI initializer Init uses TasItemBag
         call BlzFrameSetLevel(MapPanel, MAP_FRAME_LEVEL)
         if ClickTrigger == null then
             set ClickTrigger = CreateTrigger()
-            call TriggerAddAction(ClickTrigger, function MapDefocusAction)
+            call TriggerAddAction(ClickTrigger, function MapClickAction)
         endif
-        // CONTROL_CLICK fires reliably on the panel; used only to release keyboard focus. The actual
-        // pan is the global MOUSE_UP trigger (set up in Init), which is where the mouse coords are valid.
+        // The panel only catches border clicks (just defocus); the grid cells + markers do the panning.
         call BlzTriggerRegisterFrameEvent(ClickTrigger, MapPanel, FRAMEEVENT_CONTROL_CLICK)
 
         set backdrop = BlzCreateFrameByType("BACKDROP", "WorldMapBackdrop", MapPanel, "", 0)
         call BlzFrameSetAllPoints(backdrop, MapPanel)
         call BlzFrameSetTexture(backdrop, MAP_TEXTURE, 0, true)
+
+        // Invisible click-grid over the playable area (level 1: above the image, below the markers at
+        // level 2 so marker hover/clicks still win). Each cell is a BUTTON whose CONTROL_CLICK lands in
+        // MapClickAction, which pans to the cell's known map point. This is how we get a position out of
+        // a click when WC3 won't give us cursor coords on a custom frame.
+        loop
+            exitwhen i >= MAP_GRID_N * MAP_GRID_N
+            set col = i - (i / MAP_GRID_N) * MAP_GRID_N
+            set row = i / MAP_GRID_N
+            set GridCell[i] = BlzCreateFrameByType("BUTTON", "WorldMapGridCell", MapPanel, "", i)
+            call BlzFrameSetSize(GridCell[i], cellFracX * MAP_SIZE, cellFracY * MAP_SIZE)
+            call BlzFrameClearAllPoints(GridCell[i])
+            call BlzFrameSetPoint(GridCell[i], FRAMEPOINT_BOTTOMLEFT, MapPanel, FRAMEPOINT_BOTTOMLEFT, (MAP_INNER_LEFT + I2R(col) * cellFracX) * MAP_SIZE, (MAP_INNER_BOTTOM + I2R(row) * cellFracY) * MAP_SIZE)
+            call BlzFrameSetAlpha(GridCell[i], 0)
+            call BlzFrameSetLevel(GridCell[i], 1)
+            call BlzTriggerRegisterFrameEvent(ClickTrigger, GridCell[i], FRAMEEVENT_CONTROL_CLICK)
+            set i = i + 1
+        endloop
+        set i = 0
 
         // Hero markers, one per udg_Heroes slot, drawn above the map image (level 2) and positioned
         // / shown each tick by UpdateMarkers. Children of MapPanel, so they hide and move with it.
@@ -298,18 +342,6 @@ library WorldMapUI initializer Init uses TasItemBag
         endloop
         call TriggerAddAction(esc, function MapCloseAction)
         set esc = null
-
-        // The pan: global player MOUSE_UP is the only event where BlzGetTriggerPlayerMouseX/Y are valid
-        // (same event the bag's GlobalMouseUpAction uses). Fires for clicks anywhere; the handler bails
-        // unless the map is open and the cursor is inside it.
-        set MouseUpTrigger = CreateTrigger()
-        set i = 0
-        loop
-            exitwhen i >= bj_MAX_PLAYER_SLOTS
-            call TriggerRegisterPlayerEvent(MouseUpTrigger, Player(i), EVENT_PLAYER_MOUSE_UP)
-            set i = i + 1
-        endloop
-        call TriggerAddAction(MouseUpTrigger, function MapMouseUpAction)
 
         call TimerStart(CreateTimer(), 0.10, false, function Setup)
         // Recreate frames after a saved game loads (frames don't survive load in this engine).
