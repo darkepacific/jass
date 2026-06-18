@@ -17,8 +17,8 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant integer MAP_FRAME_LEVEL = 50   // above the hotbar / inventory
         // X close button offset from the panel's top-right corner (CENTER anchor). Less-negative =
         // up + right, toward/outside the corner. Will likely want a final tweak after the image regen.
-        private constant real MAP_CLOSE_OFF_X = -0.007
-        private constant real MAP_CLOSE_OFF_Y = -0.007
+        private constant real MAP_CLOSE_OFF_X = -0.009
+        private constant real MAP_CLOSE_OFF_Y = -0.009
 
         // --- Hero markers (you + allies) ---
         private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
@@ -126,16 +126,9 @@ library WorldMapUI initializer Init uses TasItemBag
         endif
         call BlzFrameSetEnable(BlzGetTriggerFrame(), false)
         call BlzFrameSetEnable(BlzGetTriggerFrame(), true)
-        // --- DEBUG: which frame event actually fired ---
-        if BlzGetTriggerFrameEvent() == FRAMEEVENT_MOUSE_UP then
-            call BJDebugMsg("WMAP: MOUSE_UP fired")
-        elseif BlzGetTriggerFrameEvent() == FRAMEEVENT_CONTROL_CLICK then
-            call BJDebugMsg("WMAP: CONTROL_CLICK fired")
-        else
-            call BJDebugMsg("WMAP: other event fired")
-        endif
-        // Mouse coords are only valid on MOUSE_UP; CONTROL_CLICK fires too (for the defocus above).
-        if BlzFrameIsVisible(MapPanel) and BlzGetTriggerFrameEvent() == FRAMEEVENT_MOUSE_UP then
+        // Pan on whatever event fired (CONTROL_CLICK is the one that actually fires on the panel).
+        // BlzGetTriggerPlayerMouseX/Y are valid here - the bag reads them on CONTROL_CLICK too.
+        if BlzFrameIsVisible(MapPanel) then
             set mx = BlzGetTriggerPlayerMouseX()
             set my = BlzGetTriggerPlayerMouseY()
             set fx = (mx - (MAP_CENTER_X - MAP_SIZE * 0.5)) / MAP_SIZE
@@ -147,7 +140,7 @@ library WorldMapUI initializer Init uses TasItemBag
                 call BJDebugMsg("WMAP: PAN to " + R2S(WorldMinX + nx * (WorldMaxX - WorldMinX)) + ", " + R2S(WorldMinY + ny * (WorldMaxY - WorldMinY)))
                 call PanCameraToTimed(WorldMinX + nx * (WorldMaxX - WorldMinX), WorldMinY + ny * (WorldMaxY - WorldMinY), 0.0)
             else
-                call BJDebugMsg("WMAP: out of bounds, no pan")
+                call BJDebugMsg("WMAP: out of bounds fx/fy")
             endif
         endif
     endfunction
