@@ -13,7 +13,7 @@ library WorldMapUI initializer Init uses TasItemBag
         // Image is 1:1 (1024x1024), so the frame is square. Nudge these to taste.
         private constant real MAP_SIZE     = 0.42
         private constant real MAP_CENTER_X = 0.40
-        private constant real MAP_CENTER_Y = 0.34
+        private constant real MAP_CENTER_Y = 0.35
         private constant integer MAP_FRAME_LEVEL = 50   // above the hotbar / inventory
         // X close button offset from the panel's top-right corner (CENTER anchor). Less-negative =
         // up + right, toward/outside the corner. Will likely want a final tweak after the image regen.
@@ -25,23 +25,23 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
         private constant integer BOSS_MARKER_MAX = 16 // simultaneous quest/boss icons (WorldMapAddUnit)
         private constant integer STATIC_MARKER_MAX = 16 // simultaneous fixed icons (WorldMapAddStatic)
-        private constant real TOOLTIP_W = 0.10    // hover tooltip width (smaller = tighter)
+        private constant real TOOLTIP_W = 0.08    // hover tooltip width (smaller = tighter)
         private constant real TOOLTIP_H = 0.032   // hover tooltip height (fits the 2-line hero label)
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
-        private constant real MAP_INNER_LEFT   = 0.075
-        private constant real MAP_INNER_RIGHT  = 0.925
+        private constant real MAP_INNER_LEFT   = 0.070
+        private constant real MAP_INNER_RIGHT  = 0.920
         private constant real MAP_INNER_BOTTOM = 0.075
         private constant real MAP_INNER_TOP    = 0.925
         // Pushes blips away from the map center (>1 = further out, scaled by distance from center,
         // so the effect is biggest at the edges). Fixes "icons sit too close to the center".
-        private constant real MAP_SPREAD       = 1.23
+        private constant real MAP_SPREAD       = 1.25
         // Click-to-pan grid: an N x N lattice of invisible click cells over the playable area. WC3
         // gives no cursor position on a custom frame click - only WHICH frame fired - so each cell is
         // itself a known map point, and clicking it pans there. Higher N = finer panning + more frames
         // (static/invisible: no in-game perf cost, only a touch of load time + frame budget).
-        private constant integer MAP_GRID_N    = 30
+        private constant integer MAP_GRID_N    = 32
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
@@ -75,11 +75,18 @@ library WorldMapUI initializer Init uses TasItemBag
         endif
     endfunction
 
-    // Fired by the Y side-key (click or Y key) through TasItemBag's registration seam.
-    private function MapToggleAction takes nothing returns nothing
-        if MapPanel != null and GetLocalPlayer() == GetTriggerPlayer() then
+    // PUBLIC: toggle the map for a specific player. Used by the side-key button (via MapToggleAction)
+    // and by DialogSystem's rebindable Map hotkey. Local-guarded -> no desync.
+    function WorldMapToggleForPlayer takes player p returns nothing
+        if MapPanel != null and GetLocalPlayer() == p then
             call BlzFrameSetVisible(MapPanel, not BlzFrameIsVisible(MapPanel))
         endif
+    endfunction
+
+    // Fired by the side-key BUTTON click through TasItemBag's registration seam. (The Y *key* is now
+    // owned by DialogSystem's rebindable Map hotkey, which calls WorldMapToggleForPlayer directly.)
+    private function MapToggleAction takes nothing returns nothing
+        call WorldMapToggleForPlayer(GetTriggerPlayer())
     endfunction
 
     // X button click and ESC both just hide it (local-guarded -> no desync).

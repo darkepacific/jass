@@ -430,6 +430,15 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TasItemBagSetSideKeyLabel(SIDEKEY_MENU, p, label)
     endfunction
 
+    // Badge wrappers for the rebindable Map (Y) / Craft (K) side-keys (DialogSystem pushes the bound key).
+    function TasItemBagSetMapHotkeyLabel takes player p, string label returns nothing
+        call TasItemBagSetSideKeyLabel(SIDEKEY_EXTRA, p, label)
+    endfunction
+
+    function TasItemBagSetCraftHotkeyLabel takes player p, string label returns nothing
+        call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, p, label)
+    endfunction
+
     private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
         set SellHotkeyArmed[pId] = armed
     endfunction
@@ -702,14 +711,17 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TasItemBagRegisterSideKeyAction(SIDEKEY_MENU, action)
     endfunction
 
-    // Crafting has no UI yet: placeholder action (also fired by the K key). Replace this when the
-    // real crafting system is built and registers its own toggle on SIDEKEY_CRAFTING.
-    private function CraftingSideKeyAction takes nothing returns nothing
-        local player p = GetTriggerPlayer()
+    // Crafting has no UI yet: placeholder action. Replace the body when the real crafting system is
+    // built. PUBLIC so DialogSystem's rebindable Craft hotkey can fire it (the side-key button also does,
+    // via CraftingSideKeyAction). DisplayTextToPlayer is per-player, so no GetLocalPlayer guard needed.
+    function TasItemBagCraftingForPlayer takes player p returns nothing
         if p != null then
             call DisplayTextToPlayer(p, 0, 0, "Crafting coming soon...")
         endif
-        set p = null
+    endfunction
+
+    private function CraftingSideKeyAction takes nothing returns nothing
+        call TasItemBagCraftingForPlayer(GetTriggerPlayer())
     endfunction
 
     // Places a side-key by absolute screen point (the row is laid out this way).
@@ -6498,22 +6510,11 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call TriggerAddAction(SideKeyTrigger[i], function SideKeyLocalAction)
             set i = i + 1
         endloop
-        // Crafting is owned locally (no crafting library yet): placeholder action + K key on its trigger.
+        // Crafting is owned locally (no crafting library yet): placeholder action on its trigger.
         call TriggerAddAction(SideKeyTrigger[SIDEKEY_CRAFTING], function CraftingSideKeyAction)
-        // Far-right "Y" side-key: its toggle action is supplied by the WorldMapUI library (opens the
-        // full map). Here we only register the Y key on its trigger; the action is added via the seam.
-        set i = 0
-        loop
-            call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_EXTRA], Player(i), OSKEY_Y, 0, true)
-            set i = i + 1
-            exitwhen i >= bj_MAX_PLAYERS
-        endloop
-        set i = 0
-        loop
-            call BlzTriggerRegisterPlayerKeyEvent(SideKeyTrigger[SIDEKEY_CRAFTING], Player(i), OSKEY_K, 0, true)
-            set i = i + 1
-            exitwhen i >= bj_MAX_PLAYERS
-        endloop
+        // The Map (Y) and Craft (K) KEYS are now rebindable, owned by DialogSystem's hotkey config
+        // (defaults Y/K), which calls WorldMapToggleForPlayer / TasItemBagCraftingForPlayer directly.
+        // We only wire the side-key BUTTON clicks here (done in CreateSideKey); no hardcoded keys.
 
         set TriggerUISwap = CreateTrigger()
         call TriggerAddAction(TriggerUISwap, function BagPopupActionSelect)

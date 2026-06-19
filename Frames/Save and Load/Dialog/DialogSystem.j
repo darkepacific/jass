@@ -1,4 +1,4 @@
-library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, MultiPageInventorySystem, TasItemBag, SaveFile, FileIO
+library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, MultiPageInventorySystem, TasItemBag, SaveFile, FileIO, WorldMapUI
 
     globals
         private dialog array Dialog
@@ -9,15 +9,21 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private oskeytype array PageHotkey
         private oskeytype array BagHotkey
         private oskeytype array SellHotkey
+        private oskeytype array MapHotkey
+        private oskeytype array CraftHotkey
         private string array MenuHotkeyLabel
         private string array PageHotkeyLabel
         private string array BagHotkeyLabel
         private string array SellHotkeyLabel
+        private string array MapHotkeyLabel
+        private string array CraftHotkeyLabel
         private boolean array HotkeyConfigInventoryPage
         private boolean array ListenMenu
         private boolean array ListenPage
         private boolean array ListenBag
         private boolean array ListenSell
+        private boolean array ListenMap
+        private boolean array ListenCraft
         private integer array ListenInventoryQuickCastSlot
         private boolean array ConfigOpen
         private constant string HOTKEY_SETTINGS_HEADER = "HOTKEYS1"
@@ -28,6 +34,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private trigger trigCfgPage = CreateTrigger()
         private trigger trigCfgBag = CreateTrigger()
         private trigger trigCfgSell = CreateTrigger()
+        private trigger trigCfgMap = CreateTrigger()
+        private trigger trigCfgCraft = CreateTrigger()
         private trigger trigCfgQuickUse = CreateTrigger()
         private trigger trigCfgQuickUseBack = CreateTrigger()
         private trigger trigCfgClose = CreateTrigger()
@@ -41,6 +49,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private framehandle hotkeyConfigBtnPage = null
         private framehandle hotkeyConfigBtnBag = null
         private framehandle hotkeyConfigBtnSell = null
+        private framehandle hotkeyConfigBtnMap = null
+        private framehandle hotkeyConfigBtnCraft = null
         private framehandle array hotkeyConfigBtnQuickUse
         private framehandle hotkeyConfigBtnQuickUseBack = null
     endglobals
@@ -349,6 +359,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call MPInventorySetNextPageHotkeyLabel(whichPlayer, PageHotkeyLabel[pid])
         call TasItemBagSetToggleHotkeyLabel(whichPlayer, BagHotkeyLabel[pid])
         call TasItemBagSetSellHotkeyLabel(whichPlayer, SellHotkeyLabel[pid])
+        call TasItemBagSetMapHotkeyLabel(whichPlayer, MapHotkeyLabel[pid])
+        call TasItemBagSetCraftHotkeyLabel(whichPlayer, CraftHotkeyLabel[pid])
     endfunction
 
     private function SaveHotkeysForPlayer takes player whichPlayer returns nothing
@@ -367,6 +379,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set contents = contents + "\n" + I2S(OsKeyToStoredInt(TasItemBagGetQuickUseHotkey(whichPlayer, slot)))
             set slot = slot + 1
         endloop
+        // Map + Craft appended last (lines 12,13) so older save files just fall back to the defaults.
+        set contents = contents + "\n" + I2S(OsKeyToStoredInt(MapHotkey[pid])) + "\n" + I2S(OsKeyToStoredInt(CraftHotkey[pid]))
 
         if GetLocalPlayer() == whichPlayer then
             call FileIO_Write(HotkeySettingsPath(whichPlayer), contents)
@@ -443,6 +457,20 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set slot = slot + 1
         endloop
 
+        set keyValue = HotkeySettingsStoredInt(contents, 12)
+        if keyValue >= 0 then
+            set loadedKey = StoredIntToOsKey(keyValue)
+            set MapHotkey[pid] = loadedKey
+            set MapHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
+        endif
+
+        set keyValue = HotkeySettingsStoredInt(contents, 13)
+        if keyValue >= 0 then
+            set loadedKey = StoredIntToOsKey(keyValue)
+            set CraftHotkey[pid] = loadedKey
+            set CraftHotkeyLabel[pid] = HotkeyLabelForKey(loadedKey)
+        endif
+
         call RefreshBoundHotkeyLabels(whichPlayer)
         set contents = null
     endfunction
@@ -452,6 +480,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set ListenPage[pid] = false
         set ListenBag[pid] = false
         set ListenSell[pid] = false
+        set ListenMap[pid] = false
+        set ListenCraft[pid] = false
         set ListenInventoryQuickCastSlot[pid] = 0
     endfunction
 
@@ -472,6 +502,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         local string pageCap
         local string bagCap
         local string sellCap
+        local string mapCap
+        local string craftCap
         local string hintText
 
         if MenuHotkeyLabel[pid] == "" then
@@ -494,6 +526,16 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         else
             set sellCap = "Set Sell (" + SellHotkeyLabel[pid] + ")"
         endif
+        if MapHotkeyLabel[pid] == "" then
+            set mapCap = "Set Map (Unbound)"
+        else
+            set mapCap = "Set Map (" + MapHotkeyLabel[pid] + ")"
+        endif
+        if CraftHotkeyLabel[pid] == "" then
+            set craftCap = "Set Craft (Unbound)"
+        else
+            set craftCap = "Set Craft (" + CraftHotkeyLabel[pid] + ")"
+        endif
 
         if ListenMenu[pid] then
             set hintText = "|cffffee88Press a key for: Main Menu|r"
@@ -503,6 +545,10 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set hintText = "|cffffee88Press a key for: Bag Toggle|r"
         elseif ListenSell[pid] then
             set hintText = "|cffffee88Press a key for: Sell Mode|r"
+        elseif ListenMap[pid] then
+            set hintText = "|cffffee88Press a key for: World Map|r"
+        elseif ListenCraft[pid] then
+            set hintText = "|cffffee88Press a key for: Crafting|r"
         elseif ListenInventoryQuickCastSlot[pid] > 0 then
             set hintText = "|cffffee88Press a key for: Inventory Quick Cast Slot " + I2S(ListenInventoryQuickCastSlot[pid]) + "|r"
         elseif HotkeyConfigInventoryPage[pid] then
@@ -522,6 +568,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             call BlzFrameSetVisible(hotkeyConfigBtnPage, not HotkeyConfigInventoryPage[pid])
             call BlzFrameSetVisible(hotkeyConfigBtnBag, not HotkeyConfigInventoryPage[pid])
             call BlzFrameSetVisible(hotkeyConfigBtnSell, not HotkeyConfigInventoryPage[pid])
+            call BlzFrameSetVisible(hotkeyConfigBtnMap, not HotkeyConfigInventoryPage[pid])
+            call BlzFrameSetVisible(hotkeyConfigBtnCraft, not HotkeyConfigInventoryPage[pid])
 
             loop
                 exitwhen slot > 6
@@ -543,6 +591,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 call BlzFrameSetText(hotkeyConfigBtnPage, pageCap)
                 call BlzFrameSetText(hotkeyConfigBtnBag, bagCap)
                 call BlzFrameSetText(hotkeyConfigBtnSell, sellCap)
+                call BlzFrameSetText(hotkeyConfigBtnMap, mapCap)
+                call BlzFrameSetText(hotkeyConfigBtnCraft, craftCap)
             endif
 
             call BlzFrameSetText(hotkeyConfigHintText, hintText)
@@ -631,6 +681,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set ListenPage[pid] = whichAction == 2
         set ListenBag[pid] = whichAction == 3
         set ListenSell[pid] = whichAction == 4
+        set ListenMap[pid] = whichAction == 5
+        set ListenCraft[pid] = whichAction == 6
         if whichAction >= 101 and whichAction <= 106 then
             set ListenInventoryQuickCastSlot[pid] = whichAction - 100
         endif
@@ -648,6 +700,21 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             endif
             set slot = slot + 1
         endloop
+    endfunction
+
+    // Unbind the Map / Craft hotkeys if either currently holds `key` (duplicate cleanup), except the
+    // one being assigned right now (keep: 5 = Map, 6 = Craft, 0 = neither).
+    private function UnbindMapCraftExcept takes integer pid, oskeytype key, integer keep returns nothing
+        if keep != 5 and MapHotkey[pid] == key then
+            set MapHotkey[pid] = null
+            set MapHotkeyLabel[pid] = ""
+            call DisplayTextToPlayer(Player(pid), 0, 0, "|cffffaa00Unbound Map (duplicate).|r")
+        endif
+        if keep != 6 and CraftHotkey[pid] == key then
+            set CraftHotkey[pid] = null
+            set CraftHotkeyLabel[pid] = ""
+            call DisplayTextToPlayer(Player(pid), 0, 0, "|cffffaa00Unbound Craft (duplicate).|r")
+        endif
     endfunction
 
     private function ApplyKey takes player whichPlayer, oskeytype key returns nothing
@@ -675,6 +742,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
+            call UnbindMapCraftExcept(pid, key, 0)
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif ListenPage[pid] then
             if MenuHotkey[pid] == key then
@@ -697,6 +765,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
+            call UnbindMapCraftExcept(pid, key, 0)
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif ListenBag[pid] then
             if MenuHotkey[pid] == key then
@@ -719,6 +788,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
+            call UnbindMapCraftExcept(pid, key, 0)
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif ListenSell[pid] then
             if MenuHotkey[pid] == key then
@@ -741,6 +811,63 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set BagHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Bag (duplicate).|r")
             endif
+            call UnbindMapCraftExcept(pid, key, 0)
+            call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
+        elseif ListenMap[pid] then
+            if MenuHotkey[pid] == key then
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00That key is reserved for Menu. Pick a different Map key.|r")
+                call ClearListenState(pid)
+                call ToggleHotkeyConfig(whichPlayer, true)
+                return
+            endif
+            if MapHotkey[pid] != key then
+                set MapHotkey[pid] = key
+                set MapHotkeyLabel[pid] = label
+            endif
+            if PageHotkey[pid] == key then
+                set PageHotkey[pid] = null
+                set PageHotkeyLabel[pid] = ""
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Swap Page (duplicate).|r")
+            endif
+            if BagHotkey[pid] == key then
+                set BagHotkey[pid] = null
+                set BagHotkeyLabel[pid] = ""
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Bag (duplicate).|r")
+            endif
+            if SellHotkey[pid] == key then
+                set SellHotkey[pid] = null
+                set SellHotkeyLabel[pid] = ""
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
+            endif
+            call UnbindMapCraftExcept(pid, key, 5)
+            call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
+        elseif ListenCraft[pid] then
+            if MenuHotkey[pid] == key then
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00That key is reserved for Menu. Pick a different Craft key.|r")
+                call ClearListenState(pid)
+                call ToggleHotkeyConfig(whichPlayer, true)
+                return
+            endif
+            if CraftHotkey[pid] != key then
+                set CraftHotkey[pid] = key
+                set CraftHotkeyLabel[pid] = label
+            endif
+            if PageHotkey[pid] == key then
+                set PageHotkey[pid] = null
+                set PageHotkeyLabel[pid] = ""
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Swap Page (duplicate).|r")
+            endif
+            if BagHotkey[pid] == key then
+                set BagHotkey[pid] = null
+                set BagHotkeyLabel[pid] = ""
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Bag (duplicate).|r")
+            endif
+            if SellHotkey[pid] == key then
+                set SellHotkey[pid] = null
+                set SellHotkeyLabel[pid] = ""
+                call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
+            endif
+            call UnbindMapCraftExcept(pid, key, 6)
             call UnbindDuplicateQuickUseKey(whichPlayer, key, 0)
         elseif quickUseSlot > 0 then
             if MenuHotkey[pid] == key then
@@ -765,6 +892,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
                 set SellHotkeyLabel[pid] = ""
                 call DisplayTextToPlayer(whichPlayer, 0, 0, "|cffffaa00Unbound Sell (duplicate).|r")
             endif
+            call UnbindMapCraftExcept(pid, key, 0)
             call UnbindDuplicateQuickUseKey(whichPlayer, key, quickUseSlot)
         endif
 
@@ -787,7 +915,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             return
         endif
 
-        if ListenMenu[pid] or ListenPage[pid] or ListenBag[pid] or ListenSell[pid] or ListenInventoryQuickCastSlot[pid] > 0 then
+        if ListenMenu[pid] or ListenPage[pid] or ListenBag[pid] or ListenSell[pid] or ListenMap[pid] or ListenCraft[pid] or ListenInventoryQuickCastSlot[pid] > 0 then
             call ApplyKey(p, key)
             set p = null
             return
@@ -806,6 +934,10 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             call TasItemBagToggleForPlayer(p, false)
         elseif SellHotkey[pid] != null and key == SellHotkey[pid] then
             call TasItemBagSellSelectedForPlayer(p)
+        elseif MapHotkey[pid] != null and key == MapHotkey[pid] then
+            call WorldMapToggleForPlayer(p)
+        elseif CraftHotkey[pid] != null and key == CraftHotkey[pid] then
+            call TasItemBagCraftingForPlayer(p)
         endif
 
         set p = null
@@ -902,6 +1034,18 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call StartListen(GetTriggerPlayer(), 4)
     endfunction
 
+    private function ConfigBtnMapClick takes nothing returns nothing
+        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 223), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 223), true)
+        call StartListen(GetTriggerPlayer(), 5)
+    endfunction
+
+    private function ConfigBtnCraftClick takes nothing returns nothing
+        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 224), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 224), true)
+        call StartListen(GetTriggerPlayer(), 6)
+    endfunction
+
     private function ConfigBtnQuickUseClick takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local framehandle clicked = BlzGetTriggerFrame()
@@ -951,6 +1095,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set hotkeyConfigBtnPage = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 212)
         set hotkeyConfigBtnBag = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 213)
         set hotkeyConfigBtnSell = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 214)
+        set hotkeyConfigBtnMap = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 223)
+        set hotkeyConfigBtnCraft = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 224)
         set hotkeyConfigBtnClose = BlzCreateFrameByType("GLUETEXTBUTTON", "DlgHotkeyCfgCloseButton", hotkeyConfigPanel, "ScriptDialogButton", 0)
 
         loop
@@ -976,6 +1122,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetPoint(hotkeyConfigBtnPage, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnMenu, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
         call BlzFrameSetPoint(hotkeyConfigBtnBag, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnPage, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
         call BlzFrameSetPoint(hotkeyConfigBtnSell, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnBag, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
+        call BlzFrameSetPoint(hotkeyConfigBtnMap, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnSell, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
+        call BlzFrameSetPoint(hotkeyConfigBtnCraft, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnMap, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
 
         call BlzFrameSetPoint(hotkeyConfigBtnQuickUse[1], FRAMEPOINT_TOPLEFT, hotkeyConfigPanel, FRAMEPOINT_TOPLEFT, 0.01, -0.035)
         call BlzFrameSetPoint(hotkeyConfigBtnQuickUse[2], FRAMEPOINT_TOPLEFT, hotkeyConfigBtnQuickUse[1], FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
@@ -990,6 +1138,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetSize(hotkeyConfigBtnPage, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnBag, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnSell, 0.24, 0.022)
+        call BlzFrameSetSize(hotkeyConfigBtnMap, 0.24, 0.022)
+        call BlzFrameSetSize(hotkeyConfigBtnCraft, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[1], 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[2], 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[3], 0.24, 0.022)
@@ -1005,6 +1155,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzTriggerRegisterFrameEvent(trigCfgPage, hotkeyConfigBtnPage, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigCfgBag, hotkeyConfigBtnBag, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigCfgSell, hotkeyConfigBtnSell, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(trigCfgMap, hotkeyConfigBtnMap, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(trigCfgCraft, hotkeyConfigBtnCraft, FRAMEEVENT_CONTROL_CLICK)
         set slot = 1
         loop
             exitwhen slot > 6
@@ -1018,6 +1170,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call TriggerAddAction(trigCfgPage, function ConfigBtnPageClick)
         call TriggerAddAction(trigCfgBag, function ConfigBtnBagClick)
         call TriggerAddAction(trigCfgSell, function ConfigBtnSellClick)
+        call TriggerAddAction(trigCfgMap, function ConfigBtnMapClick)
+        call TriggerAddAction(trigCfgCraft, function ConfigBtnCraftClick)
         call TriggerAddAction(trigCfgQuickUse, function ConfigBtnQuickUseClick)
         call TriggerAddAction(trigCfgQuickUseBack, function ConfigBtnQuickUseBackClick)
         call TriggerAddAction(trigCfgClose, function ConfigBtnCloseClick)
@@ -1045,6 +1199,10 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             set BagHotkeyLabel[i] = "X"
             set SellHotkey[i] = OSKEY_G
             set SellHotkeyLabel[i] = "G"
+            set MapHotkey[i] = OSKEY_Y
+            set MapHotkeyLabel[i] = "Y"
+            set CraftHotkey[i] = OSKEY_K
+            set CraftHotkeyLabel[i] = "K"
             call RefreshBoundHotkeyLabels(Player(i))
             set HotkeyConfigInventoryPage[i] = false
             set ConfigOpen[i] = false
