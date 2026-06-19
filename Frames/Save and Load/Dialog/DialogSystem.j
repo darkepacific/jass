@@ -36,6 +36,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private trigger trigCfgSell = CreateTrigger()
         private trigger trigCfgMap = CreateTrigger()
         private trigger trigCfgCraft = CreateTrigger()
+        private trigger trigCfgReset = CreateTrigger()
         private trigger trigCfgQuickUse = CreateTrigger()
         private trigger trigCfgQuickUseBack = CreateTrigger()
         private trigger trigCfgClose = CreateTrigger()
@@ -51,6 +52,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         private framehandle hotkeyConfigBtnSell = null
         private framehandle hotkeyConfigBtnMap = null
         private framehandle hotkeyConfigBtnCraft = null
+        private framehandle hotkeyConfigBtnReset = null
         private framehandle array hotkeyConfigBtnQuickUse
         private framehandle hotkeyConfigBtnQuickUseBack = null
     endglobals
@@ -570,6 +572,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
             call BlzFrameSetVisible(hotkeyConfigBtnSell, not HotkeyConfigInventoryPage[pid])
             call BlzFrameSetVisible(hotkeyConfigBtnMap, not HotkeyConfigInventoryPage[pid])
             call BlzFrameSetVisible(hotkeyConfigBtnCraft, not HotkeyConfigInventoryPage[pid])
+            call BlzFrameSetVisible(hotkeyConfigBtnReset, not HotkeyConfigInventoryPage[pid])
 
             loop
                 exitwhen slot > 6
@@ -999,6 +1002,31 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call TriggerAddAction(trigHotkeys, function HotkeyRouter)
     endfunction
 
+    // The 6 default key bindings, shared by first-time init and the Reset button (one source of truth).
+    private function ApplyDefaultHotkeys takes integer pid returns nothing
+        set MenuHotkey[pid] = OSKEY_C
+        set MenuHotkeyLabel[pid] = "C"
+        set PageHotkey[pid] = OSKEY_Z
+        set PageHotkeyLabel[pid] = "Z"
+        set BagHotkey[pid] = OSKEY_X
+        set BagHotkeyLabel[pid] = "X"
+        set SellHotkey[pid] = OSKEY_G
+        set SellHotkeyLabel[pid] = "G"
+        set MapHotkey[pid] = OSKEY_Y
+        set MapHotkeyLabel[pid] = "Y"
+        set CraftHotkey[pid] = OSKEY_K
+        set CraftHotkeyLabel[pid] = "K"
+    endfunction
+
+    // "Reset Hot Keys": restore every binding (the 6 above + the inventory quick-cast slots) to default,
+    // push the badges, and persist.
+    private function ResetHotkeysForPlayer takes player whichPlayer returns nothing
+        call ApplyDefaultHotkeys(GetPlayerId(whichPlayer))
+        call TasItemBagResetQuickUseHotkeys(whichPlayer)
+        call RefreshBoundHotkeyLabels(whichPlayer)
+        call SaveHotkeysForPlayer(whichPlayer)
+    endfunction
+
     private function ConfigBtnInventoryClick takes nothing returns nothing
         local player p = GetTriggerPlayer()
         local integer pid = GetPlayerId(p)
@@ -1044,6 +1072,17 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 224), false)
         call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 224), true)
         call StartListen(GetTriggerPlayer(), 6)
+    endfunction
+
+    private function ConfigBtnResetClick takes nothing returns nothing
+        local player p = GetTriggerPlayer()
+        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 225), false)
+        call BlzFrameSetEnable(BlzGetFrameByName("ScriptDialogButton", 225), true)
+        call ClearListenState(GetPlayerId(p))
+        call ResetHotkeysForPlayer(p)
+        call ToggleHotkeyConfig(p, true)
+        call DisplayTextToPlayer(p, 0, 0, "|cffffee88Hot keys reset to defaults.|r")
+        set p = null
     endfunction
 
     private function ConfigBtnQuickUseClick takes nothing returns nothing
@@ -1097,6 +1136,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set hotkeyConfigBtnSell = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 214)
         set hotkeyConfigBtnMap = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 223)
         set hotkeyConfigBtnCraft = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 224)
+        set hotkeyConfigBtnReset = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 225)
         set hotkeyConfigBtnClose = BlzCreateFrameByType("GLUETEXTBUTTON", "DlgHotkeyCfgCloseButton", hotkeyConfigPanel, "ScriptDialogButton", 0)
 
         loop
@@ -1106,7 +1146,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         endloop
         set hotkeyConfigBtnQuickUseBack = BlzCreateFrame("ScriptDialogButton", hotkeyConfigPanel, 0, 222)
 
-        call BlzFrameSetSize(hotkeyConfigPanel, 0.26, 0.235)
+        call BlzFrameSetSize(hotkeyConfigPanel, 0.26, 0.28)
         call BlzFrameSetAbsPoint(hotkeyConfigPanel, FRAMEPOINT_CENTER, 0.40, 0.30)
         call BlzFrameSetVisible(hotkeyConfigPanel, false)
         call BlzFrameSetAlpha(hotkeyConfigPanel, 235)
@@ -1124,6 +1164,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetPoint(hotkeyConfigBtnSell, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnBag, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
         call BlzFrameSetPoint(hotkeyConfigBtnMap, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnSell, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
         call BlzFrameSetPoint(hotkeyConfigBtnCraft, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnMap, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
+        call BlzFrameSetPoint(hotkeyConfigBtnReset, FRAMEPOINT_TOPLEFT, hotkeyConfigBtnCraft, FRAMEPOINT_BOTTOMLEFT, 0.00, -0.010)
 
         call BlzFrameSetPoint(hotkeyConfigBtnQuickUse[1], FRAMEPOINT_TOPLEFT, hotkeyConfigPanel, FRAMEPOINT_TOPLEFT, 0.01, -0.035)
         call BlzFrameSetPoint(hotkeyConfigBtnQuickUse[2], FRAMEPOINT_TOPLEFT, hotkeyConfigBtnQuickUse[1], FRAMEPOINT_BOTTOMLEFT, 0.00, -0.004)
@@ -1140,6 +1181,10 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzFrameSetSize(hotkeyConfigBtnSell, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnMap, 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnCraft, 0.24, 0.022)
+        call BlzFrameSetSize(hotkeyConfigBtnReset, 0.24, 0.022)
+        call BlzFrameSetText(hotkeyConfigBtnReset, "Reset Hot Keys")
+        // Crafting has no real system yet: grey out its "Set Craft" button (the K placeholder still works).
+        call BlzFrameSetEnable(hotkeyConfigBtnCraft, false)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[1], 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[2], 0.24, 0.022)
         call BlzFrameSetSize(hotkeyConfigBtnQuickUse[3], 0.24, 0.022)
@@ -1157,6 +1202,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call BlzTriggerRegisterFrameEvent(trigCfgSell, hotkeyConfigBtnSell, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigCfgMap, hotkeyConfigBtnMap, FRAMEEVENT_CONTROL_CLICK)
         call BlzTriggerRegisterFrameEvent(trigCfgCraft, hotkeyConfigBtnCraft, FRAMEEVENT_CONTROL_CLICK)
+        call BlzTriggerRegisterFrameEvent(trigCfgReset, hotkeyConfigBtnReset, FRAMEEVENT_CONTROL_CLICK)
         set slot = 1
         loop
             exitwhen slot > 6
@@ -1172,6 +1218,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         call TriggerAddAction(trigCfgSell, function ConfigBtnSellClick)
         call TriggerAddAction(trigCfgMap, function ConfigBtnMapClick)
         call TriggerAddAction(trigCfgCraft, function ConfigBtnCraftClick)
+        call TriggerAddAction(trigCfgReset, function ConfigBtnResetClick)
         call TriggerAddAction(trigCfgQuickUse, function ConfigBtnQuickUseClick)
         call TriggerAddAction(trigCfgQuickUseBack, function ConfigBtnQuickUseBackClick)
         call TriggerAddAction(trigCfgClose, function ConfigBtnCloseClick)
@@ -1191,18 +1238,7 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         local integer i = 0
         loop
             exitwhen i >= bj_MAX_PLAYER_SLOTS
-            set MenuHotkey[i] = OSKEY_C
-            set MenuHotkeyLabel[i] = "C"
-            set PageHotkey[i] = OSKEY_Z
-            set PageHotkeyLabel[i] = "Z"
-            set BagHotkey[i] = OSKEY_X
-            set BagHotkeyLabel[i] = "X"
-            set SellHotkey[i] = OSKEY_G
-            set SellHotkeyLabel[i] = "G"
-            set MapHotkey[i] = OSKEY_Y
-            set MapHotkeyLabel[i] = "Y"
-            set CraftHotkey[i] = OSKEY_K
-            set CraftHotkeyLabel[i] = "K"
+            call ApplyDefaultHotkeys(i)
             call RefreshBoundHotkeyLabels(Player(i))
             set HotkeyConfigInventoryPage[i] = false
             set ConfigOpen[i] = false
