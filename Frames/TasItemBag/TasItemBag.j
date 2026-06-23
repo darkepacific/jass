@@ -278,8 +278,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private integer array PickupIntentSwitchPage
         private constant integer ORDER_ID_SMART = 851971
         private constant real PICKUP_INTENT_REACH = 250.0 // CHANGED THIS
-        private constant real PICKUP_INTENT_TIMEOUT = 8.0  //CHANGED THIS
-        private constant real PICKUP_INTENT_RELIEF_STALE_DELAY = 2.50
+        private constant real PICKUP_INTENT_TIMEOUT = 5.0  //CHANGED THIS
+        private constant real PICKUP_INTENT_RELIEF_STALE_DELAY = 1.50
         private constant real INVENTORY_HITBOX_PAD = 0.006
         private constant real INVENTORY_PANEL_HOVER_PAD = 0.018
         // Pickup relief mode:

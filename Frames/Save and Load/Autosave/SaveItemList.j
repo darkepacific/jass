@@ -1002,6 +1002,10 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // |c00FF7F00Helm of the Golden Valkyr|r
     set udg_SaveItemType[i] = 'I0AG'
     set i = i + 1
+
+    //|c00FF7F00Greatsword of the Sin'Dorei|r
+    set udg_SaveItemType[i] = 'I069'
+    set i = i + 1
     
 
 

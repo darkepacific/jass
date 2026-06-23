@@ -1012,8 +1012,8 @@ library SampleDialogSystem initializer Init requires HeroSelectionCallbacks, Mul
         set BagHotkeyLabel[pid] = "X"
         set SellHotkey[pid] = OSKEY_G
         set SellHotkeyLabel[pid] = "G"
-        set MapHotkey[pid] = OSKEY_Y
-        set MapHotkeyLabel[pid] = "Y"
+        set MapHotkey[pid] = OSKEY_M
+        set MapHotkeyLabel[pid] = "M"
         set CraftHotkey[pid] = OSKEY_K
         set CraftHotkeyLabel[pid] = "K"
     endfunction

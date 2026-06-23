@@ -12,7 +12,49 @@ library GenericFunctions
         boolean DebugLogInited = false
         boolean DebugLogDirty = false
         timer DebugLogFlushTimer = CreateTimer()
+        boolean array IsInSanctuary
     endglobals
+
+    // Formalised colour palette for the map. Use as Colors.RED etc. Each value is a
+    // raw WC3 colour code (|cAARRGGBB); wrap your own text and close it with "|r".
+    // The trailing comment is the short label these were originally tracked under.
+    // NOTE: a few of the originals have alpha 00 (fully transparent) or an odd digit
+    // count and may be typos - flagged inline. Fix the hex here if so; nothing else
+    // needs to change.
+    struct Colors extends array
+        // --- Core palette ---
+        static constant string GOLD        = "|cffffcc00" // GOLD (also the standard gold used in debug/quest text)
+        static constant string LIGHT_GREEN = "|cff80ff80" // LtGN
+        static constant string LIGHT_BLUE  = "|cc0aaaaFF" // LtBL
+        static constant string ORANGE      = "|cccFFaa00" // Orng
+        static constant string JADE        = "|c0000FF96" // Jade  <- alpha 00 (transparent), likely typo for ff
+        static constant string YELLOW_GOLD = "|c00FFFF22" // YGld  <- alpha 00 (transparent), likely typo for ff
+        static constant string DARK_RED    = "|cffc04020" // DkRd
+        static constant string WHITE       = "|cffffffff" // WHIT
+        static constant string YELLOW      = "|cffffff00" // YELO
+        static constant string GREY        = "|cffc0c0c0" // GREY
+        static constant string DARK_GREY   = "|cff808080" // Dark Grey (Blizzard game-hint grey)
+        static constant string PURPLE      = "|cffc444ff" // PURP
+
+        // --- Two-tone colours (primary + alternate shade) ---
+        static constant string RED         = "|cccFF2200" // RED  (primary)
+        static constant string RED_ALT     = "|cfff04020" // RED  (alt)
+        static constant string GREEN       = "|cff2de000" // GREN (primary)
+        static constant string GREEN_ALT   = "|ccc00DF00" // GREN (alt)
+        static constant string BLUE        = "|cc00099FF" // BLUE (primary)
+        static constant string BLUE_ALT    = "|cc00096FF" // BLUE (alt)
+
+        // --- CDR set ---
+        static constant string CDR_TEAL        = "|cc00FFFFF" // CDR Teal   <- reads as RGB 0FFFFF, check digits
+        static constant string CDR_GREEN       = "|ccc00DF00" // CDR Green2 (same as GREEN_ALT)
+        static constant string CDR_INDIGO      = "|c006969FF" // CDR Indigo <- alpha 00 (transparent), likely typo
+        static constant string CDR_PURPLE      = "|c00CC44FF" // CDR Purp2  <- alpha 00 (transparent), likely typo
+        static constant string CDR_DARK_RANGER = "|cc0BB44FF" // CDR DrkRang
+
+        // --- Extras ---
+        static constant string DEEP_BLUE  = "|ccc5050FF" // Deep Blue
+        static constant string PERIWINKLE = "|cc0d3aaff" // Periwinkle (used for mana-restore text)
+    endstruct
 
     function Debug takes string str returns nothing
         if(udg_Debug) then
@@ -313,186 +355,6 @@ library GenericFunctions
         return false
     endfunction
 
-    // function IsUnitInAllianceHeroes takes unit u returns boolean
-    //     // return IsUnitInGroup(u, udg_AllianceHeroes)
-    //     return false
-    // endfunction
-
-    // function IsUnitInHordeHeroes takes unit u returns boolean
-    //     return IsUnitInGroup(u, udg_HordeHeroes)
-    // endfunction
-
-    // function IsUnitInHeroes takes unit u returns boolean
-    //     // if IsUnitInGroup(u, udg_AllianceHeroes) or IsUnitInGroup(u, udg_HordeHeroes) then
-    //         // return true
-    //     // endif
-    //     return false
-    // endfunction
-
-    // function RemoveUnitFromAllianceHeroes takes unit u returns nothing
-    //     // if IsUnitInGroup(u, udg_AllianceHeroes) then
-    //     //     call GroupRemoveUnit(udg_AllianceHeroes, u)
-    //     // endif
-    // endfunction
-
-    // function RemoveUnitFromHordeHeroes takes unit u returns nothing
-    //     if IsUnitInGroup(u, udg_HordeHeroes) then
-    //         call GroupRemoveUnit(udg_HordeHeroes, u)
-    //     endif
-    // endfunction
-
-    // function RemoveUnitFromHeroesGroup takes unit u returns nothing
-    //     call Debug("Removed " + GetUnitName(u) + " from Heroes Group")
-    //     call RemoveUnitFromAllianceHeroes(u)
-    //     call RemoveUnitFromHordeHeroes(u)
-    // endfunction
-
-    // function AddUnitToHeroesGroup takes unit u returns nothing
-    //     // call Debug("Added " + GetUnitName(u) + " to Heroes Group")
-    //     // if IsAlliancePlayer(GetOwningPlayer(u)) then
-    //     //     call GroupAddUnit(udg_AllianceHeroes, u)
-    //     // elseif IsHordePlayer(GetOwningPlayer(u)) then
-    //     //     call GroupAddUnit(udg_HordeHeroes, u)
-    //     // endif
-    // endfunction
-
-    // function Recreate_HeroesGroup takes nothing returns nothing
-    //     // local integer i
-    //     // local integer j
-    //     // local unit u
-    
-    //     // call GroupClear(udg_AllianceHeroes)
-    //     // call GroupClear(udg_HordeHeroes)
-
-    //     // // Destroy and recreate Horde group
-    //     // call DestroyGroup(udg_HordeHeroes)
-    //     // set udg_HordeHeroes = CreateGroup()
-    
-    //     // // Destroy and recreate Alliance group
-    //     // call DestroyGroup(udg_AllianceHeroes)
-    //     // set udg_AllianceHeroes = CreateGroup()
-    
-    //     // // Loop for Horde Heroes (indices 0-3)
-    //     // set i = 0
-    //     // loop
-    //     //     exitwhen i > 3
-    //     //     set u = udg_Heroes[i]
-            
-    //     //     if u != null then
-    //     //         call GroupAddUnit(udg_HordeHeroes, u)
-    //     //         call Debug("Re-added to Horde: " + GetUnitName(u))
-    //     //     else
-    //     //         call Debug("Horde Hero " + I2S(i) + " is null!")
-    //     //     endif
-            
-    //     //     set i = i + 1
-    //     // endloop
-    
-    //     // // Loop for Alliance Heroes (indices 4-7)
-    //     // set i = 4
-    //     // loop
-    //     //     exitwhen i > 7
-    //     //     set u = udg_Heroes[i]
-            
-    //     //     if u != null then
-    //     //         call GroupAddUnit(udg_AllianceHeroes, u)
-    //     //         call Debug("Re-added to Alliance: " + GetUnitName(u))
-    //     //     else
-    //     //         call Debug("Alliance Hero " + I2S(i) + " is null!")
-    //     //     endif
-            
-    //     //     set i = i + 1
-    //     // endloop
-
-    //     // set udg_RecreateHeroesGroup = 1.0
-    // endfunction
-
-    // function GetPlayerHero takes player p returns unit
-    //     local group g = CreateGroup()
-    //     local unit u
-    
-    //     // Copy units from original group to the new group
-    //     call GroupAddGroup(udg_AllianceHeroes, g)
-    
-    //     loop
-    //         set u = FirstOfGroup(g)
-    //         exitwhen u == null
-    //         if GetOwningPlayer(u) == p then
-    //             call DestroyGroup(g)
-    //             set g = null
-    //             return u
-    //         endif
-    //         call GroupRemoveUnit(g, u)
-    //     endloop
-    
-    //     // Clear the group before reusing it
-    //     call GroupClear(g)
-    //     // Now check udg_HordeHeroes
-    //     call GroupAddGroup(udg_HordeHeroes, g)
-    
-    //     loop
-    //         set u = FirstOfGroup(g)
-    //         exitwhen u == null
-    //         if GetOwningPlayer(u) == p then
-    //             call DestroyGroup(g)
-    //             set g = null
-    //             return u
-    //         endif
-    //         call GroupRemoveUnit(g, u)
-    //     endloop
-    
-    //     call DestroyGroup(g)
-    //     set g = null
-    //     call DebugCritical("GetPlayerHero failed to find a hero for player " + GetPlayerName(p))
-    //     return null
-    // endfunction
-
-    function SanctuaryForces takes player p returns nothing
-        local force f 
-        if udg_GameMode == "PVP" then
-            return
-        endif
-        set f = GetForceOfPlayer(p)
-        if IsPlayerInForce(p, udg_AlliancePlayers) then
-            call SetForceAllianceStateBJ(udg_HordePlayers, f, bj_ALLIANCE_ALLIED )
-            call SetForceAllianceStateBJ(f, udg_HordePlayers, bj_ALLIANCE_ALLIED )
-        endif
-        if IsPlayerInForce(p, udg_HordePlayers) then
-            call SetForceAllianceStateBJ(udg_AlliancePlayers, f, bj_ALLIANCE_ALLIED )
-            call SetForceAllianceStateBJ(f, udg_AlliancePlayers, bj_ALLIANCE_ALLIED )
-        endif
-        call DestroyForce(f)
-        set f = null
-    endfunction
-
-    function ResetEnemyForces takes player p returns nothing
-        local force f = GetForceOfPlayer(p)
-        if IsPlayerInForce(p, udg_AlliancePlayers) then
-            call SetForceAllianceStateBJ(udg_HordePlayers, f, bj_ALLIANCE_UNALLIED )
-            call SetForceAllianceStateBJ(f, udg_HordePlayers, bj_ALLIANCE_UNALLIED )
-        endif
-        if IsPlayerInForce(p, udg_HordePlayers) then
-            call SetForceAllianceStateBJ(udg_AlliancePlayers, f, bj_ALLIANCE_UNALLIED )
-            call SetForceAllianceStateBJ(f, udg_AlliancePlayers, bj_ALLIANCE_UNALLIED )
-        endif
-        call DestroyForce(f)
-        set f = null
-    endfunction
-
-    function ResetAlliedForces takes player p returns nothing
-        local force f = GetForceOfPlayer(p)
-        if IsPlayerInForce(p, udg_AlliancePlayers) then
-            call SetForceAllianceStateBJ(udg_AlliancePlayers, f, bj_ALLIANCE_ALLIED_VISION )
-            call SetForceAllianceStateBJ(f, udg_AlliancePlayers, bj_ALLIANCE_ALLIED_VISION )
-        endif
-        if IsPlayerInForce(p, udg_HordePlayers) then
-            call SetForceAllianceStateBJ(udg_HordePlayers, f, bj_ALLIANCE_ALLIED_VISION )
-            call SetForceAllianceStateBJ(f, udg_HordePlayers, bj_ALLIANCE_ALLIED_VISION )
-        endif
-        call DestroyForce(f)
-        set f = null
-    endfunction
-
     function PlayLocalSound takes sound s, player whichPlayer returns nothing
         if GetLocalPlayer() == whichPlayer then
             call StopSound(s, false, false)
@@ -508,18 +370,52 @@ library GenericFunctions
             call PlayLocalSound(gg_snd_Error, whichPlayer)
         endif  
     endfunction
+    
+    // Used for Dueling
+    function ResetPlayerForces takes player p returns nothing
+        local force f = GetForceOfPlayer(p)
+        if IsPlayerInForce(p, udg_AlliancePlayers) then
+            call SetForceAllianceStateBJ(udg_AlliancePlayers, f, bj_ALLIANCE_ALLIED_VISION )
+            call SetForceAllianceStateBJ(f, udg_AlliancePlayers, bj_ALLIANCE_ALLIED_VISION )
+            call SetForceAllianceStateBJ(udg_HordePlayers, f, bj_ALLIANCE_UNALLIED )
+            call SetForceAllianceStateBJ(f, udg_HordePlayers, bj_ALLIANCE_UNALLIED )
+        endif
+        if IsPlayerInForce(p, udg_HordePlayers) then
+            call SetForceAllianceStateBJ(udg_HordePlayers, f, bj_ALLIANCE_ALLIED_VISION )
+            call SetForceAllianceStateBJ(f, udg_HordePlayers, bj_ALLIANCE_ALLIED_VISION )
+            call SetForceAllianceStateBJ(udg_AlliancePlayers, f, bj_ALLIANCE_UNALLIED )
+            call SetForceAllianceStateBJ(f, udg_AlliancePlayers, bj_ALLIANCE_UNALLIED )
+        endif
+        call DestroyForce(f)
+        set f = null
+    endfunction
+
+    function SetPlayerInSanctuary takes player p, boolean value returns nothing
+        if udg_GameMode == "PVP" then
+            return
+        endif
+        set IsInSanctuary[GetPlayerNumber(p)] = value
+    endfunction
+
+    function ResetEnemyForces takes player p returns nothing
+        set IsInSanctuary[GetPlayerNumber(p)] = false
+    endfunction
+
+    function IsPlayerInSanctuary takes player p returns boolean
+        return IsInSanctuary[GetPlayerNumber(p)]
+    endfunction
 
     function PlayerEntersLocation takes player whichPlayer, string zone, integer affiliation returns nothing
         // set msg = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n|cffffcc00" + zone + " - Neutral Zone|r"
         if(affiliation == 0) then
             set zone = "\n\n\n" + zone + " |cffff0000- Horde|r"
-            call ResetEnemyForces(whichPlayer)
+            call SetPlayerInSanctuary(whichPlayer, false)
         elseif(affiliation == 1) then
             set zone = "\n\n\n" + zone + " |cff0000ff- Alliance|r"
-            call ResetEnemyForces(whichPlayer)
+            call SetPlayerInSanctuary(whichPlayer, false)
         elseif(affiliation == 2) and udg_GameMode != "PVP" then
             set zone = "\n\n\n" + zone + " |cffffcc00 - Sanctuary|r"
-            call SanctuaryForces(whichPlayer)
+            call SetPlayerInSanctuary(whichPlayer, true)
         else
             set zone = "\n\n\n" + zone + " |cffff6f00 - Contested|r" //cff00ff00
         endif

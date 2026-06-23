@@ -25,7 +25,7 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
         private constant integer BOSS_MARKER_MAX = 16 // simultaneous quest/boss icons (WorldMapAddUnit)
         private constant integer STATIC_MARKER_MAX = 16 // simultaneous fixed icons (WorldMapAddStatic)
-        private constant real TOOLTIP_W = 0.08    // hover tooltip width (smaller = tighter)
+        private constant real TOOLTIP_W = 0.100    // hover tooltip width (smaller = tighter)
         private constant real TOOLTIP_H = 0.032   // hover tooltip height (fits the 2-line hero label)
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up

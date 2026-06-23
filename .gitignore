@@ -1,2 +1,3 @@
 .vscode/jass-cache/
 .DS_Store
+.claude/settings.local.json
