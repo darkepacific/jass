@@ -44,7 +44,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer SIDEKEY_TALENTS = 1
         private constant integer SIDEKEY_CRAFTING = 2
         private constant integer SIDEKEY_EXTRA = 3      // far-right balancing button (placeholder content)
-        private constant integer SIDEKEY_COUNT = 4
+        private constant integer SIDEKEY_ACHIEVEMENTS = 4  // left of the menu/computer button (placeholder)
+        private constant integer SIDEKEY_COUNT = 5
         // Side-key visual size: 1.0 = full (matches quick-use slots), 0.5 ~= 32x32 mini-icons.
         private constant real SIDEKEY_SCALE = 0.5
         // All four side-keys sit in one contiguous row, placed by absolute point (so the slot scale
@@ -68,6 +69,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // TODO: Add far-right (map/quests/etc.) icon here -- placeholder stock icon for now.
         private constant string SIDEKEY_EXTRA_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNMap.blp"
         private constant string SIDEKEY_EXTRA_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNMap.blp"
+        // Achievements side-key (placeholder). The disabled texture reuses the same icon - the side-key
+        // button is always enabled, so the disabled art never shows, and this avoids a missing-DISBTN green box.
+        private constant string SIDEKEY_ACHIEVEMENTS_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNachievement_quests_completed_daily_06.blp"
+        private constant string SIDEKEY_ACHIEVEMENTS_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtons\\BTNachievement_quests_completed_daily_06.blp"
        
         // Show the bag button even when the inventory UI is hidden?
         public boolean ShowButtonAlwaysVisible = false
@@ -439,6 +444,10 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, p, label)
     endfunction
 
+    function TasItemBagSetAchieveHotkeyLabel takes player p, string label returns nothing
+        call TasItemBagSetSideKeyLabel(SIDEKEY_ACHIEVEMENTS, p, label)
+    endfunction
+
     private function SetSellHotkeyArmed takes integer pId, boolean armed returns nothing
         set SellHotkeyArmed[pId] = armed
     endfunction
@@ -722,6 +731,18 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     private function CraftingSideKeyAction takes nothing returns nothing
         call TasItemBagCraftingForPlayer(GetTriggerPlayer())
+    endfunction
+
+    // Achievements has no UI yet: placeholder. PUBLIC so DialogSystem's (rebind-disabled) Achievements
+    // hotkey can fire it; the side-key button also does, via AchievementsSideKeyAction.
+    function TasItemBagAchievementsForPlayer takes player p returns nothing
+        if p != null then
+            call DisplayTextToPlayer(p, 0, 0, "Achievements coming soon...")
+        endif
+    endfunction
+
+    private function AchievementsSideKeyAction takes nothing returns nothing
+        call TasItemBagAchievementsForPlayer(GetTriggerPlayer())
     endfunction
 
     // Places a side-key by absolute screen point (the row is laid out this way).
@@ -6242,12 +6263,14 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call CreateSideKey(SIDEKEY_TALENTS, SIDEKEY_TALENTS_TEXTURE, SIDEKEY_TALENTS_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_CRAFTING, SIDEKEY_CRAFTING_TEXTURE, SIDEKEY_CRAFTING_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_EXTRA, SIDEKEY_EXTRA_TEXTURE, SIDEKEY_EXTRA_TEXTURE_DISABLED)
+        call CreateSideKey(SIDEKEY_ACHIEVEMENTS, SIDEKEY_ACHIEVEMENTS_TEXTURE, SIDEKEY_ACHIEVEMENTS_TEXTURE_DISABLED)
         // One contiguous row [menu][talents][crafting][Y], placed by absolute point and centered
         // (via SIDEKEY_ROW_X/Y) over the hero portrait. STEP is the per-icon horizontal spacing.
         call PositionSideKeyAbs(SIDEKEY_MENU, SIDEKEY_ROW_X, SIDEKEY_ROW_Y)
         call PositionSideKeyAbs(SIDEKEY_TALENTS, SIDEKEY_ROW_X + SIDEKEY_STEP, SIDEKEY_ROW_Y)
         call PositionSideKeyAbs(SIDEKEY_CRAFTING, SIDEKEY_ROW_X + 2.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
         call PositionSideKeyAbs(SIDEKEY_EXTRA, SIDEKEY_ROW_X + 3.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_ACHIEVEMENTS, SIDEKEY_ROW_X - SIDEKEY_STEP, SIDEKEY_ROW_Y)
         // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
@@ -6510,8 +6533,9 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
             call TriggerAddAction(SideKeyTrigger[i], function SideKeyLocalAction)
             set i = i + 1
         endloop
-        // Crafting is owned locally (no crafting library yet): placeholder action on its trigger.
+        // Crafting + Achievements are owned locally (no real systems yet): placeholder actions on their triggers.
         call TriggerAddAction(SideKeyTrigger[SIDEKEY_CRAFTING], function CraftingSideKeyAction)
+        call TriggerAddAction(SideKeyTrigger[SIDEKEY_ACHIEVEMENTS], function AchievementsSideKeyAction)
         // The Map (Y) and Craft (K) KEYS are now rebindable, owned by DialogSystem's hotkey config
         // (defaults Y/K), which calls WorldMapToggleForPlayer / TasItemBagCraftingForPlayer directly.
         // We only wire the side-key BUTTON clicks here (done in CreateSideKey); no hardcoded keys.
