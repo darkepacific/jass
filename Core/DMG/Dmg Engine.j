@@ -817,6 +817,30 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
         endif
 
+        //----------------------------------------------------------------------------------------------------------
+        // Sanctuary Logic
+        //----------------------------------------------------------------------------------------------------------
+        if IsPlayerInSanctuary(targetPlayer) and IsOwnedByUser(targetPlayer) and IsUnitType(target, UNIT_TYPE_HERO) then
+            set damage = damage * 0.0
+            set reduced = true
+
+            if TimerGetRemaining(textTimer[heroNumb]) == 0.0 then
+                call TimerStart(textTimer[heroNumb], TEXT_TIMEOUT, false, null)
+                call CreateTextTagUnitBJ("PvP Protected", target, 80.00, 10.00, 100, 100, 50, 0 )
+                call SetTextTagVelocityBJ(GetLastCreatedTextTag(), 160, 90 )
+                call cleanUpText(1.2, 1.0) 
+            endif
+            
+        endif
+
+        //----------------------------------------------------------------------------------------------------------
+        // Higher Level Penalty
+        //----------------------------------------------------------------------------------------------------------
+        if GetUnitLevel(target) > GetUnitLevel(source) and not IsOwnedByUser(targetPlayer) then
+            set damage = damage * (1.0 - ((GetUnitLevel(target) - GetUnitLevel(source)) * 0.011))
+            set reduced = true 
+        endif
+
         //---------------------------------------------------------------------------------------------------------
         // Over 30 Cap
         //---------------------------------------------------------------------------------------------------------

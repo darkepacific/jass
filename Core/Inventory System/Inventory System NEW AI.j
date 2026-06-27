@@ -54,9 +54,9 @@ library MultiPageInventorySystem requires NeatMessages
             // Hero is dead: ignore inventory hotkeys/page swaps
             call NeatErrorMessage("Cannot swap equipped items while your hero is dead.", GetOwningPlayer(u))
             return false
-        elseif IsStunned(u) or IsRooted(u) or IsUnitPaused(u) then
-            call NeatErrorMessage(errorCantChangePage, GetOwningPlayer(u))
-            return false
+        // elseif IsStunned(u) or IsRooted(u) or IsUnitPaused(u) then
+        //     call NeatErrorMessage(errorCantChangePage, GetOwningPlayer(u))
+        //     return false
         endif
         return true
     endfunction

@@ -71,7 +71,7 @@ function TalentDemonWarlock takes nothing returns nothing
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNBerserkForTrolls.blp"
 	set udg_TalentChoiceText[choice] = "Gain 1 extra Imp on Evil Imps cast"
 
-	set choice = TalentChoiceCreateImproveStatWithBoolean( 0, 400, 0, 6.0, 0.0, 11)
+	set choice = TalentChoiceCreateImproveStatWithBoolean( 0, 600, 0, 6.0, 0.0, 11)
 	set udg_TalentChoiceHead[choice] = "Demon Armor"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNDemonArmor.blp"
 
@@ -92,7 +92,8 @@ function TalentDemonWarlock takes nothing returns nothing
 	set choice = TalentChoiceCreateImproveStatWithBoolean( 5, 'E000', 'E02V', udg_z_WL_DEMO_H, udg_z_WL_DEMO_A, 13)
 	set udg_TalentChoiceHead[choice] = "Sacrifice Voidwalker"
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNSacrificeShield.blp"
-	set udg_TalentChoiceText[choice] = "Allows you to sacrifice your Voidwalker for a 1200 hp shield for 4 sec"
+	set udg_TalentChoiceText[choice] = "Gain an ability to sacrifice your Voidwalker granting a shield equal to |cff80ff8050%|r of the Warlock's max health for 4 sec."
+	
 
 
 

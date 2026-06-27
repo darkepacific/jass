@@ -205,7 +205,10 @@ library HeroSelection requires HeroSelectionConfig, HeroDeclaration, SaveHelperL
 	endfunction
 
 	private function GetItems takes player p, integer slot returns string
-		local string s = SaveFile(slot).getItems(p, SaveHelper.GetSavesPerSlot(p, slot))
+		local integer saveNumber = SaveHelper.GetSavesPerSlot(p, slot)
+		local string s
+
+		set s = SaveFile(slot).getItems(p, saveNumber)
 		if s == null then
 			return ""
 		else

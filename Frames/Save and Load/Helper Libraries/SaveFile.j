@@ -1,16 +1,14 @@
 library SaveFile initializer Init requires FileIO, GenericFunctions
 
     globals
-        //  1 = offline, 2 = online
-        integer udg_OfflineModeState = 2
+        // 0 = unresolved, 1 = offline, 2 = online
+        integer udg_OfflineModeState = 0
 
         private timer udg_OfflineProbeTimer = null
+        private integer udg_OfflineProbeAttempts = 0
+        private constant integer OFFLINE_PROBE_MAX_ATTEMPTS = 40
+        private constant real OFFLINE_PROBE_INTERVAL = 0.05
     endglobals
-
-    function IsOfflineGame takes nothing returns boolean
-        // call BJDebugMsg("Checking offline/online mode...")
-        return udg_OfflineModeState == 1
-    endfunction
 
     function AnnounceDetectedMode takes nothing returns nothing
         local string msg
@@ -25,12 +23,16 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
         set msg = null
     endfunction
 
-    private function CheckFirstPlayingUserLumber takes nothing returns nothing
+    private function FinalizeOfflineMode takes integer mode returns nothing
         local integer i = 0
 
-        if GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) > 0 then
-            set udg_OfflineModeState = 1
+        if udg_OfflineModeState != 0 then
+            return
+        endif
 
+        set udg_OfflineModeState = mode
+
+        if mode == 1 then
             // Revert the cheat-granted lumber for all players.
             loop
                 exitwhen i >= bj_MAX_PLAYERS
@@ -39,7 +41,6 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
             endloop
         endif
 
-        // Clean up timer (no leaks).
         if udg_OfflineProbeTimer != null then
             call PauseTimer(udg_OfflineProbeTimer)
             call DestroyTimer(udg_OfflineProbeTimer)
@@ -49,12 +50,35 @@ library SaveFile initializer Init requires FileIO, GenericFunctions
         call AnnounceDetectedMode()
     endfunction
 
+    function IsOfflineGame takes nothing returns boolean
+        if udg_OfflineModeState == 0 and GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) > 0 then
+            call FinalizeOfflineMode(1)
+        endif
+        return udg_OfflineModeState == 1
+    endfunction
+
+    private function CheckFirstPlayingUserLumber takes nothing returns nothing
+        if GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) > 0 then
+            call FinalizeOfflineMode(1)
+            return
+        endif
+
+        set udg_OfflineProbeAttempts = udg_OfflineProbeAttempts + 1
+        if udg_OfflineProbeAttempts >= OFFLINE_PROBE_MAX_ATTEMPTS then
+            call FinalizeOfflineMode(2)
+        endif
+    endfunction
+
     private function Init takes nothing returns nothing
         call Cheat("LeafItToMe 100")
         call DisplayTextToForce(GetPlayersAll(), "\n\n\n\n\n\n\n\n\n\n\n\n")
 
         set udg_OfflineProbeTimer = CreateTimer()
-        call TimerStart(udg_OfflineProbeTimer, 2.0, false, function CheckFirstPlayingUserLumber)
+        call CheckFirstPlayingUserLumber()
+        if udg_OfflineProbeTimer == null then
+            return
+        endif
+        call TimerStart(udg_OfflineProbeTimer, OFFLINE_PROBE_INTERVAL, true, function CheckFirstPlayingUserLumber)
     endfunction
 
 

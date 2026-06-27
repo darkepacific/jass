@@ -1,16 +1,64 @@
+function GetOwnedHeroForPlayer takes player p returns unit
+    local integer i = 0
+
+    loop
+        exitwhen i > 7
+        if udg_Heroes[i] != null and GetOwningPlayer(udg_Heroes[i]) == p and GetUnitTypeId(udg_Heroes[i]) != 0 then
+            return udg_Heroes[i]
+        endif
+        set i = i + 1
+    endloop
+
+    return null
+endfunction
+
+function GetSpacebarFocusUnitForPlayer takes player p returns unit
+    local integer playerNum = GetPlayerNumber(p)
+    local unit flightPathUnit
+
+    if playerNum >= 0 and playerNum <= 7 then
+        set flightPathUnit = udg_FP_Bats_n_Gryphons[playerNum]
+        if flightPathUnit != null and GetUnitTypeId(flightPathUnit) != 0 and GetWidgetLife(flightPathUnit) > 0.405 then
+            return flightPathUnit
+        endif
+    endif
+
+    set flightPathUnit = null
+    return GetOwnedHeroForPlayer(p)
+endfunction
+
+function Trig_Spacebar_Hero_Center_Actions takes nothing returns nothing
+    local player p = GetTriggerPlayer()
+    local unit focusUnit = GetSpacebarFocusUnitForPlayer(p)
+
+    if focusUnit != null then
+        call SelectUnitForPlayerSingle(focusUnit, p)
+        call PanCameraToTimedForPlayer(p, GetUnitX(focusUnit), GetUnitY(focusUnit), 0.00)
+    endif
+
+    set focusUnit = null
+    set p = null
+endfunction
+
 function Trig_Keyboard_Reg_Actions takes nothing returns nothing
 	local integer x
+	local trigger spacebarCenterTrigger = CreateTrigger()
 	set x = 2  
     loop
         exitwhen x > 13
         if GetPlayerController(Player(x)) == MAP_CONTROL_USER and GetPlayerSlotState(Player(x)) == PLAYER_SLOT_STATE_PLAYING then
-            call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Crafting, Player(x), OSKEY_K, 0, true)
+            // OSKEY_K crafting is now handled by the crafting side-key (TasItemBag). The old
+            // gg_trg_Crafting GUI trigger is orphaned and can be deleted in the World Editor.
             call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Endless_Rage_Press_R, Player(x), OSKEY_R, 0, true)
             call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Cloak_of_Shadows_Press_F, Player(x), OSKEY_F, 0, true)
             call BlzTriggerRegisterPlayerKeyEvent(gg_trg_Pain_Suppression_Press_F, Player(x), OSKEY_F, 0, true)
+            call BlzTriggerRegisterPlayerKeyEvent(spacebarCenterTrigger, Player(x), OSKEY_SPACE, 0, true)
         endif
         set x = x + 1
     endloop
+
+    call TriggerAddAction(spacebarCenterTrigger, function Trig_Spacebar_Hero_Center_Actions)
+    set spacebarCenterTrigger = null
 
     //Quest log reg OSKEY_L is in TalentGrid.j
 
