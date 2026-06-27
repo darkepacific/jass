@@ -43,7 +43,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant integer SIDEKEY_MENU = 0
         private constant integer SIDEKEY_TALENTS = 1
         private constant integer SIDEKEY_CRAFTING = 2
-        private constant integer SIDEKEY_EXTRA = 3      // far-right balancing button (placeholder content)
+        private constant integer SIDEKEY_MAP = 3      // far-right balancing button (placeholder content)
         private constant integer SIDEKEY_ACHIEVEMENTS = 4  // left of the menu/computer button (placeholder)
         private constant integer SIDEKEY_COUNT = 5
         // Side-key visual size: 1.0 = full (matches quick-use slots), 0.5 ~= 32x32 mini-icons.
@@ -52,7 +52,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         // doesn't fight the anchor chain). Order left->right: [menu][talents][crafting][Y].
         // ROW_X = leftmost icon's TOPLEFT x; STEP = horizontal spacing per icon (~rendered width at
         // SCALE). Nudge ROW_X/ROW_Y to center the row over the hero portrait; nudge STEP for tightness.
-        private constant real SIDEKEY_ROW_X = 0.220
+        private constant real SIDEKEY_ROW_X = 0.221
         private constant real SIDEKEY_ROW_Y = 0.135
         private constant real SIDEKEY_STEP = 0.017
         // The hotkey badge box is kept at full size even when the icon is scaled down (letters don't
@@ -67,8 +67,8 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         private constant string SIDEKEY_CRAFTING_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNBlacksmith.blp"
         private constant string SIDEKEY_CRAFTING_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNBlacksmith.blp"
         // TODO: Add far-right (map/quests/etc.) icon here -- placeholder stock icon for now.
-        private constant string SIDEKEY_EXTRA_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNMap.blp"
-        private constant string SIDEKEY_EXTRA_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNMap.blp"
+        private constant string SIDEKEY_MAP_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNMap.blp"
+        private constant string SIDEKEY_MAP_TEXTURE_DISABLED = "ReplaceableTextures\\CommandButtonsDisabled\\DISBTNMap.blp"
         // Achievements side-key (placeholder). The disabled texture reuses the same icon - the side-key
         // button is always enabled, so the disabled art never shows, and this avoids a missing-DISBTN green box.
         private constant string SIDEKEY_ACHIEVEMENTS_TEXTURE = "ReplaceableTextures\\CommandButtons\\BTNachievement_quests_completed_daily_06.blp"
@@ -437,7 +437,7 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
 
     // Badge wrappers for the rebindable Map (Y) / Craft (K) side-keys (DialogSystem pushes the bound key).
     function TasItemBagSetMapHotkeyLabel takes player p, string label returns nothing
-        call TasItemBagSetSideKeyLabel(SIDEKEY_EXTRA, p, label)
+        call TasItemBagSetSideKeyLabel(SIDEKEY_MAP, p, label)
     endfunction
 
     function TasItemBagSetCraftHotkeyLabel takes player p, string label returns nothing
@@ -6262,20 +6262,20 @@ library TasItemBag initializer init_function requires Table, RegisterPlayerEvent
         call CreateSideKey(SIDEKEY_MENU, SIDEKEY_MENU_TEXTURE, SIDEKEY_MENU_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_TALENTS, SIDEKEY_TALENTS_TEXTURE, SIDEKEY_TALENTS_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_CRAFTING, SIDEKEY_CRAFTING_TEXTURE, SIDEKEY_CRAFTING_TEXTURE_DISABLED)
-        call CreateSideKey(SIDEKEY_EXTRA, SIDEKEY_EXTRA_TEXTURE, SIDEKEY_EXTRA_TEXTURE_DISABLED)
+        call CreateSideKey(SIDEKEY_MAP, SIDEKEY_MAP_TEXTURE, SIDEKEY_MAP_TEXTURE_DISABLED)
         call CreateSideKey(SIDEKEY_ACHIEVEMENTS, SIDEKEY_ACHIEVEMENTS_TEXTURE, SIDEKEY_ACHIEVEMENTS_TEXTURE_DISABLED)
         // One contiguous row [menu][talents][crafting][Y], placed by absolute point and centered
         // (via SIDEKEY_ROW_X/Y) over the hero portrait. STEP is the per-icon horizontal spacing.
-        call PositionSideKeyAbs(SIDEKEY_MENU, SIDEKEY_ROW_X, SIDEKEY_ROW_Y)
-        call PositionSideKeyAbs(SIDEKEY_TALENTS, SIDEKEY_ROW_X + SIDEKEY_STEP, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_TALENTS, SIDEKEY_ROW_X, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_ACHIEVEMENTS, SIDEKEY_ROW_X + SIDEKEY_STEP, SIDEKEY_ROW_Y)
         call PositionSideKeyAbs(SIDEKEY_CRAFTING, SIDEKEY_ROW_X + 2.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
-        call PositionSideKeyAbs(SIDEKEY_EXTRA, SIDEKEY_ROW_X + 3.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
-        call PositionSideKeyAbs(SIDEKEY_ACHIEVEMENTS, SIDEKEY_ROW_X - SIDEKEY_STEP, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_MAP, SIDEKEY_ROW_X + 3.0 * SIDEKEY_STEP, SIDEKEY_ROW_Y)
+        call PositionSideKeyAbs(SIDEKEY_MENU, SIDEKEY_ROW_X - SIDEKEY_STEP, SIDEKEY_ROW_Y)
         // Static badges for talents/crafting (the menu badge is driven by DialogSystem's hotkey config).
         call TasItemBagSetSideKeyLabel(SIDEKEY_TALENTS, GetLocalPlayer(), "N")
         call TasItemBagSetSideKeyLabel(SIDEKEY_CRAFTING, GetLocalPlayer(), "K")
         // Far-right key: Y hotkey, badge in the default top-left corner (matches the other side-keys).
-        call TasItemBagSetSideKeyLabel(SIDEKEY_EXTRA, GetLocalPlayer(), "Y")
+        call TasItemBagSetSideKeyLabel(SIDEKEY_MAP, GetLocalPlayer(), "Y")
         call SetSideKeysVisible(false)
 
         set frame = BlzCreateFrameByType("GLUETEXTBUTTON", "TasItemBagCloseButton", panel, "ScriptDialogButton", 0)

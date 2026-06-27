@@ -837,7 +837,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         // Higher Level Penalty
         //----------------------------------------------------------------------------------------------------------
         if GetUnitLevel(target) > GetUnitLevel(source) and not IsOwnedByUser(targetPlayer) then
-            set damage = damage * (1- ((GetUnitLevel(target) - GetUnitLevel(source)) * 0.01))
+            set damage = damage * (1.0 - ((GetUnitLevel(target) - GetUnitLevel(source)) * 0.011))
             set reduced = true 
         endif
 

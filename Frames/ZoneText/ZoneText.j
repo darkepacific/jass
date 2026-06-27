@@ -31,8 +31,8 @@ library ZoneText initializer Init requires optional FrameLoader
         // The box stretches to cover from the FOOD display's top-left to the UPKEEP
         // display's bottom-right; these pads (frame units) grow it outward so it fully
         // swallows both boxes, including the food icon. Tune in-game:
-        private constant real    PAD_LEFT      = -0.016  // extend left over the food icon (more negative = further left)
-        private constant real    PAD_TOP       =  0.0012  // extend up
+        private constant real    PAD_LEFT      = -0.014  // extend left over the food icon (more negative = further left)
+        private constant real    PAD_TOP       =  0.0011  // extend up
         private constant real    PAD_RIGHT     =  0.002  // extend right past the upkeep box
         private constant real    PAD_BOTTOM    = -0.000  // extend down
 
@@ -44,7 +44,7 @@ library ZoneText initializer Init requires optional FrameLoader
 
         // ---- Text ----
         private constant real    TEXT_SCALE    = 1.10   // zone-name font size
-        private constant string  TEXT_COLOR    = "|cffffd9a0" // warm gold; set "" for plain white
+        private constant string  TEXT_COLOR    = ""//"|cffffd9a0" // warm gold; set "" for plain white
 
         private framehandle Panel = null
         private framehandle Label = null

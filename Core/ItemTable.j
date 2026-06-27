@@ -1,7 +1,15 @@
 function CreateItemsFromDropTable takes location point returns nothing
     local integer index = 0
     local real draw = GetRandomReal(1, 100)
+    local player p = GetOwningPlayer(GetKillingUnit())
     // call Debug("Roll: " + R2S(draw))
+
+    //Do Not drop items if the player is not a user (e.g. neutral hostile, etc)
+    if IsOwnedByUser(p) == false then
+        set p = null
+        return
+    endif
+    set p = null
 
     //First Set
     loop
