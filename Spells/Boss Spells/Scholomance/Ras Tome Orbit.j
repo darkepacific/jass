@@ -5,6 +5,10 @@ globals
 
     constant string RTO_TOME_MODEL_1 = "Objects\\InventoryItems\\tome\\tome.mdl"
     constant string RTO_TOME_MODEL_2 = "Objects\\InventoryItems\\tomeBlue\\tomeBlue.mdl"
+   
+    // constant string RTO_TOME_MODEL_3 = "war3mapImported\\Spell_Book_Item.mdx"
+    // constant string RTO_TOME_MODEL_4 = "war3mapImported\\Book_GulDan_item.mdx"
+    // constant string RTO_TOME_MODEL_3 = "Objects\\InventoryItems\\tomeBrown\\tomeBrown.mdl"
     constant string RTO_TOME_MODEL_3 = "Objects\\InventoryItems\\tomeGreen\\tomeGreen.mdl"
 
 
@@ -56,15 +60,29 @@ function RTO_GetTerrainZ takes real x, real y returns real
     return z
 endfunction
 
-
-function RTO_GetRandomTomeModel takes nothing returns string
+//Remove the SE on the Lich
+// Give AoE root ability
+//Make books explode?
+function RTO_GetRandomTomeModel takes integer count returns string
     local integer roll = GetRandomInt(1, 3)
 
-    if roll == 1 then
+    if count == 1 or roll == 1 or count == 3 then
         return RTO_TOME_MODEL_1
-    elseif roll == 2 then
+    elseif count == 2 or roll == 2 or count == 4 then
         return RTO_TOME_MODEL_2
+    elseif count == 5 then
+        return RTO_TOME_MODEL_3
     endif
+
+    // if  count == 1 or roll == 1 then
+    //     return RTO_TOME_MODEL_1
+    // elseif count == 2 or roll == 2 then
+    //     return RTO_TOME_MODEL_2
+    // elseif count == 3 or roll == 3 then
+    //     return RTO_TOME_MODEL_3
+    // elseif count == 4 or roll == 4 then
+    //     return RTO_TOME_MODEL_4
+    // endif
 
     return RTO_TOME_MODEL_3
 endfunction
@@ -107,7 +125,7 @@ function RTO_CreateTomes takes nothing returns nothing
         exitwhen i > count
 
         // Each tome independently chooses one of the three models.
-        set model = RTO_GetRandomTomeModel()
+        set model = RTO_GetRandomTomeModel(count)
 
         set RTO_TomeEffect[i] = AddSpecialEffect(model, RTO_CenterX, RTO_CenterY)
 

@@ -370,7 +370,23 @@ library GenericFunctions
             call PlayLocalSound(gg_snd_Error, whichPlayer)
         endif  
     endfunction
+
+    function PlaySoundOnUnit takes string filename, unit u returns nothing
+        local sound s
+
+        set s = CreateSound(filename, false, true, true, 10, 10, "")
     
+        call SetSoundPosition(s, GetUnitX(u), GetUnitY(u), 50.00)
+        call SetSoundDistances(s, 600.00, 3000.00)
+        call SetSoundDistanceCutoff(s, 3000.00)
+        call SetSoundVolume(s, 127)
+
+        call StartSound(s)
+        call KillSoundWhenDone(s)
+
+        set s = null
+    endfunction
+
     // Used for Dueling
     function ResetPlayerForces takes player p returns nothing
         local force f = GetForceOfPlayer(p)
