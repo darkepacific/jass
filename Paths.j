@@ -31,3 +31,33 @@ call UnitDamageTargetBJ(caster, target, damage, ATTACK_TYPE_HERO , DAMAGE_TYPE_N
 //Abilities\Weapons\ZigguratFrostMissile\ZigguratFrostMissile.mdl //Frost DK
 //Abilities\Weapons\BallsOfFireMissile\BallsOfFireMissile.mdl
 
+
+//"Abilities\\Spells\\Undead\\DeathCoil\\DeathCoilSpecialArt.mdl"
+
+
+
+    //war3mapImported\Azul_Arrow.mdl
+    //war3mapImported\BlizMissile KillingMachine
+    //Daemonic Arrow
+    //Ember Blue
+    //EnergyBurstNoSound
+    //HammerOfWrath
+    //IceNova
+    //LightningSphere_SFX
+    //MagicCircle_Demon
+    //Psionic Shot
+    //Radiance
+    //Valiant Charge Royal
+    //Void Rain Missile
+    //Void Spear
+    //war3mapImported\Affliction040_Purple.mdl
+
+    //Ancient Protector Missile
+    //Cannon Tower Missile (Same as steam tank impact)
+    //Chimera Lightning Missile
+    //Dragon Hawk Missile
+    //Raise Skeleton
+    //Item Gain
+    //Tome of Retraining
+    //Dark Ritual
+

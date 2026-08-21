@@ -371,20 +371,31 @@ library GenericFunctions
         endif  
     endfunction
 
-    function PlaySoundOnUnit takes string filename, unit u returns nothing
+    function PlaySoundAtXY takes string filename, real x, real y, unit u returns nothing
         local sound s
 
         set s = CreateSound(filename, false, true, true, 10, 10, "")
     
-        call SetSoundPosition(s, GetUnitX(u), GetUnitY(u), 50.00)
+        call SetSoundPosition(s, x, y, 50.00)
         call SetSoundDistances(s, 600.00, 3000.00)
         call SetSoundDistanceCutoff(s, 3000.00)
         call SetSoundVolume(s, 127)
+        if u != null then
+            call AttachSoundToUnit(s, u)
+        endif
 
         call StartSound(s)
         call KillSoundWhenDone(s)
 
         set s = null
+    endfunction
+
+    function PlaySoundAtPoint takes string filename, location loc returns nothing
+        call PlaySoundAtXY(filename, GetLocationX(loc), GetLocationY(loc), null)
+    endfunction
+
+    function PlaySoundOnUnit takes string filename, unit u returns nothing
+        call PlaySoundAtXY(filename, GetUnitX(u), GetUnitY(u), u)
     endfunction
 
     // Used for Dueling
@@ -547,6 +558,17 @@ library GenericFunctions
         call cleanUpText(lifespan, fadepoint)
     endfunction
 
+    function IsUnitDead takes unit u returns boolean
+        if GetUnitTypeId(u) == 0 or IsUnitType(u, UNIT_TYPE_DEAD) then
+            return true
+        endif
+        return false
+    endfunction
+
+    function IsUnitAlive takes unit u returns boolean
+        return not IsUnitDead(u)
+    endfunction
+
     function IsUnitTargetable takes unit u, boolean air, boolean ground, boolean magic, boolean mech returns boolean
         if not air then
             if(IsUnitType(u, UNIT_TYPE_FLYING) ) then
@@ -574,7 +596,7 @@ library GenericFunctions
         if(BlzIsUnitInvulnerable(u) ) then
             return false
         endif
-        if(IsUnitDeadBJ(u) ) then
+        if(IsUnitDead(u) ) then
             return false
         endif
         if(IsUnitType(u, UNIT_TYPE_STRUCTURE)  ) then
@@ -594,7 +616,7 @@ library GenericFunctions
         return true
     endfunction
 
-    //Ground, Air, but not Magic Imm or Mech
+    //Ground and Air, but not Magic Imm or Mech
     function IsUnitTargetableEnemy takes unit u, unit caster returns boolean
         return IsUnitTargetableEnemyParams(u, caster, true, true, false, false)
     endfunction
@@ -1386,17 +1408,6 @@ library GenericFunctions
 
     function IsInCombat takes unit u returns boolean
         return not IsOutOfCombat(u)
-    endfunction
-
-    function IsUnitDead takes unit u returns boolean
-        if GetUnitTypeId(u) == 0 or IsUnitType(u, UNIT_TYPE_DEAD) then
-            return true
-        endif
-        return false
-    endfunction
-
-    function IsUnitAlive takes unit u returns boolean
-        return not IsUnitDead(u)
     endfunction
 
     function StringContains takes string long, string short returns boolean

@@ -21,6 +21,9 @@ globals
     timer Balnazzar_Damage_Timer = null
     timer Whitemane_Damage_Timer = null
     timer KelThuzad_Damage_Timer = null
+    timer Ras_Frostwhisper_Timer = null
+    timer Rattlegore_Timer = null
+    timer Gandling_Timer = null
 
     real global_damage = 0.0
     real whosyourdaddy = 1.0
@@ -338,6 +341,14 @@ endfunction
 
 // for ((i=10; i<=20; i++)); do echo "elseif UnitHasBuffBJ(source, 'BS$i') then /- call UnitRemoveAbility(source, 'BS$i') /- return $i";  done
 function GetBoneShieldLevel takes unit source returns integer
+    // Rattlegore Bone Armor.
+    // IMPORTANT: This one is intentionally NOT consumed by this function.
+    if UnitHasBuffBJ(source, 'BSRG') then
+        return 30
+    endif
+
+    // Player DK Bone Armor.
+    // Legacy behavior: checking the stack also consumes it.
     if UnitHasBuffBJ(source, 'BS02') then 
         call UnitRemoveAbility(source, 'BS02') 
         return 2
@@ -811,16 +822,10 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             endif
         endif
 
-        //ShieldLogic
-        if HasShield(target) then
-            set damage = DamageShield(target, damage, heroNumb, sourcePlayer)            
-            set reduced = true
-        endif
-
         //----------------------------------------------------------------------------------------------------------
         // Sanctuary Logic
         //----------------------------------------------------------------------------------------------------------
-        if IsPlayerInSanctuary(targetPlayer) and IsOwnedByUser(targetPlayer) and IsUnitType(target, UNIT_TYPE_HERO) then
+        if IsPlayerInSanctuary(targetPlayer) and IsOwnedByUser(targetPlayer) and IsOwnedByUser(sourcePlayer) and IsUnitType(target, UNIT_TYPE_HERO) then
             set damage = damage * 0.0
             set reduced = true
 
@@ -1016,6 +1021,12 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
                 set damage = damage / whosyourdaddy
                 set reduced = true
             endif
+        endif
+
+        //ShieldLogic
+        if HasShield(target) then
+            set damage = DamageShield(target, damage, heroNumb, sourcePlayer)            
+            set reduced = true
         endif
 
         if udg_Dmg then

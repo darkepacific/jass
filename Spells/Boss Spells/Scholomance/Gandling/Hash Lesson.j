@@ -1,3 +1,7 @@
+function Trig_Harsh_Lesson_Conditions takes nothing returns boolean
+    return GetWidgetLife(gg_unit_U01S_1754) <= 3200.00
+endfunction
+
 function HarshLesson_IsValidTarget takes nothing returns boolean
     local unit u = GetFilterUnit()
 
@@ -107,6 +111,7 @@ endfunction
 //===========================================================================
 function InitTrig_Harsh_Lesson takes nothing returns nothing
     set gg_trg_Harsh_Lesson = CreateTrigger()
-    call TriggerRegisterUnitLifeEvent(gg_trg_Harsh_Lesson, gg_unit_U01S_1754, LESS_THAN, 3200.00)
+    call TriggerRegisterUnitEvent( gg_trg_Harsh_Lesson, gg_unit_U01S_1754, EVENT_UNIT_DAMAGED )
+    call TriggerAddCondition(gg_trg_Harsh_Lesson, Condition(function Trig_Harsh_Lesson_Conditions))
     call TriggerAddAction(gg_trg_Harsh_Lesson, function Trig_Harsh_Lesson_Actions)
 endfunction

@@ -33,7 +33,7 @@ library StartingPoint requires HeroRegistration //CameraSetup, HeroGlobals, Tale
         call SelectUnitForPlayerSingle( udg_Heroes[udg_Player_Number] , p )
 
         if GetLocalPlayer() == p then
-            call BlzSetAbilityExtendedTooltip( 'A02D', ( "After a short delay teleports the hero back to a zone or town. Restores 50%% of health and mana." + ( "|n|nCurrent Hearth: " + ( hearth + "." ) ) ), 0 )
+            call BlzSetAbilityExtendedTooltip( 'A02D', ( "After a short delay teleports the hero back to a zone or town. Restores 50%% of health and mana." + ( "|n|nCurrent Hearth: " + ( hearth + "" ) ) ), 0 )
         endif
 
         if IsPlayerInForce(p, udg_AlliancePlayers) then

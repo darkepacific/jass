@@ -241,10 +241,10 @@ function Load_GUI takes nothing returns nothing
 
     //Register Hero Conditions and Hearth
     if(StringContains(heroID, "yA")) then 
-        call StartingPoint(p, createdUnit, GetPlayableMapRect(), gg_cam_Alliance_Start, hearth, 0, hearthNumber, 270.00) 
+        call StartingPoint(p, createdUnit, GetPlayableMapRect(), gg_cam_Hero_Loaded_Start, hearth, 0, hearthNumber, 270.00) 
         call TriggerExecute(gg_trg_Hearth_Alliance) 
     elseif(StringContains(heroID, "yH")) then 
-        call StartingPoint(p, createdUnit, GetPlayableMapRect(), gg_cam_Horde_Start, hearth, 0, hearthNumber, 270.00) 
+        call StartingPoint(p, createdUnit, GetPlayableMapRect(), gg_cam_Hero_Loaded_Start, hearth, 0, hearthNumber, 270.00) 
         call TriggerExecute(gg_trg_Hearth_Horde) 
     endif 
 

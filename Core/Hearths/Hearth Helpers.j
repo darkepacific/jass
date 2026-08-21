@@ -37,6 +37,8 @@ function GetHearthStringFromNumber takes integer locationNumber, player p return
             return "Dragonmaw Port"
         elseif locationNumber == 20 then
             return "Bloodgulch"
+        elseif locationNumber == 21 then
+            return "Agmar's Hammer"
         endif
     // Alliance Locations
     elseif (IsPlayerInForce(p, udg_AlliancePlayers)) then
@@ -78,6 +80,8 @@ function GetHearthStringFromNumber takes integer locationNumber, player p return
             return "Highbank"
         elseif locationNumber == 20 then
             return "Thundermar"
+        elseif locationNumber == 21 then
+            return "Wintergarde Keep"
         endif
     endif
     // Neutral Locations
@@ -93,6 +97,8 @@ function GetHearthStringFromNumber takes integer locationNumber, player p return
         return "Dalaran"
     elseif locationNumber == 15 then
         return "Gilneas City"
+    elseif locationNumber == 22 then
+        return "The Argent Tournament"
     endif
     
     // Return an empty string if no match is found
