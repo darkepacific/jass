@@ -42,6 +42,18 @@ function CastVirulentPlague takes unit source, unit target returns nothing
     set udg_Temp_Unit_Point = null
 endfunction
 
+function SetPlagueDummyStats takes nothing returns nothing
+        set udg_RealStatCalc = I2R(( GetHeroStatBJ(bj_HEROSTAT_INT, udg_Temp_Unit, true) - GetHeroStatBJ(bj_HEROSTAT_INT, udg_Temp_Unit, false) ))
+        set udg_HeroStatCalc = ( GetHeroStatBJ(bj_HEROSTAT_STR, GetTriggerUnit(), true) - GetHeroStatBJ(bj_HEROSTAT_STR, GetTriggerUnit(), false) )
+        set udg_RealStatCalc = ( I2R(udg_HeroStatCalc) + udg_RealStatCalc )
+        set udg_RealStatCalc = ( 0.50 * udg_RealStatCalc )
+        set udg_HeroStatCalc = ( GetUnitAbilityLevelSwapped('A03J', udg_Temp_Unit) * 10 )
+        set udg_RealStatCalc = ( I2R(udg_HeroStatCalc) + udg_RealStatCalc )
+        if udg_TalentChoices[ GetPlayerId(GetOwningPlayer(udg_Temp_Unit)) * udg_NUM_OF_TC + 13 ]  then
+        	set udg_RealStatCalc = ( udg_RealStatCalc * 1.36 )
+        endif
+endfunction
+
 function DoesUnitHaveVirulentPlague takes unit u, unit caster returns boolean
     if (caster == udg_yA_Unholy_DK and UnitHasBuffBJ(u, 'B01K')) then
         return true
@@ -57,7 +69,7 @@ function SpreadPlague takes nothing returns nothing
         call UnitDamageTargetBJ( spellCaster, spellUnit, udg_RealStatCalc, ATTACK_TYPE_SIEGE, DAMAGE_TYPE_MAGIC )
         call AddSpecialEffectTargetUnitBJ( "overhead", spellUnit, "war3mapImported\\plaguebomb_bigger.mdx" )
         call DestroyEffectBJ( GetLastCreatedEffectBJ() )
-        call AddSpecialEffectTargetUnitBJ( "origin", spellUnit, "war3mapImported\\PlagueTeamForsakenMissileV1.01.mdx" )
+        call AddSpecialEffectTargetUnitBJ( "origin", spellUnit, "war3mapImported\\PlagueTeamForsakenMissileV101.mdx" )
         call DestroyEffectBJ( GetLastCreatedEffectBJ() )
         call HasFirelords( spellUnit )
     else
