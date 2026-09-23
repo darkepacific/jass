@@ -81,6 +81,9 @@ function TalentProtWarr takes nothing returns nothing
 
 
 	//LEVEL 50
+	//Rage - Basic attacks now restore 2% of max mana
+
+
 	// set choice = TalentChoiceCreateReplaceSpellBasedOnUnitType('AHbh','A03D','NEWS', 'H010')
 	// set udg_TalentChoiceHead[choice] = "Disarm"
 	// set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNAbility_Warrior_Disarm.blp"

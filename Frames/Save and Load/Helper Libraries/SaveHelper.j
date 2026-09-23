@@ -318,7 +318,7 @@ library SaveHelperLib initializer Init requires SyncHelper, PlayerUtils, SaveFil
         // if (saveCode == null or saveCode == "") then
         //     set saveCode = Save_GUI(p)
         // endif
-        call Debug("Save Code: " + saveCode)
+        //call Debug("Save Code: " + saveCode)
         call SaveFile(slot).create(p, "[" + I2S(slot) + "] " + SaveHelper.GetUnitTitle(u), items, slot, saveNumber, saveCode)
 
         set p = null

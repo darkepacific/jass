@@ -85,6 +85,7 @@ function TalentFuryWarr takes nothing returns nothing
 	set udg_TalentChoiceIcon[choice] = "ReplaceableTextures\\CommandButtons\\BTNVampiricAura.blp"
 
 	//LEVEL 50
+	//Rage - Basic attacks now restore 2% of max mana
 
 	//Death Wish - Increase damage taken and done 15%
 	//Enduring Rage - increase the duration of Endless Rage by 3 sec

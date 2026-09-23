@@ -1410,6 +1410,45 @@ library GenericFunctions
         return not IsOutOfCombat(u)
     endfunction
 
+    function GetClosestEnemyHero takes unit caster, real maxRange returns unit
+        local group g = CreateGroup()
+        local unit u
+        local unit closest = null
+        local real cx = GetUnitX(caster)
+        local real cy = GetUnitY(caster)
+        local real dx
+        local real dy
+        local real dist
+        local real closestDist = maxRange * maxRange
+
+        call GroupEnumUnitsInRange(g, cx, cy, maxRange, null)
+
+        loop
+            set u = FirstOfGroup(g)
+            exitwhen u == null
+
+            call GroupRemoveUnit(g, u)
+
+            if IsUnitType(u, UNIT_TYPE_HERO) and IsUnitEnemy(u, GetOwningPlayer(caster)) and GetWidgetLife(u) > 0.405 then
+                set dx = GetUnitX(u) - cx
+                set dy = GetUnitY(u) - cy
+                set dist = dx * dx + dy * dy
+
+                if dist < closestDist then
+                    set closestDist = dist
+                    set closest = u
+                endif
+            endif
+        endloop
+
+        call DestroyGroup(g)
+
+        set g = null
+        set u = null
+
+        return closest
+    endfunction
+
     function StringContains takes string long, string short returns boolean
         local integer n = StringLength(long)
         local integer m = StringLength(short)

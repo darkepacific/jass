@@ -900,7 +900,7 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     // |c00FF7F00Shalamayne|r
     set udg_SaveItemType[i] = 'I04O'
     set i = i + 1
-    // |c00FF7F00Staff of Archmage Antonidas|r
+    // |c00FF7F00Ragnok's Staff of Fire|r
     set udg_SaveItemType[i] = 'I04J'
     set i = i + 1
     // |c00FF7F00Furious Blade|r
@@ -1007,6 +1007,9 @@ function Trig_SaveItemList_Actions takes nothing returns nothing
     set udg_SaveItemType[i] = 'I069'
     set i = i + 1
     
+    // |c00FF7F00Staff of Archmage Antonidas|r
+    set udg_SaveItemType[i] = 'I04R'
+    set i = i + 1
 
 
     //--- Orbs (needs  home) ---

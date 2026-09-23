@@ -77,6 +77,8 @@ function TalentArmsWarr takes nothing returns nothing
 		
 
 	//LEVEL 50
+	//Rage - Basic attacks now restore 2% of max mana
+
 	//Bladestorm now has a 35% chance to crit for a total str dmg per sec (120 + 80 at lvl40)
 	//Cleaving Attack - replaces Grit, attacks hits all enemies in an AoE
 	//Battle Shout - taunt now increases the damage of all allies within 500 range by 20% for 4 sec (basically a roar)
