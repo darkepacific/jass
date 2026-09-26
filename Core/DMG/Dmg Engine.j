@@ -180,6 +180,20 @@ function Trig_KelThuzad_Dmg_Timer_Actions takes nothing returns nothing
     set spawn_pt = null
 endfunction
 
+function Trig_Gandling_Dmg_Timer_Actions takes nothing returns nothing
+    local location spawn_pt
+
+    if(IsUnitAliveBJ(gg_unit_U01S_1754) and not BlzIsUnitInvulnerable(gg_unit_U01S_1754)) then
+        set bj_wantDestroyGroup = true
+        call ForGroupBJ(GetUnitsInRectAll(gg_rct_Scholomance_Music), function CleanUpSummons)
+
+        set spawn_pt = GetRectCenter(gg_rct_Darkmaster_Gandling)
+        call ShowHero(gg_unit_U01S_1754, spawn_pt, false)
+        call RemoveLocation(spawn_pt)
+    endif
+    set spawn_pt = null
+endfunction
+
 //Out of Combat Check
 function isOutOfCombat takes unit u returns boolean
     if TimerGetRemaining(udg_DamageTimer[GetPlayerHeroNumber(GetOwningPlayer(u))]) <= 0.0 then
@@ -510,6 +524,9 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             //KelThuzad
         elseif source == gg_unit_Uktl_0568 or target == gg_unit_Uktl_0568 then
             call TimerStart(KelThuzad_Damage_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_KelThuzad_Dmg_Timer_Actions)
+            //Gandling
+         elseif  source == gg_unit_U01S_1754 or target == gg_unit_U01S_1754 then
+            call TimerStart(Gandling_Timer, udg_BOSS_COMBAT_TIMER, false, function Trig_Gandling_Dmg_Timer_Actions)
         endif
 
 
@@ -537,15 +554,15 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         //Bosses
         // Ymiron
         if target == gg_unit_Opgh_1163 then
-            set damage = damage * 0.82
+            set damage = damage * 0.81
             set reduced = true
             //Skovald
         elseif target == gg_unit_H03R_2211 then
-            set damage = damage * 0.82
+            set damage = damage * 0.81
             set reduced = true
             //Lich King
         elseif target == gg_unit_Uear_1259 then
-            set damage = damage * 0.70
+            set damage = damage * 0.65
             set reduced = true
             //Patchwerk
         elseif target == gg_unit_U043_1599 then
@@ -553,7 +570,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //DeathWing
         elseif target == gg_unit_E033_1368 then
-            set damage = damage * 0.90
+            set damage = damage * 0.87
             set reduced = true
             //Kil'Jaeden
         elseif target == gg_unit_Nkjx_2318 then
@@ -561,7 +578,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             set reduced = true
             //Sargeras
         elseif target == gg_unit_N03U_1885 then
-            set damage = damage * 0.77
+            set damage = damage * 0.75
             set reduced = true
             //Kael
         elseif target == gg_unit_Hkal_1415 then
@@ -583,33 +600,41 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         elseif target == gg_unit_Hvsh_1247 then
             set damage = damage * 0.70
             set reduced = true
+            //Anub'arak
+        elseif GetUnitTypeId(target) == 'Uanb' then
+            set damage = damage * 0.70
+            set reduced = true
             //Ragnaros
         elseif target == gg_unit_Nfir_1988 then
             set damage = damage * 0.80
             set reduced = true
             //Entropius
         elseif target == gg_unit_H03X_2614 then 
-            set damage = damage * 0.95
+            set damage = damage * 0.93
             set reduced = true
             //Cho'Gall
         elseif target == gg_unit_H00S_2121 then
-            set damage = damage * 0.95
+            set damage = damage * 0.93
             set reduced = true
             //Moroes, Curator, Netherspite
         elseif GetUnitTypeId(target) == 'E04J' or GetUnitTypeId(target) == 'n05A' or GetUnitTypeId(target) == 'n05T' then
-            set damage = damage * 0.70
+            set damage = damage * 0.65
+            set reduced = true
+            //Jaraxxus, Revenant, Kheti
+        elseif GetUnitTypeId(target) == 'nerw' or GetUnitTypeId(target) == 'nrvi' or GetUnitTypeId(target) == 'n06k' then
+            set damage = damage * 0.65
             set reduced = true
         endif
         
         //Quest 
         //Weldon Barov
         if target == gg_unit_H02E_1848 and IsHordePlayer(sourcePlayer) then
-            set damage = damage * 0.67
+            set damage = damage * 0.66
             set reduced = true
         endif
         //Alexi Barov
         if target == gg_unit_E027_1847 and IsAlliancePlayer(sourcePlayer) then
-            set damage = damage * 0.67
+            set damage = damage * 0.66
             set reduced = true
         endif
 
@@ -636,6 +661,18 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
                 call AddSpecialEffectTargetUnitBJ("overhead", target, "war3mapImported\\Effect_ShieldBuff_Purple.mdx" ) 
                 call DestroyEffectBJ(GetLastCreatedEffectBJ() )
                 set damage = 12
+                set reduced = true
+            endif
+        endif
+        //Yogg-Saron
+        if GetUnitTypeId(target) == 'n06G' then
+            if GetUnitTypeId(source) == 'n053' then
+                set damage = 1000
+                set increased = true
+            else
+                call AddSpecialEffectTargetUnitBJ("overhead", target, "war3mapImported\\Effect_ShieldBuff_Purple.mdx" ) 
+                call DestroyEffectBJ(GetLastCreatedEffectBJ() )
+                set damage = damage * 0.50
                 set reduced = true
             endif
         endif
@@ -1304,6 +1341,7 @@ function InitTrig_Dmg_Engine takes nothing returns nothing
     set Balnazzar_Damage_Timer = CreateTimer()
     set Whitemane_Damage_Timer = CreateTimer()
     set KelThuzad_Damage_Timer = CreateTimer()
+    set Gandling_Timer = CreateTimer()
 endfunction
 
 
