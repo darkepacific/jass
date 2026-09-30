@@ -544,10 +544,10 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
 
         //Faction Leaders
         if target == gg_unit_Usyl_0179 or target == gg_unit_O012_0383 then  //Sylvanas, Lor'themar
-            set damage = damage *(0.8)
+            set damage = damage *(0.75)
             set reduced = true
         elseif target == gg_unit_H02D_0004 or target == gg_unit_Hapm_0294 then //Anduin, Magni
-            set damage = damage *(0.8)
+            set damage = damage *(0.75)
             set reduced = true
         endif
 
@@ -616,13 +616,21 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
         elseif target == gg_unit_H00S_2121 then
             set damage = damage * 0.93
             set reduced = true
+            //Rattlegore
+        elseif target == udg_Rattlegore then
+            set damage = damage * 0.85
+            set reduced = true
+            //Darkmaster Gandling
+        elseif target == gg_unit_U01S_1754 then
+            set damage = damage * 0.75
+            set reduced = true
             //Moroes, Curator, Netherspite
         elseif GetUnitTypeId(target) == 'E04J' or GetUnitTypeId(target) == 'n05A' or GetUnitTypeId(target) == 'n05T' then
             set damage = damage * 0.65
             set reduced = true
             //Jaraxxus, Revenant, Kheti
         elseif GetUnitTypeId(target) == 'nerw' or GetUnitTypeId(target) == 'nrvi' or GetUnitTypeId(target) == 'n06k' then
-            set damage = damage * 0.65
+            set damage = damage * 0.60
             set reduced = true
         endif
         
@@ -672,7 +680,7 @@ function Trig_Dmg_Engine_Actions takes nothing returns nothing
             else
                 call AddSpecialEffectTargetUnitBJ("overhead", target, "war3mapImported\\Effect_ShieldBuff_Purple.mdx" ) 
                 call DestroyEffectBJ(GetLastCreatedEffectBJ() )
-                set damage = damage * 0.50
+                set damage = damage * 0.25
                 set reduced = true
             endif
         endif
