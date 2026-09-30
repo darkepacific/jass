@@ -760,9 +760,30 @@ function Trig_C_TWG_Actions takes nothing returns nothing
         call StartSound(gg_snd_Wrathgate_Cenamatic)
     endif
 
+    // 0:01
+    call Trig_C_TWG_WaitUntil(sceneTimer, 1.00)
+    if IsPlayerInForce(GetLocalPlayer(), viewers) then
+        call EndThematicMusic()
+        call StopMusicBJ(false)
+    endif
+
     // 0:02 Bolvar
     call Trig_C_TWG_WaitUntil(sceneTimer, 2.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'H048', "Highlord Bolvar Fordragon", scenePoint, null, " Arthas! The blood of your father, of your people, demands justice! Come forth, coward, and answer for your crimes!", bj_TIMETYPE_SET, 17.00, false)
+
+    // 0:05
+    call Trig_C_TWG_WaitUntil(sceneTimer, 5.00)
+    if IsPlayerInForce(GetLocalPlayer(), viewers) then
+        call EndThematicMusic()
+        call StopMusicBJ(false)
+    endif
+
+    // 0:10
+    call Trig_C_TWG_WaitUntil(sceneTimer, 10.00)
+    if IsPlayerInForce(GetLocalPlayer(), viewers) then
+        call EndThematicMusic()
+        call StopMusicBJ(false)
+    endif
 
     // 0:17 - gate opens.
     call Trig_C_TWG_WaitUntil(sceneTimer, 17.00)
@@ -868,28 +889,31 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call Trig_C_TWG_WaitUntil(sceneTimer, 64.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_AGGRESSIVE), 'Uear', "The Lich King", scenePoint, null, "Boldly stated. But there is nothing you can...", bj_TIMETYPE_SET, 5.00, false)
 
+    // 1:05 - set up catapult 2 early
+    call Trig_C_TWG_WaitUntil(sceneTimer, 65.00)
+    call ShowUnit(catapult2, true)
+    call PauseUnit(catapult2, false)
+    call SetUnitAcquireRange(catapult2, 0.00)
+    call RemoveGuardPosition(catapult2) 
+    call IssuePointOrder(catapult2, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Initial_Blast), GetRectCenterY(gg_rct_TWG_Catapult_Initial_Blast))
+
     // 1:06 - plague explosion behind the armies.
     call Trig_C_TWG_WaitUntil(sceneTimer, 66.00)
     call ShowUnit(putress, true)
     call ShowUnit(apothecary1, true)
     call ShowUnit(apothecary2, true)
     call ShowUnit(catapult1, true)
-    call ShowUnit(catapult2, true)
     call ShowUnit(catapult3, true)
     call ShowUnit(catapult4, true)
     call PauseUnit(catapult1, false)
-    call PauseUnit(catapult2, false)
     call PauseUnit(catapult3, false)
     call PauseUnit(catapult4, false)
     call SetUnitAcquireRange(catapult1, 0.00)
-    call SetUnitAcquireRange(catapult2, 0.00)
     call SetUnitAcquireRange(catapult3, 0.00)
     call SetUnitAcquireRange(catapult4, 0.00)
     call RemoveGuardPosition(catapult1)
-    call RemoveGuardPosition(catapult2)
     call RemoveGuardPosition(catapult3)
     call RemoveGuardPosition(catapult4)
-    call IssuePointOrder(catapult2, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Initial_Blast), GetRectCenterY(gg_rct_TWG_Catapult_Initial_Blast))
     call SetUnitAnimation(putress, "spell")
 
     // 1:08 - the opening plague strike lands directly on the footmen.
@@ -925,7 +949,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call Trig_C_TWG_WaitUntil(sceneTimer, 84.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'u04E', "Grand Apothecary Putress", scenePoint, null, "Behold now, the terrible vengeance of the Forsaken!", bj_TIMETYPE_SET, 5.50, false)
 
-    // 1:27 - aim the first mass volley between Arthas and the living armies.
+    // 1:27 - Order to move into position again
     call Trig_C_TWG_WaitUntil(sceneTimer, 87.00)
     call IssuePointOrder(catapult1, "move", GetRectCenterX(gg_rct_TWG_Catapult_1_Move), GetRectCenterY(gg_rct_TWG_Catapult_1_Move))
     call IssuePointOrder(catapult2, "move", GetRectCenterX(gg_rct_TWG_Catapult_2_Move), GetRectCenterY(gg_rct_TWG_Catapult_2_Move))
@@ -941,16 +965,17 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitAnimation(arthas, "Stand ready")
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_AGGRESSIVE), 'Uear', "The Lich King", scenePoint, null, "Sylvanas...", bj_TIMETYPE_SET, 2.50, false)
 
-    // 1:30 - Putress orders death to the Scourge.
-    call Trig_C_TWG_WaitUntil(sceneTimer, 90.00)
-    call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'u04E', "Grand Apothecary Putress", scenePoint, null, "Death to the Scourge!", bj_TIMETYPE_SET, 2.00, false)
-
-    // 1:30 - re-order the closer volley so the in-game missiles stay active.
+    // 1:29 - aim the first mass volley between Arthas and the living armies.
     // Attack-ground remains active, so all four catapults keep firing.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 89.00)
     call IssuePointOrder(catapult1, "attackground", scourgeStrike1X, scourgeStrike1Y)
     call IssuePointOrder(catapult2, "attackground", scourgeStrike2X, scourgeStrike2Y)
     call IssuePointOrder(catapult3, "attackground", scourgeStrike3X, scourgeStrike3Y)
     call IssuePointOrder(catapult4, "attackground", scourgeStrike4X, scourgeStrike4Y)
+
+    // 1:30 - Putress orders death to the Scourge.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 90.00)
+    call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'u04E', "Grand Apothecary Putress", scenePoint, null, "Death to the Scourge!", bj_TIMETYPE_SET, 2.00, false)
 
     // 1:31 - the gate-side volley lands on the Scourge.
     call Trig_C_TWG_WaitUntil(sceneTimer, 91.00)
