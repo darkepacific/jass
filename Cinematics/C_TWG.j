@@ -479,6 +479,12 @@ function Trig_C_TWG_OrderDragonMove takes unit dragon, real targetX, real target
     call IssuePointOrder(dragon, "move", targetX + GetRandomReal(-jitter, jitter), targetY + GetRandomReal(-jitter, jitter))
 endfunction
 
+function Trig_C_TWG_DragonStrikeUnit takes unit dragon, unit target returns nothing
+    call SetUnitInvulnerable(target, false)
+    call PauseUnit(target, false)
+    call IssueTargetOrder(dragon, "attack", target)
+endfunction
+
 function Trig_C_TWG_DragonAttackGround takes unit dragon, real targetX, real targetY, group sceneUnits returns unit
     local unit target = CreateUnit(Player(PLAYER_NEUTRAL_AGGRESSIVE), 'e025', targetX, targetY, 0.00)
     call SetUnitPathing(target, false)
@@ -777,18 +783,22 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitX(arthas, arthasX)
     call SetUnitY(arthas, arthasY)
     call SetUnitFacingTimed(arthas, Atan2(saurfangY - arthasY, saurfangX - arthasX) * bj_RADTODEG, 1.00)
-    call Trig_C_TWG_CreateUndead('n059', arthasX, arthasY, 280.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
-    call Trig_C_TWG_CreateUndead('nskg', arthasX, arthasY, 360.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
-    call Trig_C_TWG_CreateUndead('nska', arthasX, arthasY, 420.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
-    call Trig_C_TWG_CreateUndead('uske', arthasX, arthasY, 500.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
-    call Trig_C_TWG_CreateUndead('uskm', arthasX, arthasY, 580.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('n059', arthasX, arthasY, 360.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('nskg', arthasX, arthasY, 420.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('nska', arthasX, arthasY, 480.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('uske', arthasX, arthasY, 540.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('uskm', arthasX, arthasY, 600.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
     call Trig_C_TWG_CreateUndead('n06F', arthasX, arthasY, 660.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
 
-    // call Trig_C_TWG_CreateUndead('n059', arthasX, arthasY, 260.00, 0.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, army, newUndead)
-    // call Trig_C_TWG_CreateUndead('nskg', arthasX, arthasY, 340.00, 36.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, army, newUndead)
-    // call Trig_C_TWG_CreateUndead('nska', arthasX, arthasY, 420.00, 72.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, army, newUndead)
-    // call Trig_C_TWG_CreateUndead('uske', arthasX, arthasY, 500.00, 108.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, army, newUndead)
-    // call Trig_C_TWG_CreateUndead('uskm', arthasX, arthasY, 580.00, 144.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, army, newUndead)
+    // call Trig_C_TWG_CreateUndead('n059', arthasX, arthasY, 260.00, 0.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    // call Trig_C_TWG_CreateUndead('nskg', arthasX, arthasY, 340.00, 36.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    // call Trig_C_TWG_CreateUndead('nska', arthasX, arthasY, 420.00, 72.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    // call Trig_C_TWG_CreateUndead('uske', arthasX, arthasY, 500.00, 108.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    // call Trig_C_TWG_CreateUndead('uskm', arthasX, arthasY, 580.00, 144.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    // call Trig_C_TWG_CreateUndead('n06F', arthasX, arthasY, 660.00, 180.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    // call Trig_C_TWG_CreateUndead('nska', arthasX, arthasY, 500.00, 216.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+
+    
     call Trig_C_TWG_WaitUntil(sceneTimer, 28.33)
     call Trig_C_TWG_StandNewUndead(newUndead)
 
@@ -858,8 +868,8 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call Trig_C_TWG_WaitUntil(sceneTimer, 64.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_AGGRESSIVE), 'Uear', "The Lich King", scenePoint, null, "Boldly stated. But there is nothing you can...", bj_TIMETYPE_SET, 5.00, false)
 
-    // 1:07 - plague explosion behind the armies.
-    call Trig_C_TWG_WaitUntil(sceneTimer, 67.00)
+    // 1:06 - plague explosion behind the armies.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 66.00)
     call ShowUnit(putress, true)
     call ShowUnit(apothecary1, true)
     call ShowUnit(apothecary2, true)
@@ -917,10 +927,14 @@ function Trig_C_TWG_Actions takes nothing returns nothing
 
     // 1:27 - aim the first mass volley between Arthas and the living armies.
     call Trig_C_TWG_WaitUntil(sceneTimer, 87.00)
-    call IssuePointOrder(catapult1, "attackground", scourgeStrike1X, scourgeStrike1Y)
-    call IssuePointOrder(catapult2, "attackground", scourgeStrike2X, scourgeStrike2Y)
-    call IssuePointOrder(catapult3, "attackground", scourgeStrike3X, scourgeStrike3Y)
-    call IssuePointOrder(catapult4, "attackground", scourgeStrike4X, scourgeStrike4Y)
+    call IssuePointOrder(catapult1, "move", GetRectCenterX(gg_rct_TWG_Catapult_1_Move), GetRectCenterY(gg_rct_TWG_Catapult_1_Move))
+    call IssuePointOrder(catapult2, "move", GetRectCenterX(gg_rct_TWG_Catapult_2_Move), GetRectCenterY(gg_rct_TWG_Catapult_2_Move))
+    call IssuePointOrder(catapult3, "move", GetRectCenterX(gg_rct_TWG_Catapult_3_Move), GetRectCenterY(gg_rct_TWG_Catapult_3_Move))
+    call IssuePointOrder(catapult4, "move", GetRectCenterX(gg_rct_TWG_Catapult_4_Move), GetRectCenterY(gg_rct_TWG_Catapult_4_Move))
+    // call IssuePointOrder(catapult1, "attackground", scourgeStrike1X, scourgeStrike1Y)
+    // call IssuePointOrder(catapult2, "attackground", scourgeStrike2X, scourgeStrike2Y)
+    // call IssuePointOrder(catapult3, "attackground", scourgeStrike3X, scourgeStrike3Y)
+    // call IssuePointOrder(catapult4, "attackground", scourgeStrike4X, scourgeStrike4Y)
 
     // 1:28 - Arthas realizes who is behind the attack.
     call Trig_C_TWG_WaitUntil(sceneTimer, 88.00)
@@ -938,8 +952,8 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call IssuePointOrder(catapult3, "attackground", scourgeStrike3X, scourgeStrike3Y)
     call IssuePointOrder(catapult4, "attackground", scourgeStrike4X, scourgeStrike4Y)
 
-    // 1:32 - the gate-side volley lands on the Scourge.
-    call Trig_C_TWG_WaitUntil(sceneTimer, 92.00)
+    // 1:31 - the gate-side volley lands on the Scourge.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 91.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike1X, scourgeStrike1Y, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike1X, scourgeStrike1Y, 350.00, 600.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike2X, scourgeStrike2Y, plagueClouds, plagueCloudCount)
@@ -975,19 +989,20 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4), plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4), 425.00, 600.00)
 
-    // 1:40 - Bolvar orders the retreat, raises defend, and falls back at 80% speed.
-    call Trig_C_TWG_WaitUntil(sceneTimer, 100.00)
+    // 1:39 - Bolvar orders the retreat, raises defend, and falls back at 80% speed.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 99.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'H048', "Highlord Bolvar Fordragon", scenePoint, null, "FALL BACK!", bj_TIMETYPE_SET, 3.00, false)
     set bolvarRetreatX = GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2)
     set bolvarRetreatY = GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2)
     set bolvarSpeed = GetUnitDefaultMoveSpeed(bolvar) * 0.80
-    set bolvarArrival = 100.00 + SquareRoot((bolvarRetreatX - GetUnitX(bolvar)) * (bolvarRetreatX - GetUnitX(bolvar)) + (bolvarRetreatY - GetUnitY(bolvar)) * (bolvarRetreatY - GetUnitY(bolvar))) / bolvarSpeed
+    // set bolvarArrival = 100.00 + SquareRoot((bolvarRetreatX - GetUnitX(bolvar)) * (bolvarRetreatX - GetUnitX(bolvar)) + (bolvarRetreatY - GetUnitY(bolvar)) * (bolvarRetreatY - GetUnitY(bolvar))) / bolvarSpeed
     call PauseUnit(bolvar, false)
     call SetUnitPathing(bolvar, false)
     call SetUnitAcquireRange(bolvar, 0.00)
     call RemoveGuardPosition(bolvar)
     call IssueImmediateOrder(bolvar, "defend")
     call SetUnitMoveSpeed(bolvar, bolvarSpeed)
+    call Trig_C_TWG_WaitUntil(sceneTimer, 100.00)
     call IssuePointOrder(bolvar, "move", bolvarRetreatX, bolvarRetreatY)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(sceneX, sceneY, plagueClouds, plagueCloudCount)
 
@@ -997,26 +1012,26 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult2, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult3, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult4, fallbackUnits, plagueClouds, plagueCloudCount)
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 102.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 102.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 102.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult1, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 104.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 104.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 104.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult2, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 106.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 106.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 106.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult3, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 108.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 108.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 108.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult1, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult2, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult3, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult4, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 110.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 110.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 110.00)
     call ForGroup(fallbackUnits, function Trig_C_TWG_KillUnit)
     call IssuePointOrder(catapult1, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1))
@@ -1029,23 +1044,26 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call PauseUnit(arthas, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(arthasX, arthasY, plagueClouds, plagueCloudCount)
     call IssuePointOrder(arthas, "move", arthasSpawnX, arthasSpawnY)
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 120.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 120.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 120.00)
     call ShowUnit(arthas, false)
     call PauseUnit(arthas, true)
 
     // 2:05 - Putress declares the Forsaken's victory.
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 125.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 125.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 125.00)
-    call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'u04E', "Grand Apothecary Putress", scenePoint, null, "Now all can see: this is the hour of the Forsaken!", bj_TIMETYPE_SET, 11.00, false)
+    call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'u04E', "Grand Apothecary Putress", scenePoint, null, "Now all can see, this is the hour of the Forsaken!", bj_TIMETYPE_SET, 11.00, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(sceneX, sceneY, plagueClouds, plagueCloudCount)
     call IssuePointOrder(catapult1, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult2, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult3, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult4, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4) + GetRandomReal(-150, 150))
+    call SetUnitAnimation(putress, "spell")
+    call SetUnitAnimation(apothecary1, "spell")
+    call SetUnitAnimation(apothecary2, "spell")
 
     // 2:08 - midway through the line, Putress retreats from the battlefield.
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 128.00, bolvarStopped)
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 128.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 128.00)
     call PauseUnit(putress, false)
     call SetUnitAcquireRange(putress, 0.00)
@@ -1056,22 +1074,24 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call IssuePointOrder(catapult2, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult3, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult4, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4) + GetRandomReal(-150, 150))
+    call SetUnitAnimation(apothecary1, "spell")
+    call SetUnitAnimation(apothecary2, "spell")
 
-    // 2:13 - Bolvar begins his 3.03-second death animation.
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 133.00, bolvarStopped)
-    call Trig_C_TWG_WaitUntil(sceneTimer, 133.00)
+    // 2:12 - Bolvar begins his 3.03-second death animation.
+    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 133.00, bolvarStopped)
+    call Trig_C_TWG_WaitUntil(sceneTimer, 131.00)
     if not bolvarStopped then
         call IssueImmediateOrder(bolvar, "stop")
         call SetUnitX(bolvar, bolvarRetreatX)
         call SetUnitY(bolvar, bolvarRetreatY)
         call PauseUnit(bolvar, true)
     endif
-    call SetUnitTimeScale(bolvar, 1.2)
+    call SetUnitTimeScale(bolvar, 0.75)
     call SetUnitAnimation(bolvar, "death")
 
     // Play the two-second dissipate animation at 30% speed.
     call Trig_C_TWG_WaitUntil(sceneTimer, 137.03)
-    call SetUnitTimeScale(bolvar, 0.30)
+    call SetUnitTimeScale(bolvar, 0.28)
     call SetUnitAnimation(bolvar, "dissipate")
 
     //remove putress
@@ -1138,6 +1158,11 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set dragonAttackTarget3 = Trig_C_TWG_DragonAttackGround(dragon5, sceneX + 350.00, sceneY + 170.00, sceneUnits)
     call ForGroup(army, function Trig_C_TWG_KillUnit)
 
+    // 2 Dragons peel off about 4 seconds before the first apothecary and catapult die.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 150.00)
+    call Trig_C_TWG_DragonStrikeUnit(dragon2, apothecary1)
+    call Trig_C_TWG_DragonStrikeUnit(dragon4, catapult1)
+
     // The direct breath impacts leave larger fires while the periodic cleansing
     // passes continue burning plague patches across the battlefield.
     call Trig_C_TWG_WaitUntil(sceneTimer, 154.00)
@@ -1156,22 +1181,29 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set dragonAttackTarget1 = null
     set dragonAttackTarget2 = null
     set dragonAttackTarget3 = null
+    call KillUnit(apothecary1)
+    call KillUnit(catapult1)
     call Trig_C_TWG_OrderDragonMove(dragon1, putressX - 320.00, putressY - 180.00, 90.00)
     call Trig_C_TWG_OrderDragonMove(dragon2, putressX - 160.00, putressY + 180.00, 90.00)
     call Trig_C_TWG_OrderDragonMove(dragon3, putressX, putressY - 30.00, 90.00)
-    call Trig_C_TWG_OrderDragonMove(dragon4, putressX + 160.00, putressY - 180.00, 90.00)
     call Trig_C_TWG_OrderDragonMove(dragon5, putressX + 320.00, putressY + 180.00, 90.00)
     set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
-    call KillUnit(apothecary1)
-    call KillUnit(catapult1)
+
+    // Dragon 2 and Dragon 4 peel off about 4 seconds before the second apothecary and catapult die.
+    call Trig_C_TWG_DragonStrikeUnit(dragon2, apothecary2)
+    call Trig_C_TWG_DragonStrikeUnit(dragon4, catapult2)
     call Trig_C_TWG_WaitUntil(sceneTimer, 158.00)
     set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
+    call KillUnit(apothecary2)
+    call KillUnit(catapult2)
+    call Trig_C_TWG_OrderDragonMove(dragon4, putressX + 160.00, putressY - 180.00, 90.00)
 
     // Two different dragons pause for a second fire pass.
     set dragonAttackTarget1 = Trig_C_TWG_DragonAttackGround(dragon2, sceneX - 180.00, sceneY - 260.00, sceneUnits)
-    set dragonAttackTarget2 = Trig_C_TWG_DragonAttackGround(dragon4, sceneX + 220.00, sceneY + 260.00, sceneUnits)
-    call KillUnit(apothecary2)
-    call KillUnit(catapult2)
+    set dragonAttackTarget2 = Trig_C_TWG_DragonAttackGround(dragon3, sceneX + 220.00, sceneY + 260.00, sceneUnits)
+
+    // Dragon 1 peels off about 4 seconds before the third catapult dies.
+    call Trig_C_TWG_DragonStrikeUnit(dragon1, catapult3)
     call Trig_C_TWG_WaitUntil(sceneTimer, 162.00)
     set dragonFireCount = Trig_C_TWG_AddDragonFire(sceneX - 180.00, sceneY - 260.00, 1.35, dragonFires, dragonFireCount)
     call Trig_C_TWG_ClearPlagueNearPoint(plagueClouds, plagueCloudCount, sceneX - 180.00, sceneY - 260.00, 300.00)
@@ -1183,19 +1215,22 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call RemoveUnit(dragonAttackTarget2)
     set dragonAttackTarget1 = null
     set dragonAttackTarget2 = null
-    set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
     call KillUnit(catapult3)
+    set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
 
-    // Order the dragons to head back to Wyrmrest
+    // Dragon 5 peels off about 4 seconds before the last catapult dies.
+    call Trig_C_TWG_DragonStrikeUnit(dragon5, catapult4)
+
+    // Order the dragons to head back to Wyrmrest. Dragon 5 stays on the catapult.
     call Trig_C_TWG_WaitUntil(sceneTimer, 164.00)
     call Trig_C_TWG_OrderDragonMove(dragon1, dragonX - 320.00, dragonY - 180.00, 60.00)
     call Trig_C_TWG_OrderDragonMove(dragon2, dragonX - 160.00, dragonY + 180.00, 60.00)
     call Trig_C_TWG_OrderDragonMove(dragon3, dragonX, dragonY, 60.00)
     call Trig_C_TWG_OrderDragonMove(dragon4, dragonX + 160.00, dragonY - 180.00, 60.00)
-    call Trig_C_TWG_OrderDragonMove(dragon5, dragonX + 320.00, dragonY + 180.00, 60.00)
     call Trig_C_TWG_WaitUntil(sceneTimer, 166.00)
     set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
     call KillUnit(catapult4)
+    call Trig_C_TWG_OrderDragonMove(dragon5, dragonX + 320.00, dragonY + 180.00, 60.00)
     call Trig_C_TWG_WaitUntil(sceneTimer, 170.00)
     set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
 
