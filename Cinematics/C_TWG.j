@@ -1027,7 +1027,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     // 1:08 - the opening plague strike lands directly on the footmen.
     call Trig_C_TWG_WaitUntil(sceneTimer, 68.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Initial_Blast), GetRectCenterY(gg_rct_TWG_Catapult_Initial_Blast), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpactOfType(army, 'hfoo', 4, GetRectCenterX(gg_rct_TWG_Catapult_Initial_Blast), GetRectCenterY(gg_rct_TWG_Catapult_Initial_Blast), 425.00, 700.00)
+    call Trig_C_TWG_KillNearPlagueImpactOfType(army, 'hfoo', 4, GetRectCenterX(gg_rct_TWG_Catapult_Initial_Blast), GetRectCenterY(gg_rct_TWG_Catapult_Initial_Blast), 325.00, 600.00)
 
     // 1:11 - Arthas reacts to the plague explosion.
     // Order catapults to stop attacking
