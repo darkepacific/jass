@@ -68,18 +68,31 @@ function Trig_C_TWG_WaitUntil takes timer sceneTimer, real timestamp returns not
     endif
 endfunction
 
-// Stop Bolvar only when his calculated arrival is before the next scripted beat,
-// so the plague waves and dialogue timestamps stay on the track.
+// Hold Bolvar only after he has walked to the retreat point. Never teleport him.
+// A low arrival estimate was snapping him forward before the walk finished.
 function Trig_C_TWG_StopBolvarIfDue takes unit bolvar, timer sceneTimer, real arrival, real nextBeat, boolean stopped returns boolean
-    if stopped or arrival <= 0.00 or arrival > nextBeat then
-        return stopped
+    local real targetX
+    local real targetY
+    local real dx
+    local real dy
+    if stopped then
+        return true
     endif
-    call Trig_C_TWG_WaitUntil(sceneTimer, arrival)
-    call IssueImmediateOrder(bolvar, "stop")
-    call SetUnitX(bolvar, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2))
-    call SetUnitY(bolvar, GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2))
-    call PauseUnit(bolvar, true)
-    return true
+    set targetX = GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2)
+    set targetY = GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2)
+    set dx = GetUnitX(bolvar) - targetX
+    set dy = GetUnitY(bolvar) - targetY
+    if dx * dx + dy * dy <= 180.00 * 180.00 then
+        call IssueImmediateOrder(bolvar, "stop")
+        call PauseUnit(bolvar, true)
+        return true
+    endif
+    // Neutral Passive will walk him home once the move order ends. Refresh it
+    // until he is actually at the retreat point, then pause him there.
+    if GetUnitCurrentOrder(bolvar) != OrderId("move") then
+        call IssuePointOrder(bolvar, "move", targetX, targetY)
+    endif
+    return false
 endfunction
 
 function Trig_C_TWG_CreateFormation takes integer unitId, player owner, integer colorId, real heroX, real heroY, real targetX, real targetY, group sceneUnits, group army returns nothing
@@ -101,8 +114,8 @@ function Trig_C_TWG_CreateFormation takes integer unitId, player owner, integer 
         set column = 0
         set rearDistance = 190.00 + 145.00 * I2R(row)
         loop
-            exitwhen column >= 5
-            set sideDistance = (I2R(column) - 2.00) * 115.00
+            exitwhen column >= 6
+            set sideDistance = (I2R(column) - 2.50) * 115.00
             set ux = heroX - forwardX * rearDistance + sideX * sideDistance
             set uy = heroY - forwardY * rearDistance + sideY * sideDistance
             set u = CreateUnit(owner, unitId, ux, uy, facing)
@@ -119,7 +132,7 @@ function Trig_C_TWG_CreateFormation takes integer unitId, player owner, integer 
     set u = null
 endfunction
 
-// Creates one five-unit rank behind a commander, using the same facing and
+// Creates one six-unit rank behind a commander, using the same facing and
 // spacing as the two front infantry ranks.
 function Trig_C_TWG_CreateFormationLine takes integer unitId, player owner, integer colorId, real heroX, real heroY, real targetX, real targetY, real rearDistance, group sceneUnits, group army returns nothing
     local integer column = 0
@@ -135,7 +148,7 @@ function Trig_C_TWG_CreateFormationLine takes integer unitId, player owner, inte
     local unit u
     loop
         exitwhen column >= 6
-        set sideDistance = (I2R(column) - 2.00) * 115.00
+        set sideDistance = (I2R(column) - 2.50) * 115.00
         set ux = heroX - forwardX * rearDistance + sideX * sideDistance
         set uy = heroY - forwardY * rearDistance + sideY * sideDistance
         set u = CreateUnit(owner, unitId, ux, uy, facing)
@@ -616,6 +629,8 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     local real scourgeStrike3Y = arthasY + (GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3) - arthasY) * 0.50
     local real scourgeStrike4X = arthasX + (GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4) - arthasX) * 0.50
     local real scourgeStrike4Y = arthasY + (GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4) - arthasY) * 0.50
+    local real scourgeStrike5X = arthasX + (GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5) - arthasX) * 0.50
+    local real scourgeStrike5Y = arthasY + (GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5) - arthasY) * 0.50
     local real bolvarRetreatX
     local real bolvarRetreatY
     local real bolvarSpeed
@@ -988,6 +1003,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call IssuePointOrder(catapult2, "attackground", scourgeStrike2X, scourgeStrike2Y)
     call IssuePointOrder(catapult3, "attackground", scourgeStrike3X, scourgeStrike3Y)
     call IssuePointOrder(catapult4, "attackground", scourgeStrike4X, scourgeStrike4Y)
+    call IssuePointOrder(catapult5, "attackground", scourgeStrike5X, scourgeStrike5Y)
 
     // 1:30 - Putress orders death to the Scourge.
     call Trig_C_TWG_WaitUntil(sceneTimer, 90.00)
@@ -1003,6 +1019,8 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike3X, scourgeStrike3Y, 350.00, 600.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike4X, scourgeStrike4Y, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike4X, scourgeStrike4Y, 350.00, 600.00)
+    set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike5X, scourgeStrike5Y, plagueClouds, plagueCloudCount)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike5X, scourgeStrike5Y, 350.00, 600.00)
 
     // Any Scourge outside the four impact radii still succumb before Putress
     // turns the barrage on the living.
@@ -1039,7 +1057,8 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set bolvarRetreatX = GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2)
     set bolvarRetreatY = GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2)
     set bolvarSpeed = GetUnitDefaultMoveSpeed(bolvar) * 0.75
-    // set bolvarArrival = 100.00 + SquareRoot((bolvarRetreatX - GetUnitX(bolvar)) * (bolvarRetreatX - GetUnitX(bolvar)) + (bolvarRetreatY - GetUnitY(bolvar)) * (bolvarRetreatY - GetUnitY(bolvar))) / bolvarSpeed
+    // Defend slows him further after the speed cut, so straight-line time is too low.
+    set bolvarArrival = 101.50 + SquareRoot((bolvarRetreatX - GetUnitX(bolvar)) * (bolvarRetreatX - GetUnitX(bolvar)) + (bolvarRetreatY - GetUnitY(bolvar)) * (bolvarRetreatY - GetUnitY(bolvar))) / bolvarSpeed * 1.50
     call PauseUnit(bolvar, false)
     call SetUnitPathing(bolvar, false)
     call SetUnitAcquireRange(bolvar, 0.00)
@@ -1057,19 +1076,19 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult3, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult4, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult5, fallbackUnits, plagueClouds, plagueCloudCount)
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 102.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 102.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 102.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult1, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 104.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 104.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 104.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult2, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 106.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 106.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 106.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult3, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 108.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 108.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 108.00)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult1, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult2, fallbackUnits, plagueClouds, plagueCloudCount)
@@ -1077,7 +1096,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult4, fallbackUnits, plagueClouds, plagueCloudCount)
     set plagueCloudCount = Trig_C_TWG_OrderCatapultAtRandomUnit(catapult5, fallbackUnits, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillRandomArmy(fallbackUnits, 6)
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 110.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 110.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 110.00)
     call ForGroup(fallbackUnits, function Trig_C_TWG_KillUnit)
     call IssuePointOrder(catapult1, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1))
@@ -1091,13 +1110,13 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call PauseUnit(arthas, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(arthasX, arthasY, plagueClouds, plagueCloudCount)
     call IssuePointOrder(arthas, "move", arthasSpawnX, arthasSpawnY)
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 120.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 120.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 120.00)
     call ShowUnit(arthas, false)
     call PauseUnit(arthas, true)
 
     // 2:05 - Putress declares the Forsaken's victory.
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 125.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 125.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 125.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'u04E', "Grand Apothecary Putress", scenePoint, null, "Now all can see, this is the hour of the Forsaken!", bj_TIMETYPE_SET, 11.00, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(sceneX, sceneY, plagueClouds, plagueCloudCount)
@@ -1111,7 +1130,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitAnimation(apothecary2, "spell")
 
     // 2:08 - midway through the line, Putress retreats from the battlefield.
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 128.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 128.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 128.00)
     call PauseUnit(putress, false)
     call SetUnitAcquireRange(putress, 0.00)
@@ -1129,12 +1148,10 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitAnimation(apothecary2, "spell")
 
     // 2:09 - Bolvar begins his 3.03-second death animation.
-    // set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 133.00, bolvarStopped)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 133.00, bolvarStopped)
     call Trig_C_TWG_WaitUntil(sceneTimer, 129.00)
     if not bolvarStopped then
         call IssueImmediateOrder(bolvar, "stop")
-        call SetUnitX(bolvar, bolvarRetreatX)
-        call SetUnitY(bolvar, bolvarRetreatY)
         call PauseUnit(bolvar, true)
     endif
     call SetUnitTimeScale(bolvar, 0.75)
