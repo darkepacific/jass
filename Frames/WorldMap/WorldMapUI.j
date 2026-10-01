@@ -7,7 +7,7 @@ library WorldMapUI initializer Init uses TasItemBag
     // Wiring: TasItemBag owns the Y side-key trigger; this library only adds its toggle action to it
     // via TasItemBagRegisterSideKeyAction (the same seam DialogSystem uses for the menu button).
     globals
-        private constant string  MAP_TEXTURE = "war3mapImported\\FullMap_v4.blp"
+        private constant string  MAP_TEXTURE = "war3mapImported\\FullMap_v7.blp"
         // The Y side-key is TasItemBag's SIDEKEY_EXTRA (index 3). Literal here, like the talents wiring.
         private constant integer SIDEKEY_EXTRA_INDEX = 3
         // Image is 1:1 (1024x1024), so the frame is square. Nudge these to taste.
@@ -21,7 +21,7 @@ library WorldMapUI initializer Init uses TasItemBag
         private constant real MAP_CLOSE_OFF_Y = -0.012
 
         // --- Hero markers (you + allies) ---
-        private constant real MARKER_SIZE   = 0.018   // size of each hero icon on the map
+        private constant real MARKER_SIZE   = 0.016   // size of each hero icon on the map
         private constant real MARKER_UPDATE = 0.25    // reposition interval (s) while the map is open
         private constant integer BOSS_MARKER_MAX = 16 // simultaneous quest/boss icons (WorldMapAddUnit)
         private constant integer STATIC_MARKER_MAX = 16 // simultaneous fixed icons (WorldMapAddStatic)
@@ -30,18 +30,18 @@ library WorldMapUI initializer Init uses TasItemBag
         // Where the actual playable map sits INSIDE the image border, as fractions of MAP_SIZE
         // (0 = left/bottom edge of the frame, 1 = right/top edge). CALIBRATE these so blips line up
         // with the terrain (see the note in chat: stand at a known landmark, nudge until it matches).
-        private constant real MAP_INNER_LEFT   = 0.070
-        private constant real MAP_INNER_RIGHT  = 0.920
-        private constant real MAP_INNER_BOTTOM = 0.075
-        private constant real MAP_INNER_TOP    = 0.925
+        private constant real MAP_INNER_LEFT   = 0.025
+        private constant real MAP_INNER_RIGHT  = 0.975
+        private constant real MAP_INNER_BOTTOM = 0.025
+        private constant real MAP_INNER_TOP    = 0.975
         // Pushes blips away from the map center (>1 = further out, scaled by distance from center,
         // so the effect is biggest at the edges). Fixes "icons sit too close to the center".
-        private constant real MAP_SPREAD       = 1.25
+        private constant real MAP_SPREAD       = 1.0//1.25
         // Click-to-pan grid: an N x N lattice of invisible click cells over the playable area. WC3
         // gives no cursor position on a custom frame click - only WHICH frame fired - so each cell is
         // itself a known map point, and clicking it pans there. Higher N = finer panning + more frames
         // (static/invisible: no in-game perf cost, only a touch of load time + frame budget).
-        private constant integer MAP_GRID_N    = 32
+        private constant integer MAP_GRID_N    = 40
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
