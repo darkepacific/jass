@@ -33,6 +33,8 @@
 //     gg_rct_TWG_Catapult_Outer_Attack_3
 //     gg_rct_TWG_Catapult_Outer_Attack_4
 //     gg_rct_TWG_Catapult_Outer_Attack_5
+//     gg_rct_TWG_Catapult_Precise_Scourge_Strike_1
+//     gg_rct_TWG_Catapult_Precise_Scourge_Strike_2
 //     gg_rct_TWG_Red_Dragons
 //     gg_rct_TWG_Putress_Retreat
 //===========================================================================
@@ -68,13 +70,16 @@ function Trig_C_TWG_WaitUntil takes timer sceneTimer, real timestamp returns not
     endif
 endfunction
 
-// Hold Bolvar only after he has walked to the retreat point. Never teleport him.
-// A low arrival estimate was snapping him forward before the walk finished.
+// Hold Bolvar only after he has walked onto the retreat point.
+// A wide arrival radius was pausing him short of the region center. The move
+// order also completes a step early, so that last step is corrected only once
+// he is already beside the point. Never snap him in from range.
 function Trig_C_TWG_StopBolvarIfDue takes unit bolvar, timer sceneTimer, real arrival, real nextBeat, boolean stopped returns boolean
     local real targetX
     local real targetY
     local real dx
     local real dy
+    local real distanceSquared
     if stopped then
         return true
     endif
@@ -82,7 +87,11 @@ function Trig_C_TWG_StopBolvarIfDue takes unit bolvar, timer sceneTimer, real ar
     set targetY = GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2)
     set dx = GetUnitX(bolvar) - targetX
     set dy = GetUnitY(bolvar) - targetY
-    if dx * dx + dy * dy <= 180.00 * 180.00 then
+    set distanceSquared = dx * dx + dy * dy
+    // On the point, or the order already finished just short of it.
+    if distanceSquared <= 36.00 * 36.00 or (distanceSquared <= 72.00 * 72.00 and GetUnitCurrentOrder(bolvar) != OrderId("move")) then
+        call SetUnitX(bolvar, targetX)
+        call SetUnitY(bolvar, targetY)
         call IssueImmediateOrder(bolvar, "stop")
         call PauseUnit(bolvar, true)
         return true
@@ -224,6 +233,43 @@ function Trig_C_TWG_KillRandomArmy takes group army, integer count returns nothi
     call DestroyGroup(temp)
     set temp = null
     set u = null
+endfunction
+
+// Kills the living Scourge actor nearest to Saurfang. Called while he is charging.
+function Trig_C_TWG_KillClosestUndead takes unit saurfang, group undead returns nothing
+    local group temp = CreateGroup()
+    local unit u
+    local unit closest = null
+    local real bestDistance = 100000000.00
+    local real dx
+    local real dy
+    local real distance
+    local real saurfangX = GetUnitX(saurfang)
+    local real saurfangY = GetUnitY(saurfang)
+    call GroupAddGroup(undead, temp)
+    loop
+        set u = FirstOfGroup(temp)
+        exitwhen u == null
+        call GroupRemoveUnit(temp, u)
+        if GetWidgetLife(u) > 0.405 then
+            set dx = GetUnitX(u) - saurfangX
+            set dy = GetUnitY(u) - saurfangY
+            set distance = dx * dx + dy * dy
+            if distance < bestDistance then
+                set bestDistance = distance
+                set closest = u
+            endif
+        endif
+    endloop
+    if closest != null then
+        call SetUnitInvulnerable(closest, false)
+        call PauseUnit(closest, false)
+        call KillUnit(closest)
+    endif
+    call DestroyGroup(temp)
+    set temp = null
+    set u = null
+    set closest = null
 endfunction
 
 function Trig_C_TWG_CollectImpactVictims takes group units, group victims, real x, real y, real radius returns integer
@@ -629,8 +675,10 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     local real scourgeStrike3Y = arthasY + (GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3) - arthasY) * 0.50
     local real scourgeStrike4X = arthasX + (GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4) - arthasX) * 0.50
     local real scourgeStrike4Y = arthasY + (GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4) - arthasY) * 0.50
-    local real scourgeStrike5X = arthasX + (GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5) - arthasX) * 0.50
-    local real scourgeStrike5Y = arthasY + (GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5) - arthasY) * 0.50
+    local real scourgeStrike5X = GetRectCenterX(gg_rct_TWG_Catapult_Precise_Scourge_Strike_1)
+    local real scourgeStrike5Y = GetRectCenterY(gg_rct_TWG_Catapult_Precise_Scourge_Strike_1)
+    local real scourgeStrike6X = GetRectCenterX(gg_rct_TWG_Catapult_Precise_Scourge_Strike_2)
+    local real scourgeStrike6Y = GetRectCenterY(gg_rct_TWG_Catapult_Precise_Scourge_Strike_2)
     local real bolvarRetreatX
     local real bolvarRetreatY
     local real bolvarSpeed
@@ -657,6 +705,10 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     local unit dragonAttackTarget3 = null
     local effect soulEffect = null
     local effect bloodEffect = null
+    local effect chargeEffect = null
+    local effect zigguratMissile1 = null
+    local effect zigguratMissile2 = null
+    local effect zigguratMissile3 = null
     local timer sceneTimer = CreateTimer()
 
     // Only one physical showing can run at once. If both factions complete the
@@ -784,8 +836,15 @@ function Trig_C_TWG_Actions takes nothing returns nothing
         call StartSound(gg_snd_Wrathgate_Cenamatic)
     endif
 
+    // 0:005
+    call Trig_C_TWG_WaitUntil(sceneTimer, 0.50)
+    if IsPlayerInForce(GetLocalPlayer(), viewers) then
+        call EndThematicMusic()
+        call StopMusicBJ(false)
+    endif
+
     // 0:01
-    call Trig_C_TWG_WaitUntil(sceneTimer, 0.05)
+    call Trig_C_TWG_WaitUntil(sceneTimer, 1.00)
     if IsPlayerInForce(GetLocalPlayer(), viewers) then
         call EndThematicMusic()
         call StopMusicBJ(false)
@@ -834,6 +893,8 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call Trig_C_TWG_CreateUndead('uske', arthasX, arthasY, 540.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
     call Trig_C_TWG_CreateUndead('uskm', arthasX, arthasY, 600.00, -65.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
     call Trig_C_TWG_CreateUndead('n06F', arthasX, arthasY, 660.00, -39.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('usog', arthasX, arthasY, 580.00, 144.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
+    call Trig_C_TWG_CreateUndead('nsoc', arthasX, arthasY, 660.00, 180.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
 
     // call Trig_C_TWG_CreateUndead('n059', arthasX, arthasY, 260.00, 0.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
     // call Trig_C_TWG_CreateUndead('nskg', arthasX, arthasY, 340.00, 36.00, (bolvarX + saurfangX) * 0.50, (bolvarY + saurfangY) * 0.50, sceneUnits, newUndead)
@@ -861,11 +922,22 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitState(saurfang, UNIT_STATE_MANA, GetUnitState(saurfang, UNIT_STATE_MAX_MANA))
     call PauseUnit(saurfang, false)
     call IssueImmediateOrder(saurfang, "howlofterror")
+
+    // 0:44 - Saurfang charges towards Arthas - killing undead along the way
     call Trig_C_TWG_WaitUntil(sceneTimer, 44.00)
+    set chargeEffect = AddSpecialEffectTarget("war3mapImported\\Valiant Charge.mdx", saurfang, "origin")
     call IssuePointOrder(saurfang, "move", GetUnitX(arthas) + 120.00, GetUnitY(arthas) - 120.00)
+    call Trig_C_TWG_WaitUntil(sceneTimer, 44.60)
+    call Trig_C_TWG_KillClosestUndead(saurfang, newUndead)
+    call Trig_C_TWG_WaitUntil(sceneTimer, 45.20)
+    call Trig_C_TWG_KillClosestUndead(saurfang, newUndead)
+    call Trig_C_TWG_WaitUntil(sceneTimer, 45.80)
+    call Trig_C_TWG_KillClosestUndead(saurfang, newUndead)
 
     // 0:46.4 - parry once, 0:47.4 - parry twice, 0:48.4 - Arthas begins the final blow.
     call Trig_C_TWG_WaitUntil(sceneTimer, 46.40)
+    call DestroyEffect(chargeEffect)
+    set chargeEffect = null
     call PauseUnit(saurfang, true)
     call SetUnitAnimation(saurfang, "attack")
     call SetUnitAnimation(arthas, "attack")
@@ -902,19 +974,27 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call BlzSetSpecialEffectScale(soulEffect, 1.35)
     call DestroyEffect(soulEffect)
     set soulEffect = null
+    set zigguratMissile1 = AddSpecialEffect("Abilities\\Weapons\\ZigguratMissile\\ZigguratMissile.mdl", GetUnitX(saurfang) + 50.00, GetUnitY(saurfang))
+    set zigguratMissile2 = AddSpecialEffect("Abilities\\Weapons\\ZigguratMissile\\ZigguratMissile.mdl", GetUnitX(saurfang) + 50.00 * Cos(120.00 * bj_DEGTORAD), GetUnitY(saurfang) + 50.00 * Sin(120.00 * bj_DEGTORAD))
+    set zigguratMissile3 = AddSpecialEffect("Abilities\\Weapons\\ZigguratMissile\\ZigguratMissile.mdl", GetUnitX(saurfang) + 50.00 * Cos(240.00 * bj_DEGTORAD), GetUnitY(saurfang) + 50.00 * Sin(240.00 * bj_DEGTORAD))
     call Trig_C_TWG_WaitUntil(sceneTimer, 56.00)
+    call DestroyEffect(zigguratMissile1)
+    call DestroyEffect(zigguratMissile2)
+    call DestroyEffect(zigguratMissile3)
+    set zigguratMissile1 = null
+    set zigguratMissile2 = null
+    set zigguratMissile3 = null
     call SetUnitAnimation(arthas, "stand")
 
-    // 0:59 - Bolvar challenges Arthas.
-    call Trig_C_TWG_WaitUntil(sceneTimer, 59.00)
+    // 0:58.5 - Bolvar challenges Arthas.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 58.50)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_PASSIVE), 'H048', "Highlord Bolvar Fordragon", scenePoint, null, "You will pay for all the lives you've stolen, traitor!", bj_TIMETYPE_SET, 5.00, false)
 
     // 1:04 - Arthas begins his reply.
     call Trig_C_TWG_WaitUntil(sceneTimer, 64.00)
     call TransmissionFromUnitTypeWithNameBJ(viewers, Player(PLAYER_NEUTRAL_AGGRESSIVE), 'Uear', "The Lich King", scenePoint, null, "Boldly stated. But there is nothing you can...", bj_TIMETYPE_SET, 5.00, false)
 
-    // 1:04.2 - set up catapult 2 early
-    call Trig_C_TWG_WaitUntil(sceneTimer, 64.2)
+    // 1:04 - set up catapult 2 early
     call ShowUnit(catapult2, true)
     call PauseUnit(catapult2, false)
     call SetUnitAcquireRange(catapult2, 0.00)
@@ -1021,6 +1101,9 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike4X, scourgeStrike4Y, 350.00, 600.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike5X, scourgeStrike5Y, plagueClouds, plagueCloudCount)
     call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike5X, scourgeStrike5Y, 350.00, 600.00)
+    set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike6X, scourgeStrike6Y, plagueClouds, plagueCloudCount)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike6X, scourgeStrike6Y, 350.00, 600.00)
+
 
     // Any Scourge outside the four impact radii still succumb before Putress
     // turns the barrage on the living.
@@ -1058,7 +1141,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set bolvarRetreatY = GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2)
     set bolvarSpeed = GetUnitDefaultMoveSpeed(bolvar) * 0.75
     // Defend slows him further after the speed cut, so straight-line time is too low.
-    set bolvarArrival = 101.50 + SquareRoot((bolvarRetreatX - GetUnitX(bolvar)) * (bolvarRetreatX - GetUnitX(bolvar)) + (bolvarRetreatY - GetUnitY(bolvar)) * (bolvarRetreatY - GetUnitY(bolvar))) / bolvarSpeed * 1.50
+    set bolvarArrival = 102.50 + SquareRoot((bolvarRetreatX - GetUnitX(bolvar)) * (bolvarRetreatX - GetUnitX(bolvar)) + (bolvarRetreatY - GetUnitY(bolvar)) * (bolvarRetreatY - GetUnitY(bolvar))) / bolvarSpeed * 1.50
     call PauseUnit(bolvar, false)
     call SetUnitPathing(bolvar, false)
     call SetUnitAcquireRange(bolvar, 0.00)
@@ -1147,9 +1230,9 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitAnimation(apothecary1, "spell")
     call SetUnitAnimation(apothecary2, "spell")
 
-    // 2:09 - Bolvar begins his 3.03-second death animation.
-    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 133.00, bolvarStopped)
-    call Trig_C_TWG_WaitUntil(sceneTimer, 129.00)
+    // Bolvar begins his 3.03-second death animation.
+    // call Trig_C_TWG_WaitUntil(sceneTimer, 129.00)
+    set bolvarStopped = Trig_C_TWG_StopBolvarIfDue(bolvar, sceneTimer, bolvarArrival, 128.00, bolvarStopped)
     if not bolvarStopped then
         call IssueImmediateOrder(bolvar, "stop")
         call PauseUnit(bolvar, true)
@@ -1167,15 +1250,25 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call SetUnitAnimation(apothecary1, "spell")
     call SetUnitAnimation(apothecary2, "spell")
 
-    // Play the two-second dissipate animation at 30% speed.
-    call Trig_C_TWG_WaitUntil(sceneTimer, 137.03)
-    call SetUnitTimeScale(bolvar, 0.26)
+    // Play the two-second dissipate animation at 20% speed.
+    call Trig_C_TWG_WaitUntil(sceneTimer, 137.00)
+    call SetUnitTimeScale(bolvar, 0.20)
     call SetUnitAnimation(bolvar, "dissipate")
     call SetUnitAnimation(apothecary1, "spell")
     call SetUnitAnimation(apothecary2, "spell")
     
     //remove putress
     call RemoveUnit(putress)
+
+    // 2:15 - spell again retarget catapults
+    call SetUnitAnimation(apothecary1, "spell")  
+    call SetUnitAnimation(apothecary2, "spell")
+    call IssuePointOrder(catapult1, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1) + GetRandomReal(-150, 150))
+    call IssuePointOrder(catapult2, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150))
+    call IssuePointOrder(catapult3, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150))
+    call IssuePointOrder(catapult4, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4) + GetRandomReal(-150, 150))
+    call IssuePointOrder(catapult5, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5) + GetRandomReal(-150, 150))
+
 
     // 2:19 - Bolvar realizes there is no escape.
     call Trig_C_TWG_WaitUntil(sceneTimer, 139.00)
@@ -1229,18 +1322,32 @@ function Trig_C_TWG_Actions takes nothing returns nothing
 
     // 2:26 - Bolvar's line ends while the dragons are in flight.
     call Trig_C_TWG_WaitUntil(sceneTimer, 146.00)
+    call Trig_C_TWG_OrderDragonMove(dragon1, putressX - 320.00, putressY - 180.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon2, putressX - 160.00, putressY + 180.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon3, putressX, putressY - 30.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon4, putressX + 160.00, putressY - 180.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon5, putressX + 320.00, putressY + 180.00, 150.00)
+
+    // 2:27 - Order dragons to move again
+    call Trig_C_TWG_OrderDragonMove(dragon1, putressX - 320.00, putressY - 180.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon2, putressX - 160.00, putressY + 180.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon3, putressX, putressY - 30.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon4, putressX + 160.00, putressY - 180.00, 150.00)
+    call Trig_C_TWG_OrderDragonMove(dragon5, putressX + 320.00, putressY + 180.00, 150.00)
 
     // 2:28 - the dragons begin burning the battlefield.
     call Trig_C_TWG_WaitUntil(sceneTimer, 148.00)
     set dragonFireCount = Trig_C_TWG_DragonFire(plagueClouds, plagueCloudCount, dragonFires, dragonFireCount)
-
     // Three dragons break formation and breathe fire at ground targets.
     set dragonAttackTarget1 = Trig_C_TWG_DragonAttackGround(dragon1, sceneX - 350.00, sceneY + 150.00, sceneUnits)
     set dragonAttackTarget2 = Trig_C_TWG_DragonAttackGround(dragon3, sceneX, sceneY - 100.00, sceneUnits)
     set dragonAttackTarget3 = Trig_C_TWG_DragonAttackGround(dragon5, sceneX + 350.00, sceneY + 170.00, sceneUnits)
     call ForGroup(army, function Trig_C_TWG_KillUnit)
+    // 2 Dragons peel off about 6 seconds before the first apothecary and catapult die.
+    call Trig_C_TWG_DragonStrikeUnit(dragon2, apothecary1)
+    call Trig_C_TWG_DragonStrikeUnit(dragon4, catapult1)
 
-    // 2 Dragons peel off about 4 seconds before the first apothecary and catapult die.
+    // Reorder dragon strikes 4 seconds before the first apothecary and catapult die.
     call Trig_C_TWG_WaitUntil(sceneTimer, 150.00)
     call Trig_C_TWG_DragonStrikeUnit(dragon2, apothecary1)
     call Trig_C_TWG_DragonStrikeUnit(dragon4, catapult1)
@@ -1380,6 +1487,10 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     set dragonAttackTarget3 = null
     set soulEffect = null
     set bloodEffect = null
+    set chargeEffect = null
+    set zigguratMissile1 = null
+    set zigguratMissile2 = null
+    set zigguratMissile3 = null
     set sceneTimer = null
 endfunction
 
