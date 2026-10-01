@@ -326,9 +326,26 @@ function Trig_C_TWG_CollectImpactVictimsOfType takes group units, group victims,
     return count
 endfunction
 
+// Crow form has to be applied before death or the corpse will not leave the ground.
+function Trig_C_TWG_TossDyingUnit takes unit u, real x, real y returns nothing
+    local real dx = GetUnitX(u) - x
+    local real dy = GetUnitY(u) - y
+    local real angle
+    if dx * dx + dy * dy < 1.00 then
+        set angle = GetRandomReal(0.00, 360.00)
+    else
+        set angle = Atan2(dy, dx) * bj_RADTODEG + GetRandomReal(-20.00, 20.00)
+    endif
+    call SetUnitInvulnerable(u, false)
+    call PauseUnit(u, false)
+    call SetUnitFacing(u, angle)
+    call KnockBackUnit(u, angle, 0.00, 200.00, 0.00, 22.00, true)
+    call KillUnit(u)
+endfunction
+
 // Kills 4-6 living units near a plague impact. If the primary radius contains
 // fewer than four candidates, one wider local search is used instead.
-function Trig_C_TWG_KillNearPlagueImpact takes group units, real x, real y, real primaryRadius, real backupRadius returns nothing
+function Trig_C_TWG_KillNearPlagueImpact takes group units, real x, real y, real primaryRadius, real backupRadius, boolean toss returns nothing
     local group victims = CreateGroup()
     local unit u
     local integer available
@@ -348,7 +365,11 @@ function Trig_C_TWG_KillNearPlagueImpact takes group units, real x, real y, real
         set u = GroupPickRandomUnit(victims)
         exitwhen u == null
         call GroupRemoveUnit(victims, u)
-        call KillUnit(u)
+        if toss then
+            call Trig_C_TWG_TossDyingUnit(u, x, y)
+        else
+            call KillUnit(u)
+        endif
         set killed = killed + 1
     endloop
     call DestroyGroup(victims)
@@ -1092,17 +1113,17 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     // 1:31 - the gate-side volley lands on the Scourge.
     call Trig_C_TWG_WaitUntil(sceneTimer, 91.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike1X, scourgeStrike1Y, plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike1X, scourgeStrike1Y, 350.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike1X, scourgeStrike1Y, 350.00, 600.00, true)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike2X, scourgeStrike2Y, plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike2X, scourgeStrike2Y, 350.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike2X, scourgeStrike2Y, 350.00, 600.00, true)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike3X, scourgeStrike3Y, plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike3X, scourgeStrike3Y, 350.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike3X, scourgeStrike3Y, 350.00, 600.00, true)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike4X, scourgeStrike4Y, plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike4X, scourgeStrike4Y, 350.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike4X, scourgeStrike4Y, 350.00, 600.00, true)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike5X, scourgeStrike5Y, plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike5X, scourgeStrike5Y, 350.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike5X, scourgeStrike5Y, 350.00, 600.00, true)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(scourgeStrike6X, scourgeStrike6Y, plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike6X, scourgeStrike6Y, 350.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(newUndead, scourgeStrike6X, scourgeStrike6Y, 350.00, 600.00, true)
 
 
     // Any Scourge outside the four impact radii still succumb before Putress
@@ -1124,15 +1145,15 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     // 1:36 - a second mass volley lands farther out among the living armies.
     call Trig_C_TWG_WaitUntil(sceneTimer, 96.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1), 425.00, 600.00, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2), 425.00, 600.00, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3), 425.00, 600.00, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_4), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_4), 425.00, 600.00, false)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), 425.00, 600.00, false)
 
     // 1:39 - Bolvar orders the retreat, raises defend, and falls back at 80% speed.
     call Trig_C_TWG_WaitUntil(sceneTimer, 99.00)
@@ -1221,7 +1242,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     call RemoveGuardPosition(putress)
     call IssuePointOrder(putress, "move", putressRetreatX, putressRetreatY)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), 425.00, 600.00, false)
     call IssuePointOrder(catapult1, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_1) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_1) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult2, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_2) + GetRandomReal(-150, 150))
     call IssuePointOrder(catapult3, "attackground", GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_3) + GetRandomReal(-150, 150))
@@ -1243,7 +1264,7 @@ function Trig_C_TWG_Actions takes nothing returns nothing
     // 2:11 - the second outer-attack shot lands while the apothecaries keep casting.
     call Trig_C_TWG_WaitUntil(sceneTimer, 131.00)
     set plagueCloudCount = Trig_C_TWG_PlagueBurst(GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), plagueClouds, plagueCloudCount)
-    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), 425.00, 600.00)
+    call Trig_C_TWG_KillNearPlagueImpact(army, GetRectCenterX(gg_rct_TWG_Catapult_Outer_Attack_5), GetRectCenterY(gg_rct_TWG_Catapult_Outer_Attack_5), 425.00, 600.00, false)
     call SetUnitAnimation(apothecary1, "spell")
     call SetUnitAnimation(apothecary2, "spell")
     call Trig_C_TWG_WaitUntil(sceneTimer, 134.00)

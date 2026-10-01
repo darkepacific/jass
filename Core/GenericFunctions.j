@@ -13,6 +13,8 @@ library GenericFunctions
         boolean DebugLogDirty = false
         timer DebugLogFlushTimer = CreateTimer()
         boolean array IsInSanctuary
+        unit array KnockBackUnits
+        integer KnockBackCount = 0
     endglobals
 
     // Formalised colour palette for the map. Use as Colors.RED etc. Each value is a
@@ -1503,26 +1505,95 @@ library GenericFunctions
         return false
     endfunction
 
-    function KnockBackUnit takes unit u, real angle, real startHeight, real maxHeight, real startingStep, real distancePerStep, boolean ignorePathing returns nothing
-        call UnitAddAbilityBJ('Amrf', u )
-        call UnitRemoveAbilityBJ('Amrf', u )
-        call SetUnitFlyHeightBJ(u, startHeight, 0.00 )
-        if(IsUnitInGroup(u, udg_KnockBacks) == false) then
-            call GroupAddUnitSimple(u, udg_KnockBacks )
-        else
-            call FlushChildHashtableBJ(GetHandleIdBJ(u), GetLastCreatedHashtableBJ() )
-        endif
-        call SaveRealBJ(angle, 0, GetHandleIdBJ(u), udg_KnockBacksHash )
-        call SaveRealBJ(startingStep, 1, GetHandleIdBJ(u), udg_KnockBacksHash )
-        call SaveRealBJ(maxHeight, 2, GetHandleIdBJ(u), udg_KnockBacksHash )
-        call SaveRealBJ(distancePerStep, 3, GetHandleIdBJ(u), udg_KnockBacksHash )
-        call SaveBooleanBJ(ignorePathing, 4, GetHandleIdBJ(u), udg_KnockBacksHash )
-        call AddSpecialEffectTargetUnitBJ("origin", u, "Abilities\\Weapons\\AncientProtectorMissile\\AncientProtectorMissile.mdl" )
-        call DestroyEffectBJ(GetLastCreatedEffectBJ() )
-        call EnableTrigger(gg_trg_KnockBackLoop)
+    private function KnockBackFind takes unit u returns integer
+        local integer i = KnockBackCount
+        loop
+            exitwhen i < 1
+            if KnockBackUnits[i] == u then
+                return i
+            endif
+            set i = i - 1
+        endloop
+        return 0
     endfunction
 
+    private function KnockBackTrack takes unit u returns nothing
+        if u == null or GetUnitTypeId(u) == 0 or KnockBackFind(u) != 0 then
+            return
+        endif
+        set KnockBackCount = KnockBackCount + 1
+        set KnockBackUnits[KnockBackCount] = u
+    endfunction
 
+    function KnockBackDrop takes integer i returns nothing
+        local unit u = KnockBackUnits[i]
+        if u != null and GetUnitTypeId(u) != 0 then
+            call SetUnitFlyHeight(u, 0.00, 0.00)
+            call FlushChildHashtable(udg_KnockBacksHash, GetHandleId(u))
+        endif
+        set KnockBackUnits[i] = KnockBackUnits[KnockBackCount]
+        set KnockBackUnits[KnockBackCount] = null
+        set KnockBackCount = KnockBackCount - 1
+        set u = null
+    endfunction
+
+    function KnockBackAbsorbGroup takes nothing returns nothing
+        local group temp = CreateGroup()
+        local unit u
+        call GroupAddGroup(udg_KnockBacks, temp)
+        loop
+            set u = FirstOfGroup(temp)
+            exitwhen u == null
+            call GroupRemoveUnit(temp, u)
+            call KnockBackTrack(u)
+        endloop
+        call DestroyGroup(temp)
+        set temp = null
+        set u = null
+    endfunction
+
+    function KnockBackRebuildGroup takes nothing returns nothing
+        local integer i = 1
+        call GroupClear(udg_KnockBacks)
+        loop
+            exitwhen i > KnockBackCount
+            if KnockBackUnits[i] != null and GetUnitTypeId(KnockBackUnits[i]) != 0 then
+                call GroupAddUnit(udg_KnockBacks, KnockBackUnits[i])
+            endif
+            set i = i + 1
+        endloop
+    endfunction
+
+    // Do not reorder: angle, startHeight, maxHeight, startingStep, distancePerStep, ignorePathing.
+    // Stored keys: 0 angle, 1 step, 2 height, 3 distance, 4 ignore pathing.
+    function KnockBackUnit takes unit u, real angle, real startHeight, real maxHeight, real startingStep, real distancePerStep, boolean ignorePathing returns nothing
+        local integer id
+        local effect fx
+        if u == null then
+            return
+        endif
+        set id = GetHandleId(u)
+        call UnitAddAbility(u, 'Amrf')
+        call UnitRemoveAbility(u, 'Amrf')
+        call SetUnitFlyHeight(u, startHeight, 0.00)
+        if KnockBackFind(u) != 0 then
+            call FlushChildHashtable(udg_KnockBacksHash, id)
+        else
+            call KnockBackTrack(u)
+        endif
+        if not IsUnitInGroup(u, udg_KnockBacks) then
+            call GroupAddUnit(udg_KnockBacks, u)
+        endif
+        call SaveReal(udg_KnockBacksHash, id, 0, angle)
+        call SaveReal(udg_KnockBacksHash, id, 1, startingStep)
+        call SaveReal(udg_KnockBacksHash, id, 2, maxHeight)
+        call SaveReal(udg_KnockBacksHash, id, 3, distancePerStep)
+        call SaveBoolean(udg_KnockBacksHash, id, 4, ignorePathing)
+        set fx = AddSpecialEffectTarget("Abilities\\Weapons\\AncientProtectorMissile\\AncientProtectorMissile.mdl", u, "origin")
+        call DestroyEffect(fx)
+        set fx = null
+        call EnableTrigger(gg_trg_KnockBackLoop)
+    endfunction
 
     function FactionCapture takes unit capturedUnit, player newOwner, string s, string adjective, boolean modifyBasesCapture returns nothing
         local player prevOwner = GetOwningPlayer(capturedUnit)

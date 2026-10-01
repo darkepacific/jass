@@ -1,71 +1,67 @@
-function Trig_KnockBackLoop_Func002Func001Func021C takes nothing returns boolean
-    if ( not ( udg_RealStatCalc >= 16.00 ) ) then
-        return false
-    endif
-    return true
-endfunction
-
-function Trig_KnockBackLoop_Func002Func001C takes nothing returns boolean
-    if ( not ( BlzIsUnitInvulnerable(GetEnumUnit()) == false ) ) then
-        return false
-    endif
-    return true
-endfunction
-
-function Trig_KnockBackLoop_Func002A takes nothing returns nothing
-    if ( Trig_KnockBackLoop_Func002Func001C() ) then
-        //call Debug("Knockback Loop Fired")
-        set udg_Temp_Angle = LoadRealBJ(0, GetHandleIdBJ(GetEnumUnit()), udg_KnockBacksHash)
-        set udg_Temp_Polar_Point = GetUnitLoc(GetEnumUnit())
-        set udg_RealStatCalc = LoadRealBJ(3, GetHandleIdBJ(GetEnumUnit()), udg_KnockBacksHash)
-        set udg_Temp_Unit_Point = PolarProjectionBJ(udg_Temp_Polar_Point, udg_RealStatCalc, udg_Temp_Angle)
-        if LoadBooleanBJ(4, GetHandleIdBJ(GetEnumUnit()), udg_KnockBacksHash) then    //Check If Ignoring Pathing
-        call Debug("Invalid pathing allowed")
-        call SetUnitPositionLoc( GetEnumUnit(), udg_Temp_Unit_Point )
-        elseif not IsTerrainPathable( GetLocationX(udg_Temp_Unit_Point), GetLocationY(udg_Temp_Unit_Point), PATHING_TYPE_WALKABILITY) then
-        call SetUnitPositionLoc( GetEnumUnit(), udg_Temp_Unit_Point )
-        endif
-        call RemoveLocation (udg_Temp_Unit_Point)
-        call RemoveLocation (udg_Temp_Polar_Point)
-        set udg_RealStatCalc = LoadRealBJ(1, GetHandleIdBJ(GetEnumUnit()), udg_KnockBacksHash)
-        set udg_RealStatCalc = ( udg_RealStatCalc + 1 )
-        set udg_Temp_Real = LoadRealBJ(2, GetHandleIdBJ(GetEnumUnit()), udg_KnockBacksHash)
-        call SetUnitFlyHeightBJ( GetEnumUnit(), ( udg_Temp_Real * SinBJ(AcosBJ(( 1.00 - ( udg_RealStatCalc / 8.00 ) ))) ), 0.00 )
-        if ( Trig_KnockBackLoop_Func002Func001Func021C() ) then
-            call FlushChildHashtableBJ( GetHandleIdBJ(GetEnumUnit()), GetLastCreatedHashtableBJ() )
-            call GroupRemoveUnitSimple( GetEnumUnit(), udg_KnockBacks )
-            call SetUnitFlyHeightBJ( GetEnumUnit(), 0.00, 0.00 )
+function KnockBackTick takes nothing returns nothing
+    local integer i
+    local unit u
+    local integer id
+    local real angle
+    local real distance
+    local real step
+    local real arc
+    local real x
+    local real y
+    local real nx
+    local real ny
+    call KnockBackAbsorbGroup()
+    set i = KnockBackCount
+    loop
+        exitwhen i < 1
+        set u = KnockBackUnits[i]
+        if u == null or GetUnitTypeId(u) == 0 or BlzIsUnitInvulnerable(u) then
+            call KnockBackDrop(i)
         else
-            call SaveRealBJ( udg_RealStatCalc, 1, GetHandleIdBJ(GetEnumUnit()), udg_KnockBacksHash )
+            set id = GetHandleId(u)
+            set angle = LoadReal(udg_KnockBacksHash, id, 0)
+            set distance = LoadReal(udg_KnockBacksHash, id, 3)
+            set x = GetUnitX(u)
+            set y = GetUnitY(u)
+            set nx = x + distance * Cos(angle * bj_DEGTORAD)
+            set ny = y + distance * Sin(angle * bj_DEGTORAD)
+            if LoadBoolean(udg_KnockBacksHash, id, 4) then
+                call SetUnitX(u, nx)
+                call SetUnitY(u, ny)
+            elseif not IsTerrainPathable(nx, ny, PATHING_TYPE_WALKABILITY) then
+                call SetUnitPosition(u, nx, ny)
+            endif
+            set step = LoadReal(udg_KnockBacksHash, id, 1) + 1.00
+            set arc = 1.00 - (step / 8.00)
+            if arc > 1.00 then
+                set arc = 1.00
+            elseif arc < -1.00 then
+                set arc = -1.00
+            endif
+            call SetUnitFlyHeight(u, LoadReal(udg_KnockBacksHash, id, 2) * Sin(Acos(arc)), 0.00)
+            if step >= 16.00 then
+                call KnockBackDrop(i)
+            else
+                call SaveReal(udg_KnockBacksHash, id, 1, step)
+            endif
         endif
-    else
-        call SetUnitFlyHeightBJ( GetEnumUnit(), 0.00, 0.00 )
-        call FlushChildHashtableBJ( GetHandleIdBJ(GetEnumUnit()), GetLastCreatedHashtableBJ() )
-        call GroupRemoveUnitSimple( GetEnumUnit(), udg_KnockBacks )
+        set i = i - 1
+    endloop
+    call KnockBackRebuildGroup()
+    if KnockBackCount == 0 then
+        call Debug("Knockbacks Is Empty")
+        call DisableTrigger(gg_trg_KnockBackLoop)
     endif
-endfunction
-
-function Trig_KnockBackLoop_Func003C takes nothing returns boolean
-    if ( not ( IsUnitGroupEmptyBJ(udg_KnockBacks) == true ) ) then
-        return false
-    endif
-    return true
+    set u = null
 endfunction
 
 function Trig_KnockBackLoop_Actions takes nothing returns nothing
-    call ForGroupBJ( udg_KnockBacks, function Trig_KnockBackLoop_Func002A )
-    if ( Trig_KnockBackLoop_Func003C() ) then
-        call Debug("Knockbacks Is Empty")
-        call DisableTrigger( GetTriggeringTrigger() )
-    else
-    endif
+    call KnockBackTick()
 endfunction
 
-//===========================================================================
 function InitTrig_KnockBackLoop takes nothing returns nothing
-    set gg_trg_KnockBackLoop = CreateTrigger(  )
-    call DisableTrigger( gg_trg_KnockBackLoop )
-    call TriggerRegisterTimerEventPeriodic( gg_trg_KnockBackLoop, 0.02 )
-    call TriggerAddAction( gg_trg_KnockBackLoop, function Trig_KnockBackLoop_Actions )
+    set gg_trg_KnockBackLoop = CreateTrigger()
+    call DisableTrigger(gg_trg_KnockBackLoop)
+    call TriggerRegisterTimerEventPeriodic(gg_trg_KnockBackLoop, 0.02)
+    call TriggerAddAction(gg_trg_KnockBackLoop, function Trig_KnockBackLoop_Actions)
 endfunction
-
