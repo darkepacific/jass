@@ -1,6 +1,6 @@
 function SkumSpecial takes nothing returns nothing
     local effect skum
-    local location center = GetRectCenter(gg_rct_E_Skum_the_Ferocious)
+    local location center = GetRectCenter(gg_rct_QE_Skum_the_Ferocious)
 
     call AddSpecialEffectLocBJ( center, "Abilities\\Spells\\Items\\AIre\\AIreTarget.mdl" )
     call BlzSetSpecialEffectZ(GetLastCreatedEffectBJ(), BlzGetLocalSpecialEffectZ(GetLastCreatedEffectBJ()) + 180)
@@ -29,7 +29,7 @@ endfunction
 //===========================================================================
 
 function Trig_C_SKTF_Actions takes nothing returns nothing
-    local location center = GetRectCenter(gg_rct_E_Skum_the_Ferocious)
+    local location center = GetRectCenter(gg_rct_QE_Skum_the_Ferocious)
     local location offset = PolarProjectionBJ(center, GetRandomReal(20, 160.0), GetRandomReal(0, 360.0))
     local effect sparkle
     local integer exec = GetTriggerExecCount(gg_trg_C_SKTF) + 1

@@ -1494,11 +1494,11 @@ library GenericFunctions
     endfunction
 
     function IsUnitInSanctuary takes unit u returns boolean
-        if RectContainsUnit(gg_rct_Dalaran_City, u) then
+        if RectContainsUnit(gg_rct_Z_Dalaran_City, u) then
             return true
-        elseif RectContainsUnit(gg_rct_Lights_Hope_9, u) then
+        elseif RectContainsUnit(gg_rct_Z_Lights_Hope_9, u) then
             return true
-        elseif RectContainsUnit(gg_rct_Vemillion_Redoubt, u) then
+        elseif RectContainsUnit(gg_rct_Z_Vemillion_Redoubt, u) then
             return true
         endif
 
