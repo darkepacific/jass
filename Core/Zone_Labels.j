@@ -3215,34 +3215,6 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         set p = null
     endfunction
 
-    private function ZoneLabels_DisableLegacyLabels takes nothing returns nothing
-        // These 22 are label-only triggers in the supplied snapshot. In particular,
-        // gg_trg_Gilneas_10 and gg_trg_Silverpine_2 are NOT on this list: they assign
-        // revive areas and must remain active. Music and capture triggers stay active.
-        call DisableTrigger(gg_trg_Tirisfal)
-        call DisableTrigger(gg_trg_Silverpine)
-        call DisableTrigger(gg_trg_Gilneas)
-        call DisableTrigger(gg_trg_Hillsbrad)
-        call DisableTrigger(gg_trg_Tol_Barad)
-        call DisableTrigger(gg_trg_Arathi_Highlands)
-        call DisableTrigger(gg_trg_Hinterlands)
-        call DisableTrigger(gg_trg_Alterac_Mountains)
-        call DisableTrigger(gg_trg_Wetlands)
-        call DisableTrigger(gg_trg_Eversong_Woods)
-        call DisableTrigger(gg_trg_Scholomance)
-        call DisableTrigger(gg_trg_Dalaran)
-        call DisableTrigger(gg_trg_Crystalsong_Forest)
-        call DisableTrigger(gg_trg_Icecrown)
-        call DisableTrigger(gg_trg_Dragonblight)
-        call DisableTrigger(gg_trg_Scarlet_Onslaught)
-        call DisableTrigger(gg_trg_Grizzly_Hills)
-        call DisableTrigger(gg_trg_Zul_Drak)
-        call DisableTrigger(gg_trg_Argent_Tournament)
-        call DisableTrigger(gg_trg_Azjol_Nerub)
-        call DisableTrigger(gg_trg_Ulduar)
-        call DisableTrigger(gg_trg_Storm_Peaks)
-    endfunction
-
     // Block only old audio. Retain trigger enable flags used by Gilneas mechanics.
     private function ZoneLabels_BlockAmbient takes nothing returns boolean
         return false
@@ -3384,7 +3356,6 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         call ZoneLabels_ConfigureLabels()
         call ZoneLabels_ConfigureMusic()
         call ZoneLabels_ConfigureTransitions()
-        call ZoneLabels_DisableLegacyLabels()
         call ZoneLabels_HookLegacyMusic()
         loop
             exitwhen playerID >= bj_MAX_PLAYER_SLOTS
