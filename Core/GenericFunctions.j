@@ -15,6 +15,8 @@ library GenericFunctions
         boolean array IsInSanctuary
         unit array KnockBackUnits
         integer KnockBackCount = 0
+        private integer SanctuaryRectCount = 0
+        private rect array SanctuaryRects
     endglobals
 
     // Formalised colour palette for the map. Use as Colors.RED etc. Each value is a
@@ -417,6 +419,53 @@ library GenericFunctions
         endif
         call DestroyForce(f)
         set f = null
+    endfunction
+
+    // Null rectangles are ignored; repeated registration returns the existing ID.
+    function SanctuaryRegisterRect takes rect bounds returns integer
+        local integer i = 1
+        if bounds == null then
+            return 0
+        endif
+        loop
+            exitwhen i > SanctuaryRectCount
+            if SanctuaryRects[i] == bounds then
+                return i
+            endif
+            set i = i + 1
+        endloop
+        set SanctuaryRectCount = SanctuaryRectCount + 1
+        set SanctuaryRects[SanctuaryRectCount] = bounds
+        return SanctuaryRectCount
+    endfunction
+
+    // Raw geometry only. Game-mode protection is handled by the controller.
+    // Overlapping sanctuaries form a protected union; first registration names an overlap.
+    function SanctuaryResolve takes unit u returns integer
+        local integer i = 1
+        if u == null then
+            return 0
+        endif
+        if GetUnitTypeId(u) == 0 then
+            return 0
+        endif
+        // Duel Island is never classified as a sanctuary, even if rectangles overlap.
+        if RectContainsUnit(gg_rct_Z_Duel_Island, u) then
+            return 0
+        endif
+        loop
+            exitwhen i > SanctuaryRectCount
+            if RectContainsUnit(SanctuaryRects[i], u) then
+                return i
+            endif
+            set i = i + 1
+        endloop
+        return 0
+    endfunction
+
+    // Retain the existing public API; remove its old hard-coded three-region body.
+    function IsUnitInSanctuary takes unit u returns boolean
+        return SanctuaryResolve(u) != 0
     endfunction
 
     function SetPlayerInSanctuary takes player p, boolean value returns nothing
@@ -1491,18 +1540,6 @@ library GenericFunctions
         endloop
     
         set itm = null
-    endfunction
-
-    function IsUnitInSanctuary takes unit u returns boolean
-        if RectContainsUnit(gg_rct_Z_Dalaran_City, u) then
-            return true
-        elseif RectContainsUnit(gg_rct_Z_Lights_Hope_9, u) then
-            return true
-        elseif RectContainsUnit(gg_rct_Z_Vemillion_Redoubt, u) then
-            return true
-        endif
-
-        return false
     endfunction
 
     private function KnockBackFind takes unit u returns integer

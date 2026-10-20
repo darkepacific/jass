@@ -41,7 +41,7 @@ library WorldMapUI initializer Init uses TasItemBag
         // gives no cursor position on a custom frame click - only WHICH frame fired - so each cell is
         // itself a known map point, and clicking it pans there. Higher N = finer panning + more frames
         // (static/invisible: no in-game perf cost, only a touch of load time + frame budget).
-        private constant integer MAP_GRID_N    = 40
+        private constant integer MAP_GRID_N    = 64
 
         private framehandle MapPanel = null
         private framehandle MapCloseButton = null
