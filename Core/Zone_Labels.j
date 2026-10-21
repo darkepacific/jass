@@ -1525,24 +1525,25 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         // Weeping_Cave_Mine_Entrance is in Western Plaguelands.
         set z = ZoneLabels_Define("Western Plaguelands", 10)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_5, "Western Plaguelands 5")
-        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_5, ZM_Western_Plaguelands_M, false)
+        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_5, ZM_Chillwind_Camp, false)
         call ZoneLabels_BindDeath(gg_rct_Z_Western_Plaguelands_5, ZD_WESTERN_PLAGUELANDS)
         // Explicit WP label here; no direct music binding so entry music can continue.
         // The same rectangle remains a buffered transition, with its death policy bound there.
         call ZoneLabels_AddRect(z, gg_rct_Z_WP_Transition_5, "WP Transition 5")
+        call ZoneLabels_AddRect(z, gg_rct_Z_WP_Transition_Tiny_E, "WP Transition Tiny E")
         // Transition also configured in ZoneLabels_ConfigureTransitions: gg_rct_Z_WP_Transition_5
         call ZoneLabels_AddRect(z, gg_rct_Z_Weeping_Cave_WP, "Weeping Cave WP")
         call ZoneLabels_BindMusic(gg_rct_Z_Weeping_Cave_WP, ZM_Ogre_Konold_Sludge_Golem_Cave, true)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_North_5, "Western Plaguelands North 5")
-        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_North_5, ZM_Western_Plaguelands_M, false)
+        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_North_5, ZM_Chillwind_Camp, false)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_Dwarf_Farm_5, "Western Plaguelands Dwarf Farm 5")
-        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_Dwarf_Farm_5, ZM_Western_Plaguelands_M, false)
+        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_Dwarf_Farm_5, ZM_Chillwind_Camp, false)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_East_5, "Western Plaguelands East 5")
-        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_East_5, ZM_Western_Plaguelands_M, false)
+        call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_East_5, ZM_Chillwind_Camp, false)
 
         set z = ZoneLabels_Define("The Mender's Stead", 20)
         call ZoneLabels_AddRect(z, gg_rct_Z_MoonWell_WP, "MoonWell WP")
-        call ZoneLabels_BindMusic(gg_rct_Z_MoonWell_WP, ZM_Night_Elf_Shaladnis_M, true)
+        call ZoneLabels_BindMusic(gg_rct_Z_MoonWell_WP, ZM_Chillwind_Camp, true)
         call ZoneLabels_BindDeath(gg_rct_Z_MoonWell_WP, ZD_WESTERN_PLAGUELANDS)
         call ZoneLabels_AddRect(z, gg_rct_Z_The_Menders_Stead, "The Menders Stead")
         call ZoneLabels_BindDeath(gg_rct_Z_The_Menders_Stead, ZD_WESTERN_PLAGUELANDS)
@@ -1555,7 +1556,7 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
 
         set z = ZoneLabels_Define("Uther's Tomb", 20)
         call ZoneLabels_AddRect(z, gg_rct_Z_Uthers_Grave_Music, "Uthers Grave Music")
-        call ZoneLabels_BindMusic(gg_rct_Z_Uthers_Grave_Music, ZM_Uthers_Grave_M, true)
+        call ZoneLabels_BindMusic(gg_rct_Z_Uthers_Grave_Music, ZM_Chillwind_Camp, true)
 
         // Eastern Plaguelands
         // REVIEW PARENT: Cryptlord_Music is mostly INSIDE Eastern_Plaguelands_9. This follows that
@@ -2441,6 +2442,14 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Andorhal_5)
         call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_Bulwark_12)
 
+        set t = ZoneLabels_AddTransition(gg_rct_Z_WP_Transition_Tiny_E, "WP Transition Tiny E", 20, true)
+        call ZoneLabels_BindDeath(gg_rct_Z_WP_Transition_Tiny_E, ZD_WESTERN_PLAGUELANDS)
+        // Explicit legacy death assignment preserved here; music buffering does not alter it.
+        call ZoneLabels_AddAnchor(t, gg_rct_Z_Western_Plaguelands_5)
+        call ZoneLabels_AddAnchor(t, gg_rct_Z_Andorhal_5)
+        // call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_ChromieInn)
+        call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_Bulwark_12)
+
         set t = ZoneLabels_AddTransition(gg_rct_Z_Arathi_Starting_Transition_100, "Arathi Starting Transition 100", 10, false)
         call ZoneLabels_BindDeath(gg_rct_Z_Arathi_Starting_Transition_100, ZD_ARATHI)
         // Explicit legacy death assignment preserved here; music buffering does not alter it.
@@ -3033,11 +3042,29 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
 
     // Dedicated Chillwind Camp test track. Keep the Sound Editor music handle/import.
     private function ZoneLabels_Play_Chillwind_Camp takes player p returns nothing
+        local integer rand = GetRandomInt(1, 3)
         if GetLocalPlayer() == p then
             call ClearMapMusicBJ()
             call StopMusicBJ(false)
             call EndThematicMusicBJ()
-            call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+            
+
+            if rand == 1 then
+                call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueC_GD01.mp3")
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueA_GN01)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueC_GD01)
+            elseif rand == 2 then
+                call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueB_GN03.mp3")
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueC_GD01)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueA_GN01)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+            else
+                call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueA_GN01.mp3")
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueC_GD01)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueA_GN01)
+            endif
         endif
     endfunction
 
