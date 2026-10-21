@@ -26,8 +26,8 @@
 //   set t = ZoneLabels_AddTransition(r, diagnosticName, transitionPriority, bufferMusic)
 //   ZoneLabels_AddAnchor(t, neighboringRect) follows immediately; finish the list before the next transition.
 //   A normal anchor allows both walk-in continuity and nearest-anchor arrival fallback.
-//   ZoneLabels_AddLatchAnchor allows continuity but is excluded while regular fallback anchors exist.
-//   Fallback measures distance to rectangle edges, not centers. It stays latched while moving.
+//   ZoneLabels_AddSoftAnchor allows continuity but is excluded while regular fallback anchors exist.
+//   Fallback measures distance to rectangle edges, not centers. It stays soft-anchored while moving.
 //
 // TWO DIFFERENT PRIORITIES / TWO DIFFERENT BOOLEANS
 //   Define priority: compares normal LABEL groups. Higher wins; equal means first configured.
@@ -74,7 +74,7 @@
 //   Venomweb Vale. Five Hillsbrad/Arathi coverage additions from 7.3 are also preserved.
 //   Four transitions already had explicit GUI death assignments: those assignments remain explicit.
 //   Other transition-only space retains incoming death state or uses a faction-valid local anchor.
-//   Death fallback ignores music's latch-only/buffer flags and does not search for a global nearest GY.
+//   Death fallback ignores music's soft-only/buffer flags and does not search for a global nearest GY.
 //   Overlapping direct death coverage uses the smaller rectangle; equal-size ties keep binding order.
 //   This is intentionally independent of label priority. Comparison differences need review before use.
 //   Unsupported numbers (including Alliance 8/12 and both factions 16/18/19) are never new assignments.
@@ -116,7 +116,7 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         private integer array ZoneLabels_AnchorLast
         private integer ZoneLabels_AnchorCount = 0
         private integer array ZoneLabels_AnchorPlace
-        private boolean array ZoneLabels_AnchorLatchOnly
+        private boolean array ZoneLabels_AnchorSoftOnly
         // Music policies (profile): legacy key and shared playback family.
         private string array ZoneLabels_MusicKey
         private integer array ZoneLabels_MusicFamily
@@ -399,12 +399,12 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         set ZoneLabels_AnchorLast[t] = ZoneLabels_AnchorCount
     endfunction
 
-    // AddLatchAnchor(t, r): same parameters as AddAnchor, but continuity-only while regular anchors exist.
+    // AddSoftAnchor(t, r): same parameters as AddAnchor, but continuity-only while regular anchors exist.
     // Walking out of r can retain it. A fresh arrival chooses among regular anchors instead.
-    // If no usable regular anchor exists, the current resolver can fall back to a latch-only anchor.
-    private function ZoneLabels_AddLatchAnchor takes integer t, rect r returns nothing
+    // If no usable regular anchor exists, the current resolver can fall back to a soft-only anchor.
+    private function ZoneLabels_AddSoftAnchor takes integer t, rect r returns nothing
         call ZoneLabels_AddAnchor(t, r)
-        set ZoneLabels_AnchorLatchOnly[ZoneLabels_AnchorCount] = true
+        set ZoneLabels_AnchorSoftOnly[ZoneLabels_AnchorCount] = true
     endfunction
 
     // GetName(z) -> displayed text for a label-group ID; invalid IDs return empty text.
@@ -541,24 +541,24 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
     endfunction
 
     // Fallback(t, x, y) -> nearest registered regular anchor place for transition t.
-    // Uses latch-only candidates only if no usable regular anchor exists; 0 if none exist.
+    // Uses soft-only candidates only if no usable regular anchor exists; 0 if none exist.
     private function ZoneLabels_Fallback takes integer t, real x, real y returns integer
         local integer i = ZoneLabels_AnchorFirst[t]
         local integer a = 0
         local integer best = 0
-        local integer bestLatch = 0
+        local integer bestSoft = 0
         local real distance = 0.0
         local real bestDistance = 0.0
-        local real bestLatchDistance = 0.0
+        local real bestSoftDistance = 0.0
         loop
             exitwhen i > ZoneLabels_AnchorLast[t]
             set a = ZoneLabels_AnchorPlace[i]
             if a != 0 then
                 set distance = ZoneLabels_RectDistanceSquared(ZoneLabels_PlaceRect[a], x, y)
-                if ZoneLabels_AnchorLatchOnly[i] then
-                    if bestLatch == 0 or distance < bestLatchDistance then
-                        set bestLatch = a
-                        set bestLatchDistance = distance
+                if ZoneLabels_AnchorSoftOnly[i] then
+                    if bestSoft == 0 or distance < bestSoftDistance then
+                        set bestSoft = a
+                        set bestSoftDistance = distance
                     endif
                 elseif best == 0 or distance < bestDistance then
                     set best = a
@@ -568,7 +568,7 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
             set i = i + 1
         endloop
         if best == 0 then
-            return bestLatch
+            return bestSoft
         endif
         return best
     endfunction
@@ -576,11 +576,11 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
     // TransitionPlace(t, previous, oldTransition, remote, x, y) -> selected place ID.
     // previous: this player's last label OR music place; callers maintain separate histories.
     // oldTransition: transition that last retained that history. remote: continuity invalidated.
-    // Local eligible arrivals, or movement within the same latched transition, retain previous.
+    // Local eligible arrivals, or movement within the same soft-anchored transition, retain previous.
     // Otherwise choose Fallback(t, x, y); crossing the midpoint does not repeatedly switch it.
     private function ZoneLabels_TransitionPlace takes integer t, integer previous, integer oldTransition, boolean remote, real x, real y returns integer
         if not remote and previous != 0 then
-            // Latch a local fallback instead of recomputing it around a midpoint.
+            // Soft a local fallback instead of recomputing it around a midpoint.
             if t == oldTransition or ZoneLabels_Eligible(t, previous) then
                 return previous
             endif
@@ -1536,16 +1536,19 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         call ZoneLabels_BindMusic(gg_rct_Z_Weeping_Cave_WP, ZM_Ogre_Konold_Sludge_Golem_Cave, true)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_North_5, "Western Plaguelands North 5")
         call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_North_5, ZM_Chillwind_Camp, false)
+        call ZoneLabels_BindDeath(gg_rct_Z_Western_Plaguelands_North_5, ZD_WESTERN_PLAGUELANDS)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_Dwarf_Farm_5, "Western Plaguelands Dwarf Farm 5")
         call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_Dwarf_Farm_5, ZM_Chillwind_Camp, false)
         call ZoneLabels_AddRect(z, gg_rct_Z_Western_Plaguelands_East_5, "Western Plaguelands East 5")
         call ZoneLabels_BindMusic(gg_rct_Z_Western_Plaguelands_East_5, ZM_Chillwind_Camp, false)
+        call ZoneLabels_BindDeath(gg_rct_Z_Western_Plaguelands_East_5, ZD_WESTERN_PLAGUELANDS)
 
         set z = ZoneLabels_Define("The Mender's Stead", 20)
         call ZoneLabels_AddRect(z, gg_rct_Z_MoonWell_WP, "MoonWell WP")
         call ZoneLabels_BindMusic(gg_rct_Z_MoonWell_WP, ZM_Chillwind_Camp, true)
         call ZoneLabels_BindDeath(gg_rct_Z_MoonWell_WP, ZD_WESTERN_PLAGUELANDS)
         call ZoneLabels_AddRect(z, gg_rct_Z_The_Menders_Stead, "The Menders Stead")
+        call ZoneLabels_BindMusic(gg_rct_Z_MoonWell_WP, ZM_Chillwind_Camp, true)
         call ZoneLabels_BindDeath(gg_rct_Z_The_Menders_Stead, ZD_WESTERN_PLAGUELANDS)
 
         set z = ZoneLabels_Define("Hearthglen", 20)
@@ -2439,16 +2442,18 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         call ZoneLabels_BindDeath(gg_rct_Z_WP_Transition_5, ZD_WESTERN_PLAGUELANDS)
         // Explicit legacy death assignment preserved here; music buffering does not alter it.
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Western_Plaguelands_5)
+        call ZoneLabels_AddAnchor(t, gg_rct_Z_Western_Plaguelands_East_5)
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Andorhal_5)
-        call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_Bulwark_12)
+        call ZoneLabels_AddSoftAnchor(t, gg_rct_Z_Bulwark_12)
 
         set t = ZoneLabels_AddTransition(gg_rct_Z_WP_Transition_Tiny_E, "WP Transition Tiny E", 20, true)
         call ZoneLabels_BindDeath(gg_rct_Z_WP_Transition_Tiny_E, ZD_WESTERN_PLAGUELANDS)
         // Explicit legacy death assignment preserved here; music buffering does not alter it.
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Western_Plaguelands_5)
-        call ZoneLabels_AddAnchor(t, gg_rct_Z_Andorhal_5)
-        // call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_ChromieInn)
-        call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_Bulwark_12)
+        call ZoneLabels_AddAnchor(t, gg_rct_Z_Western_Plaguelands_East_5)
+        call ZoneLabels_AddSoftAnchor(t, gg_rct_Z_Andorhal_5)
+        // call ZoneLabels_AddSoftAnchor(t, gg_rct_Z_ChromieInn)
+        call ZoneLabels_AddSoftAnchor(t, gg_rct_Z_Bulwark_12)
 
         set t = ZoneLabels_AddTransition(gg_rct_Z_Arathi_Starting_Transition_100, "Arathi Starting Transition 100", 10, false)
         call ZoneLabels_BindDeath(gg_rct_Z_Arathi_Starting_Transition_100, ZD_ARATHI)
@@ -2457,7 +2462,7 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Arathi_Starting_Zone_S_100)
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Arathi_North_1)
 
-        // Tarren Mill and Dalaran Ruins latch local state but are not the distance fallback for the
+        // Tarren Mill and Dalaran Ruins soft local state but are not the distance fallback for the
         // broad band: it reaches over 1000 units from both.
         set t = ZoneLabels_AddTransition(gg_rct_Z_North_Hillsbrad_Transition_3, "North Hillsbrad Transition 3", 10, false)
         call ZoneLabels_BindDeath(gg_rct_Z_North_Hillsbrad_Transition_3, ZD_HILLSBRAD)
@@ -2465,8 +2470,8 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Hillsbrad_Foothills_3)
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Hillsbrad_Foothills_E_3)
         call ZoneLabels_AddAnchor(t, gg_rct_Z_Alterac_4)
-        call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_Tarren_Mill_Music_3)
-        call ZoneLabels_AddLatchAnchor(t, gg_rct_Z_Dalaran_Crater_3)
+        call ZoneLabels_AddSoftAnchor(t, gg_rct_Z_Tarren_Mill_Music_3)
+        call ZoneLabels_AddSoftAnchor(t, gg_rct_Z_Dalaran_Crater_3)
 
         // The narrowed 640x640 border now uses regular anchors on BOTH sides.
         // Walking retains the incoming side; remote arrivals choose the nearest anchor rectangle.
@@ -3052,16 +3057,16 @@ library ZoneLabels initializer ZoneLabels_Init requires ZoneText, GenericFunctio
             if rand == 1 then
                 call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueC_GD01.mp3")
                 call PlayMusicBJ(gg_snd_MUS_WestPlagueA_GN01)
-                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN02)
                 call PlayMusicBJ(gg_snd_MUS_WestPlagueC_GD01)
             elseif rand == 2 then
-                call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueB_GN03.mp3")
+                call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueB_GN02.mp3")
                 call PlayMusicBJ(gg_snd_MUS_WestPlagueC_GD01)
                 call PlayMusicBJ(gg_snd_MUS_WestPlagueA_GN01)
-                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN02)
             else
                 call PlayThematicMusicBJ("war3mapImported\\MUS_WestPlagueA_GN01.mp3")
-                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN03)
+                call PlayMusicBJ(gg_snd_MUS_WestPlagueB_GN02)
                 call PlayMusicBJ(gg_snd_MUS_WestPlagueC_GD01)
                 call PlayMusicBJ(gg_snd_MUS_WestPlagueA_GN01)
             endif
