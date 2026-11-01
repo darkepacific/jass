@@ -1,4 +1,4 @@
-library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPointFrame
+library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPointFrame, ZoneText
 
 	globals
 
@@ -117,6 +117,8 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPoint
 				endif
 			endif
 		endif
+		// Failed loads may return this player to character selection.
+		call ZoneTextShowForPlayer(whichPlayer, not isInHeroSelection[pid] and udg_Heroes[GetPlayerHeroNumber(whichPlayer)] != null)
 	endfunction
 	
 	function HeroSelectionOnFinal takes nothing returns nothing
@@ -135,6 +137,7 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPoint
 	//=================================================================================================================================
 	
 	function HeroSelectionOnRestart takes nothing returns nothing
+		call ZoneTextShowForPlayer(GetLocalPlayer(), false)
 		//Here you can insert additional code that is executed when hero selection is restarted.
 		static if LIBRARY_TestHeroSelection then
 		endif
@@ -168,6 +171,7 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPoint
 	endfunction
 
 	function HeroSelectionOnReturn takes player whichPlayer returns nothing
+		call ZoneTextShowForPlayer(whichPlayer, false)
 		//Here you can insert additional code that is executed when a player returns to hero selection.
 	endfunction
 
@@ -176,6 +180,7 @@ library HeroSelectionCallbacks requires HeroSelection, StartingPoint, ComboPoint
 	endfunction
 
 	function HeroSelectionOnBegin takes nothing returns nothing
+		call ZoneTextShowForPlayer(GetLocalPlayer(), false)
 		//Here you can insert additional code that is executed when players are locked into hero selection.
 		// static if LIBRARY_NeatMessages and LIBRARY_TestHeroSelection then
 		// 	call NeatMessageTimedInWindow(5, "Heroes from all across Azeroth have gathered to fight the darkness. Only you can save this land...", centerWindow)

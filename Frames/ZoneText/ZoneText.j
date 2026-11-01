@@ -48,6 +48,7 @@ library ZoneText initializer Init requires optional FrameLoader
 
         private framehandle Panel = null
         private framehandle Label = null
+        private boolean Visible = false // Local state survives frame reconstruction.
     endglobals
 
     // ---- Display primitives (local-only) -------------------------------------
@@ -89,8 +90,11 @@ library ZoneText initializer Init requires optional FrameLoader
 
     // PUBLIC: show/hide the whole banner for one player.
     function ZoneTextShowForPlayer takes player p, boolean show returns nothing
-        if Panel != null and GetLocalPlayer() == p then
-            call BlzFrameSetVisible(Panel, show)
+        if GetLocalPlayer() == p then
+            set Visible = show
+            if Panel != null then
+                call BlzFrameSetVisible(Panel, Visible)
+            endif
         endif
     endfunction
 
@@ -120,6 +124,7 @@ library ZoneText initializer Init requires optional FrameLoader
         local framehandle gameUI = BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0)
 
         set Panel = BlzCreateFrameByType("BACKDROP", "ZoneTextPanel", gameUI, "", 0)
+        call BlzFrameSetVisible(Panel, Visible)
         call BlzFrameSetTexture(Panel, COVER_TEXTURE, 0, true) // already solid black, no tint needed
         call BlzFrameSetLevel(Panel, PANEL_LEVEL)
         call BlzFrameSetEnable(Panel, false)   // non-interactive: no focus grab, no click-eating
